@@ -1,0 +1,20 @@
+# Entorno y artefactos de Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Modelos entrenados y datos generados en ejecución.
+/datos_oro/
+*.pkl
+*.jsonl
+
+# NOTA: oro_estado.json (estado del vigilante en la nube) SÍ se versiona a
+# propósito: el workflow lo necesita para recordar las operaciones abiertas
+# entre ejecuciones. No lo ignores.
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
