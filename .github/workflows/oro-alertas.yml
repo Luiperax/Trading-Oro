@@ -6,15 +6,20 @@
 # las salidas se sigan entre ejecuciones.
 #
 # PUESTA EN MARCHA (una sola vez):
-#   1. Fusiona esta rama en la rama por defecto (main): las tareas programadas
-#      SOLO se ejecutan desde la rama por defecto.
-#   2. En GitHub: Settings → Secrets and variables → Actions → New repository
-#      secret, y crea:
-#        ORO_TELEGRAM_TOKEN    (token del bot de @BotFather)
-#        ORO_TELEGRAM_CHAT_ID  (tu chat_id)
-#      (Sin estos secretos el trabajo funciona igual, pero no envía a Telegram:
-#       solo deja el aviso en el registro de la ejecución.)
-#   3. Settings → Actions → General → asegúrate de que Actions está habilitado.
+#   1. En GitHub: Settings → Secrets and variables → Actions → New repository
+#      secret, y crea los de tu canal de aviso. Para EMAIL:
+#        ORO_SMTP_HOST     (p. ej. smtp.gmail.com)
+#        ORO_SMTP_USUARIO  (tu correo)
+#        ORO_SMTP_CLAVE    (contraseña de aplicación de Gmail, requiere 2FA)
+#        ORO_SMTP_DESTINO  (tu correo)
+#      Para TELEGRAM: ORO_TELEGRAM_TOKEN y ORO_TELEGRAM_CHAT_ID.
+#      (Sin secretos el trabajo funciona igual, pero no envía nada: solo deja el
+#       aviso en el registro de la ejecución.)
+#   2. Settings → Actions → General → asegúrate de que Actions está habilitado.
+#   3. Prueba: Actions → «Alertas XAU/USD» → Run workflow → marca modo_prueba.
+#
+# (Este workflow ya está en la rama por defecto de este repo, así que la tarea
+#  programada se ejecuta sola; no hay que fusionar nada.)
 #
 # Notas honestas:
 #   - GitHub puede retrasar las tareas programadas varios minutos si hay carga.

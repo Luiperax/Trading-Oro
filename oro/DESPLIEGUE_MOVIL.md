@@ -47,15 +47,14 @@ cada ~15 min en sus servidores y te avisa por Telegram cuándo entrar y salir.
 **Sin Render, sin tarjeta, sin servidor que mantener.** Ya está todo listo en el
 repo (workflow `.github/workflows/oro-alertas.yml` + `python -m oro.alerta`).
 
-Puesta en marcha (una vez):
-1. **Crea el bot de Telegram** y consigue `token` y `chat_id` (ver Opción A, punto 1).
-2. **Fusiona esta rama en `main`.** Importante: las tareas programadas de GitHub
-   solo se ejecutan desde la rama por defecto.
-3. En GitHub: **Settings → Secrets and variables → Actions → New repository
-   secret**, y crea dos secretos:
-   - `ORO_TELEGRAM_TOKEN`
-   - `ORO_TELEGRAM_CHAT_ID`
-4. En **Settings → Actions → General**, confirma que Actions está habilitado.
+Puesta en marcha (una vez). En este repo el workflow **ya está en la rama por
+defecto**, así que la tarea programada se ejecuta sola; no hay que fusionar nada.
+1. Elige tu canal: **email** (ver más abajo) o **Telegram** (bot de @BotFather,
+   ver Opción A, punto 1).
+2. En GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**, y crea los secretos de tu canal (email: `ORO_SMTP_*`; Telegram:
+   `ORO_TELEGRAM_TOKEN` y `ORO_TELEGRAM_CHAT_ID`).
+3. En **Settings → Actions → General**, confirma que Actions está habilitado.
    (Opcional: en la pestaña **Actions → Alertas XAU/USD → Run workflow** puedes
    lanzarlo a mano para probar sin esperar.)
 
