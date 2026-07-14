@@ -30,11 +30,22 @@ class ConfiguracionRiesgo:
 
 @dataclass(slots=True)
 class ConfiguracionCalidad:
-    """Umbrales del filtro de calidad A+. Solo se emite señal si se superan."""
+    """Umbrales del filtro de calidad. Solo se emite señal si se superan.
 
-    prob_minima: float = 0.58        # probabilidad estimada mínima.
-    confianza_minima: float = 0.6    # convicción/confluencia mínima.
-    puntuacion_minima: float = 0.65  # puntuación de confluencia normalizada.
+    Perfil «equilibrado»: relajado respecto al perfil A+ estricto para que
+    salgan más señales (de media 2–4/día), a cambio de algo menos de calidad
+    media. Cada señal muestra su probabilidad y confianza para que el usuario
+    juzgue. Ajustable por entorno (ORO_PROB_MINIMA, ORO_CONFIANZA_MINIMA,
+    ORO_PUNTUACION_MINIMA). Sube estos valores para volver al perfil selectivo
+    (p. ej. 0.58 / 0.60 / 0.65).
+
+    OJO: los guardas de seguridad de abajo (spread, volatilidad, lateral) NO son
+    filtros de calidad sino de PROTECCIÓN del capital; no se relajan.
+    """
+
+    prob_minima: float = 0.55        # probabilidad estimada mínima.
+    confianza_minima: float = 0.55   # convicción/confluencia mínima.
+    puntuacion_minima: float = 0.58  # puntuación de confluencia normalizada.
     spread_max: float = 0.6          # spread máximo tolerado (USD/oz).
     atr_min: float = 0.8             # por debajo: mercado demasiado plano.
     atr_max: float = 12.0            # por encima: volatilidad extrema, no operar.
@@ -98,7 +109,13 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.riesgo.operaciones_max_dia = int(
         _num("ORO_OPERACIONES_MAX_DIA", cfg.riesgo.operaciones_max_dia)
     )
+    cfg.riesgo.operaciones_min_dia = int(
+        _num("ORO_OPERACIONES_MIN_DIA", cfg.riesgo.operaciones_min_dia)
+    )
+    # Umbrales de calidad, ajustables sin tocar código (subir = más selectivo).
     cfg.calidad.prob_minima = _num("ORO_PROB_MINIMA", cfg.calidad.prob_minima)
+    cfg.calidad.confianza_minima = _num("ORO_CONFIANZA_MINIMA", cfg.calidad.confianza_minima)
+    cfg.calidad.puntuacion_minima = _num("ORO_PUNTUACION_MINIMA", cfg.calidad.puntuacion_minima)
     return cfg
 
 

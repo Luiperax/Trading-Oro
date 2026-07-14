@@ -71,6 +71,14 @@ jobs:
           ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
           # Webhook genérico (push/WhatsApp API/Slack…), opcional.
           ORO_WEBHOOK_URL: ${{ secrets.ORO_WEBHOOK_URL }}
+          # Ajuste de FRECUENCIA/CALIDAD (opcional), desde la pestaña «Variables»
+          # de Actions (no son secretos). Vacío = valores por defecto del código.
+          # Bajar estos umbrales = más señales, algo menos de calidad media.
+          # Subirlos = menos señales, más selectivo.
+          ORO_PUNTUACION_MINIMA: ${{ vars.ORO_PUNTUACION_MINIMA }}
+          ORO_PROB_MINIMA: ${{ vars.ORO_PROB_MINIMA }}
+          ORO_CONFIANZA_MINIMA: ${{ vars.ORO_CONFIANZA_MINIMA }}
+          ORO_OPERACIONES_MAX_DIA: ${{ vars.ORO_OPERACIONES_MAX_DIA }}
         run: |
           if [ "${{ inputs.modo_prueba }}" = "true" ]; then
             python -m oro.alerta --probar
