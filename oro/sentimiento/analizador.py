@@ -53,7 +53,7 @@ class AnalizadorSentimiento:
     def __init__(
         self,
         min_titulares_senal: int = 3,
-        ventana_evento_min: int = 60,
+        ventana_evento_min: int = 120,   # no operar hasta 2 h antes de un evento clave.
         fuente_titulares: Callable[[], List[Titular]] = obtener_titulares,
         fuente_eventos: Callable[[], List[EventoMacro]] = obtener_eventos_macro,
     ) -> None:

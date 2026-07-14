@@ -32,20 +32,22 @@ class ConfiguracionRiesgo:
 class ConfiguracionCalidad:
     """Umbrales del filtro de calidad. Solo se emite señal si se superan.
 
-    Perfil «equilibrado»: relajado respecto al perfil A+ estricto para que
-    salgan más señales (de media 2–4/día), a cambio de algo menos de calidad
-    media. Cada señal muestra su probabilidad y confianza para que el usuario
-    juzgue. Ajustable por entorno (ORO_PROB_MINIMA, ORO_CONFIANZA_MINIMA,
-    ORO_PUNTUACION_MINIMA). Sube estos valores para volver al perfil selectivo
-    (p. ej. 0.58 / 0.60 / 0.65).
+    Perfil «selectivo» (prioriza el ACIERTO sobre la frecuencia): solo pasan los
+    setups de mayor convicción. Salen menos señales (típicamente ~1–3/día, y
+    algunos días 0), pero de más calidad. Es el perfil recomendado para maximizar
+    el porcentaje de acierto y proteger el capital.
+
+    Ajustable por entorno (ORO_PROB_MINIMA, ORO_CONFIANZA_MINIMA,
+    ORO_PUNTUACION_MINIMA). Bajar estos valores = más señales, menos acierto medio
+    (p. ej. 0.55 / 0.55 / 0.58 = perfil «equilibrado»).
 
     OJO: los guardas de seguridad de abajo (spread, volatilidad, lateral) NO son
     filtros de calidad sino de PROTECCIÓN del capital; no se relajan.
     """
 
-    prob_minima: float = 0.55        # probabilidad estimada mínima.
-    confianza_minima: float = 0.55   # convicción/confluencia mínima.
-    puntuacion_minima: float = 0.58  # puntuación de confluencia normalizada.
+    prob_minima: float = 0.60        # probabilidad estimada mínima.
+    confianza_minima: float = 0.62   # convicción/confluencia mínima.
+    puntuacion_minima: float = 0.66  # puntuación de confluencia normalizada.
     spread_max: float = 0.6          # spread máximo tolerado (USD/oz).
     atr_min: float = 0.8             # por debajo: mercado demasiado plano.
     atr_max: float = 12.0            # por encima: volatilidad extrema, no operar.
