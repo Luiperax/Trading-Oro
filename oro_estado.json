@@ -4,6 +4,41 @@
   "historial": [
     {
       "tipo": "cierre",
+      "momento": "2026-07-15T13:57:48+00:00",
+      "precio": 4071.7,
+      "mensaje": "Todos los objetivos alcanzados. Operación cerrada. Resultado total: +1.70R.",
+      "r": 1.7
+    },
+    {
+      "tipo": "tp_alcanzado",
+      "momento": "2026-07-15T13:57:48+00:00",
+      "precio": 4066.52,
+      "mensaje": "TP3 alcanzado a 4066.52 (3.0R). Cerrar 20% de la posición.",
+      "r": 1.7
+    },
+    {
+      "tipo": "tp_alcanzado",
+      "momento": "2026-07-15T13:57:48+00:00",
+      "precio": 4057.55,
+      "mensaje": "TP2 alcanzado a 4057.55 (2.0R). Cerrar 30% de la posición.",
+      "r": 1.1
+    },
+    {
+      "tipo": "mover_stop",
+      "momento": "2026-07-15T13:57:48+00:00",
+      "precio": 4039.6,
+      "mensaje": "Mover STOP a break-even (4039.60). Operación sin riesgo a partir de ahora.",
+      "r": 0.5
+    },
+    {
+      "tipo": "tp_alcanzado",
+      "momento": "2026-07-15T13:57:48+00:00",
+      "precio": 4048.57,
+      "mensaje": "TP1 alcanzado a 4048.57 (1.0R). Cerrar 50% de la posición.",
+      "r": 0.5
+    },
+    {
+      "tipo": "cierre",
       "momento": "2026-07-15T11:51:27+00:00",
       "precio": 4042.81,
       "mensaje": "STOP alcanzado a 4042.81. Salir. Resultado total: -1.00R.",
@@ -28,38 +63,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "compra",
-      "entrada": 4039.60009765625,
-      "riesgo": 8.97386551285308,
-      "stop_actual": 4030.626232143397,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-15T10:18:37+00:00",
-      "resumen": "",
-      "niveles": [
-        [
-          4048.573963169103,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4057.5478286819566,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4066.5216941948097,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
