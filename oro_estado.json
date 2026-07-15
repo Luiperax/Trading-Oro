@@ -3,6 +3,13 @@
   "senales_hoy": 2,
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-07-15T11:51:27+00:00",
+      "precio": 4042.81,
+      "mensaje": "STOP alcanzado a 4042.81. Salir. Resultado total: -1.00R.",
+      "r": -1.0
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-07-15T10:18:37+00:00",
       "direccion": "compra",
@@ -23,38 +30,6 @@
   ],
   "abiertas": [
     {
-      "direccion": "venta",
-      "entrada": 4032.699951171875,
-      "riesgo": 10.108021872440986,
-      "stop_actual": 4042.807973044316,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-15T06:17:01+00:00",
-      "resumen": "",
-      "niveles": [
-        [
-          4022.591929299434,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4012.483907426993,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4002.375885554552,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    },
-    {
       "direccion": "compra",
       "entrada": 4039.60009765625,
       "riesgo": 8.97386551285308,
@@ -64,7 +39,7 @@
       "r_acumulado": 0.0,
       "estado": "abierta",
       "abierta_en": "2026-07-15T10:18:37+00:00",
-      "resumen": "[COMPRA] XAU/USD @ 4039.60 | SL 4030.63 | TP 4048.57 (1.0R) / 4057.55 (2.0R) / 4066.52 (3.0R) | P≈67% conf 88% | R:R 1.70",
+      "resumen": "",
       "niveles": [
         [
           4048.573963169103,
