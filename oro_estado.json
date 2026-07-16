@@ -1,7 +1,16 @@
 {
   "fecha": "2026-07-16",
-  "senales_hoy": 1,
+  "senales_hoy": 2,
   "historial": [
+    {
+      "tipo": "entrada",
+      "momento": "2026-07-16T19:47:56+00:00",
+      "direccion": "venta",
+      "entrada": 3979.0,
+      "stop": 3991.62,
+      "mensaje": "[VENTA] XAU/USD @ 3979.00 | SL 3991.62 | TP 3966.38 (1.0R) / 3953.76 (2.0R) / 3941.13 (3.0R) | P≈63% conf 83% | R:R 1.70",
+      "prob": 0.63
+    },
     {
       "tipo": "entrada",
       "momento": "2026-07-16T18:36:46+00:00",
@@ -83,7 +92,7 @@
       "r_acumulado": 0.0,
       "estado": "abierta",
       "abierta_en": "2026-07-16T18:36:46+00:00",
-      "resumen": "[VENTA] XAU/USD @ 3981.20 | SL 3995.41 | TP 3966.99 (1.0R) / 3952.78 (2.0R) / 3938.57 (3.0R) | P≈67% conf 89% | R:R 1.70",
+      "resumen": "",
       "niveles": [
         [
           3966.991185886962,
@@ -99,6 +108,38 @@
         ],
         [
           3938.573655317136,
+          0.2,
+          3.0,
+          false
+        ]
+      ]
+    },
+    {
+      "direccion": "venta",
+      "entrada": 3979.0,
+      "riesgo": 12.622044772525442,
+      "stop_actual": 3991.6220447725254,
+      "en_breakeven": false,
+      "restante": 1.0,
+      "r_acumulado": 0.0,
+      "estado": "abierta",
+      "abierta_en": "2026-07-16T19:47:56+00:00",
+      "resumen": "[VENTA] XAU/USD @ 3979.00 | SL 3991.62 | TP 3966.38 (1.0R) / 3953.76 (2.0R) / 3941.13 (3.0R) | P≈63% conf 83% | R:R 1.70",
+      "niveles": [
+        [
+          3966.3779552274746,
+          0.5,
+          1.0,
+          false
+        ],
+        [
+          3953.755910454949,
+          0.3,
+          2.0,
+          false
+        ],
+        [
+          3941.133865682423,
           0.2,
           3.0,
           false
