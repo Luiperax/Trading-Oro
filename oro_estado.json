@@ -3,6 +3,13 @@
   "senales_hoy": 1,
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-07-17T13:04:16+00:00",
+      "precio": 3989.75,
+      "mensaje": "STOP alcanzado a 3989.75. Salir. Resultado total: -1.00R.",
+      "r": -1.0
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-07-17T10:07:35+00:00",
       "direccion": "compra",
@@ -104,38 +111,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "compra",
-      "entrada": 3999.39990234375,
-      "riesgo": 9.646489418892088,
-      "stop_actual": 3989.753412924858,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-17T10:07:35+00:00",
-      "resumen": "",
-      "niveles": [
-        [
-          4009.046391762642,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4018.6928811815337,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4028.339370600426,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
