@@ -3,6 +3,20 @@
   "senales_hoy": 0,
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-07-17T03:26:44+00:00",
+      "precio": 3991.62,
+      "mensaje": "STOP alcanzado a 3991.62. Salir. Resultado total: -1.00R.",
+      "r": -1.0
+    },
+    {
+      "tipo": "cierre",
+      "momento": "2026-07-17T03:26:44+00:00",
+      "precio": 3995.41,
+      "mensaje": "STOP alcanzado a 3995.41. Salir. Resultado total: -1.00R.",
+      "r": -1.0
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-07-16T19:47:56+00:00",
       "direccion": "venta",
@@ -81,70 +95,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "venta",
-      "entrada": 3981.199951171875,
-      "riesgo": 14.20876528491317,
-      "stop_actual": 3995.408716456788,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-16T18:36:46+00:00",
-      "resumen": "",
-      "niveles": [
-        [
-          3966.991185886962,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          3952.782420602049,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          3938.573655317136,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    },
-    {
-      "direccion": "venta",
-      "entrada": 3979.0,
-      "riesgo": 12.622044772525442,
-      "stop_actual": 3991.6220447725254,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-16T19:47:56+00:00",
-      "resumen": "",
-      "niveles": [
-        [
-          3966.3779552274746,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          3953.755910454949,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          3941.133865682423,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
