@@ -42,7 +42,13 @@ class _NivelTP:
 
 
 class GestorOperaciones:
-    def __init__(self, signal: Signal, entrada_real: float | None = None) -> None:
+    def __init__(
+        self,
+        signal: Signal,
+        entrada_real: float | None = None,
+        cerrar_intradia: bool = True,
+        hora_cierre_utc: int = 21,
+    ) -> None:
         self.signal = signal
         self.direccion = signal.direccion
         self.entrada = entrada_real if entrada_real is not None else signal.entrada
@@ -56,11 +62,21 @@ class GestorOperaciones:
         self.r_acumulado = 0.0
         self.estado = EstadoOperacion.ABIERTA
         self.abierta_en = signal.momento
+        self._cerrar_intradia = cerrar_intradia
+        self._hora_cierre = hora_cierre_utc
 
     def _r_en(self, precio: float) -> float:
         if self._riesgo <= 0:
             return 0.0
         return self.direccion.signo * (precio - self.entrada) / self._riesgo
+
+    def _debe_cerrar_intradia(self, momento: datetime) -> bool:
+        """True si hay que cerrar por ser intradía: cambió el día o llegó la hora."""
+        if not self._cerrar_intradia:
+            return False
+        cambio_dia = momento.date() > self.abierta_en.date()
+        fin_sesion = momento.hour >= self._hora_cierre and momento.date() == self.abierta_en.date()
+        return cambio_dia or fin_sesion
 
     def actualizar(self, precio: float, momento: datetime) -> List[EventoGestion]:
         """Procesa un nuevo precio y devuelve los eventos de gestión generados."""
@@ -69,6 +85,19 @@ class GestorOperaciones:
 
         eventos: List[EventoGestion] = []
         signo = self.direccion.signo
+
+        # 0) Cierre intradía forzado: nunca se mantiene una operación de un día
+        #    para otro. Prioridad máxima (antes que stop/objetivos).
+        if self._debe_cerrar_intradia(momento):
+            self.r_acumulado += self.restante * self._r_en(precio)
+            self.restante = 0.0
+            self.estado = EstadoOperacion.CERRADA_MANUAL
+            eventos.append(EventoGestion(
+                Evento.CIERRE, momento, precio,
+                f"Cierre INTRADÍA a {precio:.2f} (no se mantiene de un día para otro). "
+                f"Resultado total: {self.r_acumulado:+.2f}R.",
+                self.r_acumulado, cierra_operacion=True))
+            return eventos
 
         # 1) ¿Toca el stop vigente? (comprobación pesimista, antes que los TP).
         toca_stop = (precio <= self.stop_actual) if signo > 0 else (precio >= self.stop_actual)
@@ -145,6 +174,8 @@ class GestorOperaciones:
             "estado": self.estado.value,
             "abierta_en": self.abierta_en.isoformat(),
             "resumen": self.signal.resumen() if self.signal else "",
+            "cerrar_intradia": self._cerrar_intradia,
+            "hora_cierre": self._hora_cierre,
             "niveles": [
                 [n.precio, n.fraccion, n.r_multiple, n.alcanzado] for n in self.niveles
             ],
@@ -164,6 +195,8 @@ class GestorOperaciones:
         g.r_acumulado = d["r_acumulado"]
         g.estado = EstadoOperacion(d["estado"])
         g.abierta_en = datetime.fromisoformat(d["abierta_en"])
+        g._cerrar_intradia = d.get("cerrar_intradia", True)
+        g._hora_cierre = d.get("hora_cierre", 21)
         g.niveles = [_NivelTP(p, f, r, alc) for p, f, r, alc in d["niveles"]]
         return g
 

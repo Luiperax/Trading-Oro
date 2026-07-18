@@ -81,6 +81,10 @@ class Backtester:
             if ops_por_dia.get(dia, 0) >= self.cfg.riesgo.operaciones_max_dia:
                 i += 1
                 continue
+            # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar hoy).
+            if self.cfg.riesgo.cerrar_intradia and momento.hour >= self.cfg.riesgo.hora_cierre_utc - 1:
+                i += 1
+                continue
 
             atr_val = float(atr_serie.iloc[i])
             if atr_val <= 0 or pd.isna(atr_val):
@@ -142,9 +146,26 @@ class Backtester:
         estado = EstadoOperacion.ABIERTA
         precio_cierre = entrada
 
+        r_cfg = self.cfg.riesgo
+        entrada_dia = indices[idx_entrada]
         for j in range(idx_entrada, n):
             hi, lo = highs[j], lows[j]
             idx_cierre = j
+
+            # 0) Cierre INTRADÍA forzado (no se mantiene de un día para otro).
+            #    Cierra al llegar la hora de cierre, si cambió el día, o en la
+            #    ÚLTIMA vela del día de entrada (antes del hueco de fin de semana).
+            if r_cfg.cerrar_intradia and j > idx_entrada:
+                ts = indices[j]
+                proximo_nuevo_dia = (j + 1 >= n) or (indices[j + 1].date() != entrada_dia.date())
+                if (ts.date() != entrada_dia.date() or ts.hour >= r_cfg.hora_cierre_utc
+                        or proximo_nuevo_dia):
+                    precio_cierre = (hi + lo) / 2.0  # salida imparcial en esa vela.
+                    realizado_r += restante * signo * (precio_cierre - entrada) / riesgo_unidad
+                    pnl += restante * tamano_total * signo * (precio_cierre - entrada)
+                    estado = EstadoOperacion.CERRADA_MANUAL
+                    restante = 0.0
+                    break
 
             # 1) Stop primero (hipótesis pesimista).
             golpea_stop = (lo <= stop_actual) if signo > 0 else (hi >= stop_actual)

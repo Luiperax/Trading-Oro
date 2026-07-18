@@ -26,6 +26,9 @@ class ConfiguracionRiesgo:
     # Reparto de la posición entre objetivos parciales (TP1, TP2, TP3).
     reparto_tp: tuple = (0.5, 0.3, 0.2)
     r_objetivos: tuple = (1.0, 2.0, 3.0)  # cada TP en múltiplos de R.
+    # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
+    cerrar_intradia: bool = True
+    hora_cierre_utc: int = 21             # cierre forzado a las 21:00 UTC (cierre NY).
 
 
 @dataclass(slots=True)
@@ -61,10 +64,11 @@ class ConfiguracionCalidad:
 class ConfiguracionSistema:
     simbolo: str = "XAUUSD"
     capital: float = 10_000.0            # capital de la cuenta (divisa base).
-    # Marco temporal de trabajo. H4 (4 horas) es el recomendado: en datos reales
-    # es donde aparece algo de ventaja y donde el retardo de los avisos no afecta.
-    # Los marcos bajos (M15/H1) mostraron PÉRDIDA en el histórico real.
-    timeframe: str = "H4"
+    # Marco temporal de trabajo. H1 (1 hora) para operativa INTRADÍA (abrir y
+    # cerrar el mismo día). Nota honesta: los marcos intradía tienen un borde más
+    # fino que H4/D1; se compensa cerrando siempre el mismo día (sin riesgo
+    # overnight). Configurable por ORO_TIMEFRAME.
+    timeframe: str = "H1"
     zona_horaria: str = "UTC"
 
     riesgo: ConfiguracionRiesgo = field(default_factory=ConfiguracionRiesgo)

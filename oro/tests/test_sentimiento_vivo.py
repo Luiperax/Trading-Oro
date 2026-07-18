@@ -126,7 +126,7 @@ class _Espia(Notificador):
     def __init__(self):
         self.eventos = []
 
-    def enviar(self, titulo, cuerpo, evento=Evento.NUEVA_SENAL):
+    def enviar(self, titulo, cuerpo, evento=Evento.NUEVA_SENAL, html=None):
         self.eventos.append(evento)
         return True
 

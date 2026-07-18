@@ -81,7 +81,7 @@ class _Espia(Notificador):
     def __init__(self):
         self.enviados = 0
 
-    def enviar(self, titulo, cuerpo, evento=Evento.NUEVA_SENAL):
+    def enviar(self, titulo, cuerpo, evento=Evento.NUEVA_SENAL, html=None):
         self.enviados += 1
         return True
 

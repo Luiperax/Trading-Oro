@@ -106,15 +106,26 @@ class RunnerVivo:
         resultado.abiertas = len(self.abiertas)
 
         # 2) ¿Buscar nueva entrada?
+        r_cfg = self.cfg.riesgo
+        # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar el mismo día).
+        tarde_para_intradia = (
+            r_cfg.cerrar_intradia and momento.hour >= r_cfg.hora_cierre_utc - 1
+        )
         if len(self.abiertas) >= self.max_concurrentes:
             resultado.motivo_sin_entrada = "Máximo de operaciones simultáneas alcanzado."
-        elif self._senales_hoy >= self.cfg.riesgo.operaciones_max_dia:
+        elif self._senales_hoy >= r_cfg.operaciones_max_dia:
             resultado.motivo_sin_entrada = "Tope diario de señales alcanzado."
+        elif tarde_para_intradia:
+            resultado.motivo_sin_entrada = "Demasiado tarde para abrir una operación intradía hoy."
         else:
             snapshot = self._snapshot(df, momento, precio, contexto)
             analisis = self.motor.analizar(df, snapshot)
             if analisis.hay_operacion and analisis.signal is not None:
-                gestor = GestorOperaciones(analisis.signal, entrada_real=precio)
+                gestor = GestorOperaciones(
+                    analisis.signal, entrada_real=precio,
+                    cerrar_intradia=r_cfg.cerrar_intradia,
+                    hora_cierre_utc=r_cfg.hora_cierre_utc,
+                )
                 self.abiertas.append(gestor)
                 self._senales_hoy += 1
                 self.notificador.notificar_senal(analisis.signal)
@@ -236,5 +247,9 @@ class RunnerVivo:
             Evento.CIERRE: "🏁 Cierre de operación — XAU/USD",
         }
         titulo = titulos.get(ev.tipo, "Actualización — XAU/USD")
-        cuerpo = f"{ev.mensaje}\n\nDirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}"
-        self.notificador.enviar(titulo, cuerpo, ev.tipo)
+        cuerpo_txt = f"{ev.mensaje}\n\nDirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}"
+        cuerpo_html = (f"{ev.mensaje}<br><br><span style='color:#8A93A3;'>Dirección: "
+                       f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
+        from ..notificaciones.base import mensaje_html_evento
+        self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,
+                                html=mensaje_html_evento(titulo, cuerpo_html, ev.tipo))
