@@ -83,13 +83,15 @@ def evaluar_guardas(snapshot: MarketSnapshot, cfg: ConfiguracionSistema) -> List
         motivos.append(
             f"Spread demasiado alto ({snapshot.spread:.2f} > {c.spread_max:.2f})."
         )
-    if snapshot.atr > c.atr_max:
+    # Volatilidad relativa al precio (independiente del marco y del nivel de precio).
+    atr_pct = snapshot.atr / snapshot.precio if snapshot.precio > 0 else 0.0
+    if atr_pct > c.atr_pct_max:
         motivos.append(
-            f"Volatilidad extrema (ATR {snapshot.atr:.2f} > {c.atr_max:.2f})."
+            f"Volatilidad extrema (ATR {atr_pct:.2%} del precio > {c.atr_pct_max:.2%})."
         )
-    if snapshot.atr < c.atr_min:
+    if atr_pct < c.atr_pct_min:
         motivos.append(
-            f"Mercado demasiado plano (ATR {snapshot.atr:.2f} < {c.atr_min:.2f})."
+            f"Mercado demasiado plano (ATR {atr_pct:.2%} del precio < {c.atr_pct_min:.2%})."
         )
     if snapshot.riesgo_noticia_alta:
         motivos.append("Noticia macro de alto impacto próxima: riesgo de spike.")

@@ -4,6 +4,12 @@
 de gráficos de Yahoo Finance. Por defecto usa el futuro continuo del oro
 (``GC=F``), que sigue de cerca al XAU/USD al contado y es de acceso gratuito.
 
+Marcos altos (H4, D1): Yahoo no da 4h directamente, así que se descarga en 1h y
+se **reagrupa** a 4h. Además se descarta la última vela **en formación** (aún no
+cerrada) para no generar señales que "repinten": el sistema decide siempre sobre
+velas ya cerradas. Esto es clave en marcos altos y reduce el impacto del retardo
+de los avisos.
+
 Nota de honestidad: no es un feed institucional en tiempo real (tiene un ligero
 retardo y es el futuro, no el spot exacto). Para operativa real conviene un feed
 del bróker (MetaTrader 5, Interactive Brokers…) implementando esta misma
@@ -12,27 +18,27 @@ interfaz :class:`~oro.datos.base.ProveedorDatos`.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pandas as pd
 
 from .base import ProveedorDatos
 
-_INTERVALO_YF = {
-    "M1": "1m", "M5": "5m", "M15": "15m", "M30": "30m",
-    "H1": "60m", "H4": "60m", "D1": "1d",
+# timeframe -> (intervalo Yahoo, rango a descargar, regla de reagrupado, descartar última en formación)
+_CONFIG_TF = {
+    "M15": ("15m", "60d", None, False),
+    "M30": ("30m", "60d", None, False),
+    "H1": ("60m", "730d", None, False),
+    "H4": ("60m", "730d", "4h", True),
+    "D1": ("1d", "10y", None, True),
 }
-_RANGO_POR_INTERVALO = {
-    "1m": "5d", "5m": "1mo", "15m": "1mo", "30m": "2mo",
-    "60m": "3mo", "1d": "2y",
-}
+_AGG = {"open": "first", "high": "max", "low": "min",
+        "close": "last", "volume": "sum", "spread": "last"}
 
 
 class ProveedorYahoo(ProveedorDatos):
-    def __init__(self, simbolo: str = "GC=F", timeframe: str = "M15", tiempo_espera: int = 10) -> None:
+    def __init__(self, simbolo: str = "GC=F", timeframe: str = "H4", tiempo_espera: int = 15) -> None:
         self._simbolo = simbolo
-        self._intervalo = _INTERVALO_YF.get(timeframe, "15m")
-        self._rango = _RANGO_POR_INTERVALO.get(self._intervalo, "1mo")
+        self._intervalo, self._rango, self._resample, self._drop_last = \
+            _CONFIG_TF.get(timeframe, _CONFIG_TF["H4"])
         self._tiempo_espera = tiempo_espera
         self._cache: pd.DataFrame | None = None
 
@@ -59,6 +65,15 @@ class ProveedorYahoo(ProveedorDatos):
         # Spread aproximado no disponible en Yahoo: se estima pequeño y constante.
         df["spread"] = 0.2
         df = df[~df.index.duplicated(keep="last")].sort_index()
+
+        # Reagrupar a marco alto (p. ej. 1h -> 4h) si procede.
+        if self._resample:
+            df = df.resample(self._resample, label="left", closed="left").agg(_AGG)
+            df = df.dropna(subset=["open", "high", "low", "close"])
+        # Descartar la última vela aún en formación (no cerrada).
+        if self._drop_last and len(df) > 1:
+            df = df.iloc[:-1]
+
         self.validar(df)
         return df
 

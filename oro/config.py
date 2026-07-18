@@ -49,8 +49,11 @@ class ConfiguracionCalidad:
     confianza_minima: float = 0.62   # convicción/confluencia mínima.
     puntuacion_minima: float = 0.66  # puntuación de confluencia normalizada.
     spread_max: float = 0.6          # spread máximo tolerado (USD/oz).
-    atr_min: float = 0.8             # por debajo: mercado demasiado plano.
-    atr_max: float = 12.0            # por encima: volatilidad extrema, no operar.
+    # Volatilidad como FRACCIÓN del precio (ATR/precio), no en dólares absolutos,
+    # para que funcione igual en cualquier marco temporal (M15, H4, D1) y a
+    # cualquier nivel de precio del oro. Ej.: ATR 33 con oro a 4020 = 0,8% -> OK.
+    atr_pct_min: float = 0.0003      # por debajo (0,03%): mercado demasiado plano.
+    atr_pct_max: float = 0.020       # por encima (2%): volatilidad extrema, no operar.
     adx_lateral: float = 18.0        # ADX por debajo => mercado lateral.
 
 
@@ -58,7 +61,10 @@ class ConfiguracionCalidad:
 class ConfiguracionSistema:
     simbolo: str = "XAUUSD"
     capital: float = 10_000.0            # capital de la cuenta (divisa base).
-    timeframe: str = "M15"               # marco temporal de trabajo.
+    # Marco temporal de trabajo. H4 (4 horas) es el recomendado: en datos reales
+    # es donde aparece algo de ventaja y donde el retardo de los avisos no afecta.
+    # Los marcos bajos (M15/H1) mostraron PÉRDIDA en el histórico real.
+    timeframe: str = "H4"
     zona_horaria: str = "UTC"
 
     riesgo: ConfiguracionRiesgo = field(default_factory=ConfiguracionRiesgo)
@@ -105,6 +111,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
 
     cfg.capital = _num("ORO_CAPITAL", cfg.capital)
     cfg.simbolo = os.getenv("ORO_SIMBOLO", cfg.simbolo)
+    cfg.timeframe = os.getenv("ORO_TIMEFRAME", cfg.timeframe)  # H4 (rec.), D1, H1, M15…
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )
