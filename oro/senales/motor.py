@@ -183,7 +183,16 @@ class MotorSenales:
                 direccion_sesgo=direccion, motivos_no=motivos_no,
             )
 
-        tamano = dimensionar_posicion(niveles.riesgo_por_unidad, self.cfg)
+        # Tamaño escalado por convicción: riesgo mínimo si la confianza está en el
+        # umbral, riesgo pleno solo con confianza máxima. Reduce el riesgo real.
+        r = self.cfg.riesgo
+        riesgo_pct = r.riesgo_por_operacion
+        if r.sizing_por_confianza:
+            rango = max(1e-6, 1.0 - c.confianza_minima)
+            escala = r.factor_sizing_min + (1.0 - r.factor_sizing_min) * \
+                max(0.0, min(1.0, (confianza - c.confianza_minima) / rango))
+            riesgo_pct = r.riesgo_por_operacion * escala
+        tamano = dimensionar_posicion(niveles.riesgo_por_unidad, self.cfg, riesgo_pct=riesgo_pct)
         signal = Signal(
             momento=snapshot.momento,
             direccion=direccion,

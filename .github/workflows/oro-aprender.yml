@@ -1,0 +1,42 @@
+# Aprendizaje continuo del sistema XAU/USD.
+#
+# Una vez al mes (y a mano cuando quieras), reentrena el modelo con datos reales
+# del oro y tus operaciones acumuladas, lo valida FUERA DE MUESTRA (walk-forward)
+# y SOLO promociona el nuevo modelo si de verdad aporta ventaja. Si no, no cambia
+# nada: el sistema no sube la confianza sin evidencia. El modelo promocionado se
+# guarda en el repo (modelo_oro.pkl) para que el vigilante lo use.
+
+name: Aprendizaje XAU/USD
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"        # el día 1 de cada mes a las 06:00 UTC.
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  aprender:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias (incluye scikit-learn para aprender)
+        run: pip install -r oro/requirements.txt
+      - name: Reentrenar y validar
+        run: python -m oro.aprender
+      - name: Guardar el modelo/estado si mejoró
+        run: |
+          if [ -n "$(git status --porcelain modelo_oro.pkl aprendizaje_estado.json)" ]; then
+            git config user.name "oro-aprendizaje-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add -f modelo_oro.pkl aprendizaje_estado.json 2>/dev/null || git add aprendizaje_estado.json
+            git commit -m "Aprendizaje XAU/USD: actualización del modelo/estado [skip ci]"
+            git push
+          else
+            echo "El aprendizaje no cambió el modelo (sin ventaja nueva demostrable)."
+          fi

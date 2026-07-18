@@ -17,8 +17,12 @@ from typing import List
 
 @dataclass(slots=True)
 class ConfiguracionRiesgo:
-    riesgo_por_operacion: float = 0.005   # 0.5 % del capital por operación.
-    riesgo_diario_max: float = 0.02       # tope de riesgo/pérdida diaria (2 %).
+    riesgo_por_operacion: float = 0.0025  # 0.25 % del capital por operación (riesgo mínimo).
+    riesgo_diario_max: float = 0.01       # tope de riesgo/pérdida diaria (1 %).
+    # Tamaño escalado por convicción: a menor confianza, posición más pequeña.
+    # El riesgo efectivo va de este mínimo (baja confianza) al total (alta confianza).
+    sizing_por_confianza: bool = True
+    factor_sizing_min: float = 0.35       # con confianza en el umbral, arriesga el 35% del riesgo base.
     operaciones_max_dia: int = 4          # 2–4 oportunidades A+ al día.
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
@@ -74,10 +78,11 @@ class ConfiguracionSistema:
     riesgo: ConfiguracionRiesgo = field(default_factory=ConfiguracionRiesgo)
     calidad: ConfiguracionCalidad = field(default_factory=ConfiguracionCalidad)
 
-    # Fuentes de datos y ML (rutas relativas al directorio de datos).
+    # Fuentes de datos y ML. El modelo se guarda en la raíz para poder versionarlo
+    # en el repo (así el aprendizaje persiste entre ejecuciones en la nube).
     directorio_datos: str = "datos_oro"
-    ruta_modelo: str = "datos_oro/modelo.pkl"
-    ruta_operaciones: str = "datos_oro/operaciones.jsonl"
+    ruta_modelo: str = "modelo_oro.pkl"
+    ruta_operaciones: str = "operaciones_oro.jsonl"
 
     def validar(self) -> List[str]:
         """Devuelve una lista de problemas de configuración (vacía si todo OK)."""

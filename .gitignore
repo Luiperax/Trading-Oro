@@ -11,9 +11,12 @@ venv/
 *.pkl
 *.jsonl
 
-# NOTA: oro_estado.json (estado del vigilante en la nube) SÍ se versiona a
-# propósito: el workflow lo necesita para recordar las operaciones abiertas
-# entre ejecuciones. No lo ignores.
+# Excepciones que SÍ se versionan (persistencia del aprendizaje en la nube):
+#   - modelo_oro.pkl: modelo promocionado por el aprendizaje.
+#   - operaciones_oro.jsonl: histórico real de señales para reentrenar.
+#   - oro_estado.json: operaciones abiertas del vigilante.
+!modelo_oro.pkl
+!operaciones_oro.jsonl
 
 # Sistema operativo
 .DS_Store

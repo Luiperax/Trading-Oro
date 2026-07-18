@@ -81,17 +81,35 @@ def _probar() -> int:
     return 1 if fallo else 0
 
 
+def _cargar_modelo(cfg):
+    """Carga el modelo promocionado si existe; si no, devuelve None (modo prudente)."""
+    from pathlib import Path
+    if not Path(cfg.ruta_modelo).exists():
+        return None
+    try:
+        from .ml import ModeloProbabilidad
+        return ModeloProbabilidad.cargar(cfg.ruta_modelo)
+    except Exception:  # noqa: BLE001 — un modelo corrupto no debe tumbar el aviso.
+        return None
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--probar" in argv:
         return _probar()
 
     cfg = cargar_configuracion()
+    # Carga el modelo aprendido SI existe y fue promocionado (valida fuera de
+    # muestra). Si no, el sistema usa la confianza por confluencia (prudente).
+    modelo = _cargar_modelo(cfg)
     runner = RunnerVivo(
         cfg,
         proveedor=ProveedorYahoo(timeframe=cfg.timeframe),
         notificador=_construir_notificador(),
+        modelo=modelo,
     )
+    if modelo is not None:
+        print("Modelo aprendido cargado: la confianza usa el modelo validado.")
     ruta = os.getenv("ORO_ESTADO", "oro_estado.json")
     runner.cargar_estado(ruta)
     resultado = runner.ciclo()
