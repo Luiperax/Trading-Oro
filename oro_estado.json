@@ -3,6 +3,13 @@
   "senales_hoy": 1,
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-07-20T22:27:31+00:00",
+      "precio": 4012.0,
+      "mensaje": "Cierre INTRADÍA a 4012.00 (no se mantiene de un día para otro). Resultado total: -0.51R.",
+      "r": -0.51
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-07-20T07:44:02+00:00",
       "direccion": "compra",
@@ -120,40 +127,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "compra",
-      "entrada": 4023.89990234375,
-      "riesgo": 23.291191188229732,
-      "stop_actual": 4000.6087111555203,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-07-20T07:44:02+00:00",
-      "resumen": "",
-      "cerrar_intradia": true,
-      "hora_cierre": 21,
-      "niveles": [
-        [
-          4047.1910935319797,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4070.482284720209,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4093.7734759084387,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
