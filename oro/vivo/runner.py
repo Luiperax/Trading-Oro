@@ -102,6 +102,7 @@ class RunnerVivo:
                     "r": round(ev.r_acumulado, 2),
                 })
             if not gestor.abierta:
+                self._registrar_operacion(gestor, momento)
                 self.abiertas.remove(gestor)
         resultado.abiertas = len(self.abiertas)
 
@@ -149,6 +150,35 @@ class RunnerVivo:
     def _registrar_historial(self, entrada: dict) -> None:
         self.historial.insert(0, entrada)
         del self.historial[50:]  # conservar solo los 50 eventos más recientes.
+
+    def _registrar_operacion(self, gestor: "GestorOperaciones", momento) -> None:
+        """Guarda un registro COMPLETO y permanente de la operación al cerrarse:
+        datos de la señal + si se cumplió o no (resultado en R). Append-only JSONL.
+        """
+        import json
+        from pathlib import Path
+
+        registro = {
+            "apertura": gestor.abierta_en.isoformat(),
+            "cierre": momento.isoformat(),
+            "direccion": gestor.direccion.value,
+            "entrada": round(gestor.entrada, 2),
+            "stop_inicial": round(gestor.stop_inicial, 2),
+            "objetivos": [round(n.precio, 2) for n in gestor.niveles],
+            "probabilidad": round(gestor.probabilidad, 3),
+            "confianza": round(gestor.confianza, 3),
+            "resultado_r": round(gestor.r_acumulado, 3),
+            "ganada": gestor.r_acumulado > 0,
+            "estado": gestor.estado.value,
+        }
+        try:
+            ruta = Path(self.cfg.ruta_operaciones)
+            if ruta.parent != Path(""):
+                ruta.parent.mkdir(parents=True, exist_ok=True)
+            with open(ruta, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(registro, ensure_ascii=False) + "\n")
+        except Exception:  # noqa: BLE001 — un fallo de registro no debe romper el ciclo.
+            pass
 
     # ---- persistencia del estado entre ejecuciones (para GitHub Actions/cron) ----
     def guardar_estado(self, ruta) -> None:
