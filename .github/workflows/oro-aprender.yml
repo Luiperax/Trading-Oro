@@ -27,6 +27,18 @@ jobs:
           cache: pip
       - name: Instalar dependencias (incluye scikit-learn para aprender)
         run: pip install -r oro/requirements.txt
+      - name: Enviar el resumen del MES ANTERIOR por email
+        env:
+          ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
+          ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
+          ORO_SMTP_CLAVE: ${{ secrets.ORO_SMTP_CLAVE }}
+          ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
+          ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
+          ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+        run: |
+          MES=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
+          echo "Resumen del mes $MES"
+          python -m oro.informe --email --mes "$MES"
       - name: Reentrenar y validar
         run: python -m oro.aprender
       - name: Guardar el modelo/estado si mejoró
