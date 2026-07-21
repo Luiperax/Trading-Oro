@@ -67,7 +67,7 @@ class ConfiguracionCalidad:
 @dataclass(slots=True)
 class ConfiguracionSistema:
     simbolo: str = "XAUUSD"
-    capital: float = 10_000.0            # capital de la cuenta (divisa base).
+    capital: float = 3_000.0             # capital de la cuenta (divisa base). Configurable por ORO_CAPITAL.
     # Marco temporal de trabajo. H1 (1 hora) para operativa INTRADÍA (abrir y
     # cerrar el mismo día). Nota honesta: los marcos intradía tienen un borde más
     # fino que H4/D1; se compensa cerrando siempre el mismo día (sin riesgo

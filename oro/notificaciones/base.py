@@ -29,6 +29,18 @@ class Evento(str, Enum):
     CAMBIO_MERCADO = "cambio_mercado"
 
 
+def _lote_y_riesgo(signal: Signal):
+    """Convierte el tamaño (oz) al LOTE del bróker y calcula la pérdida máxima.
+
+    1 lote estándar de XAU/USD = 100 oz. El lote mínimo habitual es 0.01.
+    """
+    lote = max(0.01, round(signal.tamano_posicion / 100.0, 2))
+    # Pérdida máxima calculada sobre el LOTE que realmente se coloca (1 lote = 100 oz),
+    # para que el importe mostrado coincida con lo que se arriesga de verdad.
+    perdida_max = abs(signal.entrada - signal.stop_loss) * lote * 100.0
+    return lote, perdida_max
+
+
 def mensaje_de_senal(signal: Signal) -> str:
     """Versión en texto plano (respaldo y para clientes sin HTML)."""
     compra = signal.direccion.value == "compra"
@@ -44,7 +56,10 @@ def mensaje_de_senal(signal: Signal) -> str:
         "",
         f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
         f"Confianza: {signal.confianza:.0%}   R:R: {signal.riesgo_recompensa:.2f}",
-        f"Tamaño sugerido: {signal.tamano_posicion:.2f} oz",
+        "",
+        f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
+        f"   Pérdida máxima si salta el stop: ≈{_lote_y_riesgo(signal)[1]:.0f} (riesgo mínimo por operación)",
+        "   ⚠️ Es LOTES, no onzas. Pon SIEMPRE el Stop Loss indicado arriba.",
         "",
         "Motivos de entrada:",
     ]
@@ -109,15 +124,22 @@ def mensaje_html_de_senal(signal: Signal) -> str:
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;">Precio de entrada</div>
       <div style="color:{_TEXTO};font-size:36px;font-weight:800;margin:2px 0 18px;">${signal.entrada:.2f}</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">{niveles}</table>
-      <table role="presentation" style="border-collapse:collapse;margin-bottom:20px;"><tr>
+      <table role="presentation" style="border-collapse:collapse;margin-bottom:16px;"><tr>
         {_pill("Probabilidad", f"{signal.probabilidad:.0%}", _ORO)}
         {_pill("Confianza", f"{signal.confianza:.0%}", _ORO)}
         {_pill("R : R", f"{signal.riesgo_recompensa:.2f}", _TEXTO)}
       </tr></table>
+      <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
+       <tr><td style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:14px 16px;">
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;">Lote a introducir en el bróker</div>
+         <div style="color:{_ORO};font-size:30px;font-weight:800;">{_lote_y_riesgo(signal)[0]:.2f} <span style="font-size:13px;color:{_MUTED};font-weight:600;">lotes</span></div>
+         <div style="color:{_MUTED};font-size:12px;">Pérdida máxima si salta el stop: <b style="color:{_TEXTO};">≈{_lote_y_riesgo(signal)[1]:.0f}</b> (riesgo mínimo por operación)</div>
+         <div style="color:{_ROJO};font-size:12px;margin-top:4px;">⚠️ Es LOTES, no onzas. Pon SIEMPRE el Stop Loss.</div>
+       </td></tr>
+      </table>
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Motivos de entrada</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:14px;">{motivos}</table>
       <div style="color:{_MUTED};font-size:12px;line-height:1.5;border-top:1px solid {_BORDE};padding-top:12px;">
-        Tamaño sugerido: <b style="color:{_TEXTO};">{signal.tamano_posicion:.2f} oz</b><br>
         {signal.contexto_tecnico}
       </div>
     </td></tr>
