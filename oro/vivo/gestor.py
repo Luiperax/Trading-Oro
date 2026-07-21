@@ -48,6 +48,7 @@ class GestorOperaciones:
         entrada_real: float | None = None,
         cerrar_intradia: bool = True,
         hora_cierre_utc: int = 21,
+        trailing_activo: bool = True,
     ) -> None:
         self.signal = signal
         self.direccion = signal.direccion
@@ -64,6 +65,21 @@ class GestorOperaciones:
         self.abierta_en = signal.momento
         self._cerrar_intradia = cerrar_intradia
         self._hora_cierre = hora_cierre_utc
+        self._trailing = trailing_activo
+        self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
+
+    def _trailing_stop(self, precio: float) -> None:
+        """Tras el break-even, el stop persigue al precio a 1R del máximo favorable."""
+        if not (self._trailing and self._en_breakeven and self.restante > 0):
+            return
+        signo = self.direccion.signo
+        self._peak = max(self._peak, precio) if signo > 0 else min(self._peak, precio)
+        nuevo = self._peak - signo * self._riesgo
+        # El stop solo se aprieta a favor, nunca se afloja.
+        if signo > 0:
+            self.stop_actual = max(self.stop_actual, nuevo)
+        else:
+            self.stop_actual = min(self.stop_actual, nuevo)
 
     def _r_en(self, precio: float) -> float:
         if self._riesgo <= 0:
@@ -107,8 +123,12 @@ class GestorOperaciones:
             self.restante = 0.0
             if self._en_breakeven:
                 self.estado = EstadoOperacion.CERRADA_MANUAL
-                msg = (f"Cierre en BREAK-EVEN a {self.stop_actual:.2f}. "
-                       f"Operación protegida. Resultado total: {self.r_acumulado:+.2f}R.")
+                if r_cierre > 0.01:
+                    msg = (f"Cierre por STOP DINÁMICO a {self.stop_actual:.2f} "
+                           f"(beneficio asegurado). Resultado total: {self.r_acumulado:+.2f}R.")
+                else:
+                    msg = (f"Cierre en BREAK-EVEN a {self.stop_actual:.2f}. "
+                           f"Operación protegida. Resultado total: {self.r_acumulado:+.2f}R.")
                 tipo = Evento.CIERRE
             else:
                 self.estado = EstadoOperacion.CERRADA_SL
@@ -146,7 +166,10 @@ class GestorOperaciones:
                     self.r_acumulado,
                 ))
 
-        # 3) ¿Se cerró toda la posición con los objetivos?
+        # 3) Salida dinámica: tras el break-even, el stop persigue al precio.
+        self._trailing_stop(precio)
+
+        # 4) ¿Se cerró toda la posición con los objetivos?
         if self.restante <= 1e-9 and self.estado is EstadoOperacion.ABIERTA:
             self.estado = EstadoOperacion.CERRADA_TP
             eventos.append(EventoGestion(
@@ -176,6 +199,8 @@ class GestorOperaciones:
             "resumen": self.signal.resumen() if self.signal else "",
             "cerrar_intradia": self._cerrar_intradia,
             "hora_cierre": self._hora_cierre,
+            "trailing": self._trailing,
+            "peak": self._peak,
             "niveles": [
                 [n.precio, n.fraccion, n.r_multiple, n.alcanzado] for n in self.niveles
             ],
@@ -197,6 +222,8 @@ class GestorOperaciones:
         g.abierta_en = datetime.fromisoformat(d["abierta_en"])
         g._cerrar_intradia = d.get("cerrar_intradia", True)
         g._hora_cierre = d.get("hora_cierre", 21)
+        g._trailing = d.get("trailing", True)
+        g._peak = d.get("peak", d["entrada"])
         g.niveles = [_NivelTP(p, f, r, alc) for p, f, r, alc in d["niveles"]]
         return g
 

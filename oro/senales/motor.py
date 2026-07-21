@@ -150,6 +150,15 @@ class MotorSenales:
                 motivos_no=["Sin sesgo direccional claro (mercado en rango)."],
             )
 
+        # Confirmación: la última vela cerrada debe cerrar a favor de la dirección.
+        if self.cfg.calidad.exigir_confirmacion:
+            cuerpo = float(ind["close"]) - float(ind["open"])
+            if direccion.signo * cuerpo <= 0:
+                return ResultadoAnalisis(
+                    False, _FRASE_SIN_OPERACION, direccion_sesgo=direccion,
+                    motivos_no=["Falta confirmación: la vela cerrada no cierra a favor."],
+                )
+
         puntuacion, motivos_entrada = self._puntuar(direccion, estructura, ind, snapshot)
 
         # Probabilidad: modelo ML si existe; si no, mapeo prudente de la puntuación.

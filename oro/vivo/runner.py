@@ -125,6 +125,7 @@ class RunnerVivo:
                     analisis.signal, entrada_real=precio,
                     cerrar_intradia=r_cfg.cerrar_intradia,
                     hora_cierre_utc=r_cfg.hora_cierre_utc,
+                    trailing_activo=r_cfg.trailing_activo,
                 )
                 self.abiertas.append(gestor)
                 self._senales_hoy += 1

@@ -140,6 +140,8 @@ class Backtester:
         pnl = 0.0
         stop_actual = stop
         tps_pendientes = list(tps)
+        en_be = False
+        peak = entrada
         n = len(highs)
 
         idx_cierre = idx_entrada
@@ -192,6 +194,17 @@ class Backtester:
                 tps_pendientes.pop(0)
                 # Tras el primer objetivo, proteger con break-even.
                 stop_actual = entrada
+                en_be = True
+
+            # 3) Salida dinámica (trailing): tras el break-even el stop persigue
+            #    al precio a 1R del máximo/mínimo favorable.
+            if r_cfg.trailing_activo and en_be and restante > 1e-9:
+                if signo > 0:
+                    peak = max(peak, hi)
+                    stop_actual = max(stop_actual, peak - riesgo_unidad)
+                else:
+                    peak = min(peak, lo)
+                    stop_actual = min(stop_actual, peak + riesgo_unidad)
 
             if restante <= 1e-9:
                 estado = EstadoOperacion.CERRADA_TP

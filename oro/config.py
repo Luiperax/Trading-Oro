@@ -33,6 +33,9 @@ class ConfiguracionRiesgo:
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     hora_cierre_utc: int = 21             # cierre forzado a las 21:00 UTC (cierre NY).
+    # Salida dinámica: tras el primer objetivo, el stop persigue al precio (a 1R
+    # del máximo/mínimo favorable) para proteger beneficio y capturar el movimiento.
+    trailing_activo: bool = True
 
 
 @dataclass(slots=True)
@@ -55,6 +58,9 @@ class ConfiguracionCalidad:
     prob_minima: float = 0.60        # probabilidad estimada mínima.
     confianza_minima: float = 0.62   # convicción/confluencia mínima.
     puntuacion_minima: float = 0.66  # puntuación de confluencia normalizada.
+    # Confirmación: solo se emite la señal si la última vela CERRADA confirma la
+    # dirección (cierra a favor). Reduce entradas en falso.
+    exigir_confirmacion: bool = True
     spread_max: float = 0.6          # spread máximo tolerado (USD/oz).
     # Volatilidad como FRACCIÓN del precio (ATR/precio), no en dólares absolutos,
     # para que funcione igual en cualquier marco temporal (M15, H4, D1) y a
