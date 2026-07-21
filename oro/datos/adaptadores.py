@@ -24,9 +24,11 @@ from .base import ProveedorDatos
 
 # timeframe -> (intervalo Yahoo, rango a descargar, regla de reagrupado, descartar última en formación)
 _CONFIG_TF = {
-    "M15": ("15m", "60d", None, False),
-    "M30": ("30m", "60d", None, False),
-    "H1": ("60m", "730d", None, False),
+    # drop_last=True: se descarta la vela aún en formación para decidir solo sobre
+    # velas cerradas (evita señales que "repintan" y mejora la precisión).
+    "M15": ("15m", "60d", None, True),
+    "M30": ("30m", "60d", None, True),
+    "H1": ("60m", "730d", None, True),
     "H4": ("60m", "730d", "4h", True),
     "D1": ("1d", "10y", None, True),
 }
