@@ -22,15 +22,16 @@ import pandas as pd
 
 from .base import ProveedorDatos
 
-# timeframe -> (intervalo Yahoo, rango a descargar, regla de reagrupado, descartar última en formación)
+# timeframe -> (intervalo Yahoo, rango a descargar, regla de reagrupado, duración de la vela)
+# La duración se usa para conservar SOLO velas ya cerradas (inicio + duración <= ahora),
+# evitando tanto la vela en formación como el "tick" de precio actual que añade Yahoo.
+# Así se decide siempre sobre velas cerradas (sin repintar).
 _CONFIG_TF = {
-    # drop_last=True: se descarta la vela aún en formación para decidir solo sobre
-    # velas cerradas (evita señales que "repintan" y mejora la precisión).
-    "M15": ("15m", "60d", None, True),
-    "M30": ("30m", "60d", None, True),
-    "H1": ("60m", "730d", None, True),
-    "H4": ("60m", "730d", "4h", True),
-    "D1": ("1d", "10y", None, True),
+    "M15": ("15m", "60d", None, "15min"),
+    "M30": ("30m", "60d", None, "30min"),
+    "H1": ("60m", "730d", None, "1h"),
+    "H4": ("60m", "730d", "4h", "4h"),
+    "D1": ("1d", "10y", None, "1D"),
 }
 _AGG = {"open": "first", "high": "max", "low": "min",
         "close": "last", "volume": "sum", "spread": "last"}
@@ -39,8 +40,8 @@ _AGG = {"open": "first", "high": "max", "low": "min",
 class ProveedorYahoo(ProveedorDatos):
     def __init__(self, simbolo: str = "GC=F", timeframe: str = "H4", tiempo_espera: int = 15) -> None:
         self._simbolo = simbolo
-        self._intervalo, self._rango, self._resample, self._drop_last = \
-            _CONFIG_TF.get(timeframe, _CONFIG_TF["H4"])
+        self._intervalo, self._rango, self._resample, self._duracion = \
+            _CONFIG_TF.get(timeframe, _CONFIG_TF["H1"])
         self._tiempo_espera = tiempo_espera
         self._cache: pd.DataFrame | None = None
 
@@ -72,9 +73,12 @@ class ProveedorYahoo(ProveedorDatos):
         if self._resample:
             df = df.resample(self._resample, label="left", closed="left").agg(_AGG)
             df = df.dropna(subset=["open", "high", "low", "close"])
-        # Descartar la última vela aún en formación (no cerrada).
-        if self._drop_last and len(df) > 1:
-            df = df.iloc[:-1]
+
+        # Conservar SOLO velas ya cerradas: inicio + duración <= ahora. Elimina la
+        # vela en formación y el "tick" de precio actual que añade Yahoo.
+        ahora = pd.Timestamp.now(tz="UTC")
+        duracion = pd.Timedelta(self._duracion)
+        df = df[df.index + duracion <= ahora]
 
         self.validar(df)
         return df
