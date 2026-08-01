@@ -202,6 +202,13 @@ class MotorSenales:
                 max(0.0, min(1.0, (confianza - c.confianza_minima) / rango))
             riesgo_pct = r.riesgo_por_operacion * escala
         tamano = dimensionar_posicion(niveles.riesgo_por_unidad, self.cfg, riesgo_pct=riesgo_pct)
+
+        # Condiciones del mercado en el momento de la señal (para aprender de ella).
+        import math
+        feats_row = construir_features(df).iloc[-1].to_dict()
+        features = {k: (None if (v is None or (isinstance(v, float) and math.isnan(v))) else round(float(v), 6))
+                    for k, v in feats_row.items()}
+
         signal = Signal(
             momento=snapshot.momento,
             direccion=direccion,
@@ -224,6 +231,7 @@ class MotorSenales:
             riesgos=self._riesgos(snapshot),
             duracion_estimada="1–3 sesiones (intradía a swing corto).",
             puntuacion=puntuacion,
+            features=features,
         )
         return ResultadoAnalisis(
             True, signal.resumen(), signal=signal, puntuacion=puntuacion,

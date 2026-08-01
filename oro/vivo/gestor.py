@@ -67,10 +67,11 @@ class GestorOperaciones:
         self._hora_cierre = hora_cierre_utc
         self._trailing = trailing_activo
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
-        # Datos de la señal, para el registro histórico al cerrar.
+        # Datos de la señal, para el registro histórico y el aprendizaje al cerrar.
         self.probabilidad = signal.probabilidad if signal else 0.0
         self.confianza = signal.confianza if signal else 0.0
         self.stop_inicial = signal.stop_loss if signal else self.stop_actual
+        self.features = dict(signal.features) if signal else {}
 
     def _trailing_stop(self, precio: float) -> None:
         """Tras el break-even, el stop persigue al precio a 1R del máximo favorable."""
@@ -208,6 +209,7 @@ class GestorOperaciones:
             "probabilidad": self.probabilidad,
             "confianza": self.confianza,
             "stop_inicial": self.stop_inicial,
+            "features": self.features,
             "niveles": [
                 [n.precio, n.fraccion, n.r_multiple, n.alcanzado] for n in self.niveles
             ],
@@ -234,6 +236,7 @@ class GestorOperaciones:
         g.probabilidad = d.get("probabilidad", 0.0)
         g.confianza = d.get("confianza", 0.0)
         g.stop_inicial = d.get("stop_inicial", d["stop_actual"])
+        g.features = d.get("features", {})
         g.niveles = [_NivelTP(p, f, r, alc) for p, f, r, alc in d["niveles"]]
         return g
 

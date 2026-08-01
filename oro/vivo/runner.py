@@ -170,6 +170,10 @@ class RunnerVivo:
             "resultado_r": round(gestor.r_acumulado, 3),
             "ganada": gestor.r_acumulado > 0,
             "estado": gestor.estado.value,
+            # Condiciones de la señal + etiqueta real: esto es lo que el sistema
+            # usa para APRENDER por qué salió bien o mal.
+            "features": getattr(gestor, "features", {}),
+            "label": 1 if gestor.r_acumulado > 0 else 0,
         }
         try:
             ruta = Path(self.cfg.ruta_operaciones)
