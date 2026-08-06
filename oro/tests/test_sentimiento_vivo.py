@@ -155,6 +155,41 @@ def test_runner_respeta_tope_diario():
     assert "diario" in r.motivo_sin_entrada.lower()
 
 
+def test_tope_perdida_diaria_bloquea():
+    """Al superar la pérdida máxima diaria, no se abren más operaciones ese día."""
+    runner = _runner_offline()
+    cap = runner.cfg.riesgo.riesgo_diario_max / runner.cfg.riesgo.riesgo_por_operacion
+    # Fijar la fecha para que _reset_diario no reinicie el contador.
+    runner._fecha = runner.proveedor.historico(1).index[-1].date()
+    runner._perdida_r_hoy = cap + 0.5
+    r = runner.ciclo()
+    assert r.nueva_senal is None
+    assert "pérdida diaria" in r.motivo_sin_entrada.lower()
+
+
+def test_runner_gestiona_salidas_con_precio_en_vivo():
+    """Las SALIDAS se gestionan con el precio EN VIVO (no con el cierre de vela).
+
+    Con el precio en vivo por debajo del stop, la operación se cierra en el acto
+    aunque el cierre de la última vela no lo tocara: así el aviso de "sal" llega
+    en minutos y no a la hora siguiente.
+    """
+    from oro.dominio import Direccion, Signal, TakeProfit
+
+    runner = _runner_offline()
+    cierre = float(runner.proveedor.historico(1).iloc[-1]["close"])
+    sig = Signal(momento=_ahora(), direccion=Direccion.COMPRA, entrada=cierre,
+                 stop_loss=cierre - 5.0,
+                 take_profits=[TakeProfit(cierre + 5.0, 0.5, 1.0), TakeProfit(cierre + 10.0, 0.5, 2.0)],
+                 probabilidad=0.6, confianza=0.7, riesgo_recompensa=1.5, tamano_posicion=5.0)
+    runner.abiertas.append(GestorOperaciones(sig))
+    # Precio en vivo POR DEBAJO del stop (el cierre de vela, ~entrada, no lo toca).
+    runner.proveedor.precio_actual = lambda: cierre - 6.0
+    r = runner.ciclo()
+    assert r.eventos_salida            # se avisó de la salida
+    assert len(runner.abiertas) == 0   # la operación se cerró por stop
+
+
 def test_estado_persiste_entre_ejecuciones(tmp_path):
     """El estado (operación abierta + contador) sobrevive a un proceso nuevo."""
     from oro.config import cargar_configuracion

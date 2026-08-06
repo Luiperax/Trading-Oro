@@ -30,7 +30,11 @@ name: Alertas XAU/USD
 
 on:
   schedule:
-    - cron: "*/5 * * * *"    # cada 5 minutos (mínimo de GitHub) para reducir el retardo.
+    # Cada 15 min GitHub encola un arranque; como cada ejecución mantiene una
+    # ventana de vigilancia de ~50 min (revisando en vivo cada 3 min), en la
+    # práctica hay cobertura casi continua y se reducen los arranques cancelados
+    # que provoca el estrangulamiento de las tareas gratuitas con */5.
+    - cron: "*/15 * * * *"
   workflow_dispatch:            # permite lanzarlo a mano desde la pestaña Actions.
     inputs:
       modo_prueba:
@@ -48,6 +52,9 @@ concurrency:
 jobs:
   revisar:
     runs-on: ubuntu-latest
+    # La ventana de vigilancia dura ~50 min; este tope evita que un ciclo colgado
+    # deje la máquina ocupada. Debe superar ORO_BUCLE_MINUTOS con margen.
+    timeout-minutes: 58
     steps:
       - uses: actions/checkout@v4
 
@@ -79,11 +86,19 @@ jobs:
           ORO_PROB_MINIMA: ${{ vars.ORO_PROB_MINIMA }}
           ORO_CONFIANZA_MINIMA: ${{ vars.ORO_CONFIANZA_MINIMA }}
           ORO_OPERACIONES_MAX_DIA: ${{ vars.ORO_OPERACIONES_MAX_DIA }}
+          # Ventana de vigilancia: cuánto tiempo se mantiene vivo el runner y cada
+          # cuánto revisa el mercado con el precio EN VIVO (para avisar de las
+          # salidas a tiempo). Ajustables desde «Variables» de Actions.
+          ORO_BUCLE_MINUTOS: ${{ vars.ORO_BUCLE_MINUTOS }}
+          ORO_BUCLE_CADA_SEG: ${{ vars.ORO_BUCLE_CADA_SEG }}
         run: |
           if [ "${{ inputs.modo_prueba }}" = "true" ]; then
             python -m oro.alerta --probar
           else
-            python -m oro.alerta
+            # Mantiene el vigilante vivo ~50 min revisando cada 3 min (no depende
+            # de que GitHub arranque la tarea cada pocos minutos). Guarda el estado
+            # tras cada ciclo, así que el paso siguiente lo versiona igual.
+            python -m oro.vigilar
           fi
 
       - name: Guardar el estado y el registro de operaciones si cambió
@@ -93,7 +108,7 @@ jobs:
           # IMPORTANTE: añadir cada fichero POR SEPARADO. 'git add A B' aborta la
           # operación ENTERA si B no existe todavía (p. ej. operaciones_oro.jsonl
           # antes del primer cierre), dejando A sin preparar -> el estado no se
-          # guardaba nunca y las salidas no se seguían entre ejecuciones.
+          # guardaba nunca y las salidas no se seguan entre ejecuciones.
           git add -f oro_estado.json 2>/dev/null || true
           git add -f operaciones_oro.jsonl 2>/dev/null || true
           if ! git diff --cached --quiet; then

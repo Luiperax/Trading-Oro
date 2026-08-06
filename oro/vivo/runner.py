@@ -63,6 +63,7 @@ class RunnerVivo:
 
         self.abiertas: List[GestorOperaciones] = []
         self._senales_hoy = 0
+        self._perdida_r_hoy = 0.0                 # pérdida acumulada hoy, en R (tope diario).
         self._fecha: Optional[date] = None
         self.historial: List[dict] = []          # eventos recientes (entradas y salidas).
         self._ultimo_ciclo: Optional[CicloResultado] = None
@@ -78,6 +79,15 @@ class RunnerVivo:
         ultima = df.iloc[-1]
         momento = ultima.name.to_pydatetime()
         precio = float(ultima["close"])
+        # Precio EN VIVO para GESTIONAR salidas (stop/objetivo) sin esperar al
+        # cierre de la vela; si no está disponible, se usa el cierre. Las ENTRADAS
+        # siguen decidiéndose con velas cerradas (df), para no repintar.
+        precio_gestion = precio
+        obtener_pa = getattr(self.proveedor, "precio_actual", None)
+        if callable(obtener_pa):
+            pa = obtener_pa()
+            if pa is not None and pa > 0:
+                precio_gestion = float(pa)
         self._reset_diario(momento)
 
         # Contexto informativo (sentimiento + riesgo de noticia).
@@ -91,9 +101,9 @@ class RunnerVivo:
             resumen_sentimiento=contexto.resumen(),
         )
 
-        # 1) Gestionar salidas de las operaciones abiertas.
+        # 1) Gestionar salidas de las operaciones abiertas (con el precio EN VIVO).
         for gestor in list(self.abiertas):
-            for ev in gestor.actualizar(precio, momento):
+            for ev in gestor.actualizar(precio_gestion, momento):
                 self._notificar_evento(ev, gestor)
                 resultado.eventos_salida.append(ev.mensaje)
                 self._registrar_historial({
@@ -102,6 +112,9 @@ class RunnerVivo:
                     "r": round(ev.r_acumulado, 2),
                 })
             if not gestor.abierta:
+                # Tope de pérdida diaria: acumular las pérdidas del día (en R).
+                if gestor.r_acumulado < 0:
+                    self._perdida_r_hoy += abs(gestor.r_acumulado)
                 self._registrar_operacion(gestor, momento)
                 self.abiertas.remove(gestor)
         resultado.abiertas = len(self.abiertas)
@@ -112,7 +125,14 @@ class RunnerVivo:
         tarde_para_intradia = (
             r_cfg.cerrar_intradia and momento.hour >= r_cfg.hora_cierre_utc - 1
         )
-        if len(self.abiertas) >= self.max_concurrentes:
+        # Tope de pérdida diaria: si ya se ha perdido el máximo del día, no más operaciones.
+        cap_perdida_r = (r_cfg.riesgo_diario_max / r_cfg.riesgo_por_operacion
+                         if r_cfg.riesgo_por_operacion > 0 else 1e9)
+        if self._perdida_r_hoy >= cap_perdida_r:
+            resultado.motivo_sin_entrada = (
+                f"Tope de pérdida diaria alcanzado ({self._perdida_r_hoy:.1f}R ≥ "
+                f"{cap_perdida_r:.1f}R). No se abren más operaciones hoy.")
+        elif len(self.abiertas) >= self.max_concurrentes:
             resultado.motivo_sin_entrada = "Máximo de operaciones simultáneas alcanzado."
         elif self._senales_hoy >= r_cfg.operaciones_max_dia:
             resultado.motivo_sin_entrada = "Tope diario de señales alcanzado."
@@ -130,7 +150,9 @@ class RunnerVivo:
                 )
                 self.abiertas.append(gestor)
                 self._senales_hoy += 1
-                self.notificador.notificar_senal(analisis.signal)
+                if not self.notificador.notificar_senal(analisis.signal):
+                    print("⚠️  AVISO NO ENVIADO (entrada): revisa la configuración de "
+                          "email/Telegram (secretos ORO_SMTP_* / ORO_TELEGRAM_*).")
                 resultado.nueva_senal = analisis.signal
                 s = analisis.signal
                 self._registrar_historial({
@@ -193,6 +215,7 @@ class RunnerVivo:
         datos = {
             "fecha": self._fecha.isoformat() if self._fecha else None,
             "senales_hoy": self._senales_hoy,
+            "perdida_r_hoy": round(self._perdida_r_hoy, 3),
             "historial": self.historial,
             "abiertas": [g.a_dict() for g in self.abiertas],
         }
@@ -213,6 +236,7 @@ class RunnerVivo:
         datos = json.loads(p.read_text(encoding="utf-8"))
         self._fecha = date.fromisoformat(datos["fecha"]) if datos.get("fecha") else None
         self._senales_hoy = int(datos.get("senales_hoy", 0))
+        self._perdida_r_hoy = float(datos.get("perdida_r_hoy", 0.0))
         self.historial = list(datos.get("historial", []))
         self.abiertas = [GestorOperaciones.desde_dict(x) for x in datos.get("abiertas", [])]
 
@@ -264,6 +288,7 @@ class RunnerVivo:
         if self._fecha != hoy:
             self._fecha = hoy
             self._senales_hoy = 0
+            self._perdida_r_hoy = 0.0
 
     def _snapshot(self, df, momento, precio, contexto: ContextoInformativo) -> MarketSnapshot:
         atr_val = float(_atr(df, 14).iloc[-1])
@@ -276,15 +301,28 @@ class RunnerVivo:
         )
 
     def _notificar_evento(self, ev, gestor: GestorOperaciones) -> None:
+        # Títulos claros y accionables para las SALIDAS.
         titulos = {
-            Evento.TP_ALCANZADO: "🎯 Objetivo alcanzado — XAU/USD",
-            Evento.MOVER_STOP: "🛡 Mover stop a break-even — XAU/USD",
-            Evento.CIERRE: "🏁 Cierre de operación — XAU/USD",
+            Evento.TP_ALCANZADO: "🎯 CIERRA PARTE — objetivo alcanzado (XAU/USD)",
+            Evento.MOVER_STOP: "🛡 MUEVE EL STOP a break-even (XAU/USD)",
+            Evento.CIERRE: "🚪 SAL DE LA OPERACIÓN — cierre (XAU/USD)",
         }
         titulo = titulos.get(ev.tipo, "Actualización — XAU/USD")
-        cuerpo_txt = f"{ev.mensaje}\n\nDirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}"
-        cuerpo_html = (f"{ev.mensaje}<br><br><span style='color:#8A93A3;'>Dirección: "
+        cuerpo_txt = (f"{ev.mensaje}\n\nQué hacer: {self._instruccion(ev.tipo)}\n"
+                      f"Dirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}")
+        cuerpo_html = (f"<b>{self._instruccion(ev.tipo)}</b><br>{ev.mensaje}<br><br>"
+                       f"<span style='color:#8A93A3;'>Dirección: "
                        f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
         from ..notificaciones.base import mensaje_html_evento
-        self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,
-                                html=mensaje_html_evento(titulo, cuerpo_html, ev.tipo))
+        ok = self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,
+                                     html=mensaje_html_evento(titulo, cuerpo_html, ev.tipo))
+        if not ok:
+            print(f"⚠️  AVISO NO ENVIADO (salida): {titulo}. Revisa la configuración de email/Telegram.")
+
+    @staticmethod
+    def _instruccion(tipo: Evento) -> str:
+        return {
+            Evento.TP_ALCANZADO: "Cierra la parte indicada de la posición y asegura beneficio.",
+            Evento.MOVER_STOP: "Mueve el stop al punto de entrada (break-even): riesgo cero.",
+            Evento.CIERRE: "Cierra la operación completa AHORA.",
+        }.get(tipo, "Revisa la operación.")
