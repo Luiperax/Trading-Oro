@@ -27,7 +27,7 @@ jobs:
           cache: pip
       - name: Instalar dependencias (incluye scikit-learn para aprender)
         run: pip install -r oro/requirements.txt
-      - name: Enviar el resumen del MES ANTERIOR por email
+      - name: Enviar el DIAGNÓSTICO del MES ANTERIOR por email
         env:
           ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
           ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
@@ -37,18 +37,30 @@ jobs:
           ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
         run: |
           MES=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
-          echo "Resumen del mes $MES"
-          python -m oro.informe --email --mes "$MES"
+          echo "Diagnóstico del mes $MES (marcador + por qué se cumplieron o no)"
+          # El diagnóstico incluye el marcador (acierto/PF) y AÑADE el análisis del
+          # porqué: calibración de su confianza, por dirección/hora y qué
+          # condiciones separan las señales cumplidas de las fallidas.
+          python -m oro.diagnostico --email --mes "$MES"
       - name: Reentrenar y validar
         run: python -m oro.aprender
       - name: Guardar el modelo/estado si mejoró
         run: |
-          if [ -n "$(git status --porcelain modelo_oro.pkl aprendizaje_estado.json)" ]; then
-            git config user.name "oro-aprendizaje-bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add -f modelo_oro.pkl aprendizaje_estado.json 2>/dev/null || git add aprendizaje_estado.json
+          git config user.name "oro-aprendizaje-bot"
+          git config user.email "actions@users.noreply.github.com"
+          # Cada fichero por separado: si el modelo no se promocionó (no existe
+          # modelo_oro.pkl), no debe impedir guardar aprendizaje_estado.json.
+          git add -f modelo_oro.pkl 2>/dev/null || true
+          git add -f aprendizaje_estado.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
             git commit -m "Aprendizaje XAU/USD: actualización del modelo/estado [skip ci]"
-            git push
+            empujado=""
+            for intento in 1 2 3; do
+              if git push; then empujado="si"; break; fi
+              git fetch origin main && git rebase origin/main || git rebase --abort || true
+              sleep 3
+            done
+            [ -n "$empujado" ] || echo "No se pudo guardar (se reintenta el próximo mes)."
           else
             echo "El aprendizaje no cambió el modelo (sin ventaja nueva demostrable)."
           fi
