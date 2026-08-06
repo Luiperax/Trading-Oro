@@ -110,12 +110,17 @@ class NotificadorEmail(Notificador):
         msg["Subject"] = titulo
         msg["From"] = self._usuario
         msg["To"] = self._destino
-        try:
-            with smtplib.SMTP(self._host, self._puerto, timeout=10) as s:
-                s.starttls()
-                if self._clave:
-                    s.login(self._usuario, self._clave)
-                s.send_message(msg)
-            return True
-        except Exception:  # noqa: BLE001
-            return False
+        # Dos intentos: un fallo transitorio (red/servidor) no debe perder el aviso.
+        for intento in range(2):
+            try:
+                with smtplib.SMTP(self._host, self._puerto, timeout=15) as s:
+                    s.starttls()
+                    if self._clave:
+                        s.login(self._usuario, self._clave)
+                    s.send_message(msg)
+                return True
+            except Exception:  # noqa: BLE001
+                if intento == 0:
+                    continue
+                return False
+        return False
