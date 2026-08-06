@@ -44,6 +44,7 @@ class ProveedorYahoo(ProveedorDatos):
             _CONFIG_TF.get(timeframe, _CONFIG_TF["H1"])
         self._tiempo_espera = tiempo_espera
         self._cache: pd.DataFrame | None = None
+        self._precio_actual: float | None = None
 
     def _descargar(self) -> pd.DataFrame:
         import requests
@@ -56,6 +57,11 @@ class ProveedorYahoo(ProveedorDatos):
         )
         resp.raise_for_status()
         datos = resp.json()["chart"]["result"][0]
+        # Precio EN VIVO (último tick), para gestionar las salidas sin esperar al
+        # cierre de la vela. No se usa para decidir entradas (eso repintaría).
+        meta = datos.get("meta", {})
+        pa = meta.get("regularMarketPrice")
+        self._precio_actual = float(pa) if pa is not None else None
         ts = datos["timestamp"]
         q = datos["indicators"]["quote"][0]
         df = pd.DataFrame({
@@ -91,3 +97,12 @@ class ProveedorYahoo(ProveedorDatos):
     def refrescar(self) -> None:
         """Fuerza una nueva descarga (para uso en el bucle en vivo)."""
         self._cache = self._descargar()
+
+    def precio_actual(self) -> float | None:
+        """Último precio disponible (``regularMarketPrice`` de Yahoo).
+
+        Sirve para GESTIONAR las salidas en vivo (stop/objetivo) sin esperar al
+        cierre de la vela horaria: así el aviso de "sal de la operación" llega en
+        minutos, no a la hora siguiente. Devuelve ``None`` si no se pudo obtener;
+        en ese caso el runner usa el cierre de la última vela cerrada."""
+        return self._precio_actual
