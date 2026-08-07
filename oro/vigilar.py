@@ -35,13 +35,27 @@ from .datos import ProveedorYahoo
 from .vivo import RunnerVivo
 
 
+def _num_env(nombre: str, defecto: float) -> float:
+    """Lee un número del entorno tolerando el vacío.
+
+    OJO: en GitHub Actions, una Variable no definida llega como cadena VACÍA
+    (no ausente), así que ``os.getenv(nombre, defecto)`` devolvería "" y
+    ``float("")`` reventaría. Aquí, vacío o inválido -> valor por defecto.
+    """
+    bruto = os.getenv(nombre, "")
+    try:
+        return float(bruto) if bruto.strip() else defecto
+    except ValueError:
+        return defecto
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--probar" in argv:
         return _probar()
 
-    minutos = float(os.getenv("ORO_BUCLE_MINUTOS", "50"))
-    cada = max(30.0, float(os.getenv("ORO_BUCLE_CADA_SEG", "180")))
+    minutos = _num_env("ORO_BUCLE_MINUTOS", 50.0)
+    cada = max(30.0, _num_env("ORO_BUCLE_CADA_SEG", 180.0))
 
     cfg = cargar_configuracion()
     modelo = _cargar_modelo(cfg)
