@@ -1,8 +1,26 @@
 {
   "fecha": "2026-08-07",
-  "senales_hoy": 2,
+  "senales_hoy": 4,
   "perdida_r_hoy": 2.0,
   "historial": [
+    {
+      "tipo": "entrada",
+      "momento": "2026-08-07T17:00:00+00:00",
+      "direccion": "compra",
+      "entrada": 4400.5,
+      "stop": 4367.74,
+      "mensaje": "[COMPRA] XAU/USD @ 4400.50 | SL 4367.74 | TP 4433.26 (1.0R) / 4466.02 (2.0R) / 4498.78 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "prob": 0.64
+    },
+    {
+      "tipo": "entrada",
+      "momento": "2026-08-07T17:00:00+00:00",
+      "direccion": "compra",
+      "entrada": 4399.1,
+      "stop": 4366.34,
+      "mensaje": "[COMPRA] XAU/USD @ 4399.10 | SL 4366.34 | TP 4431.86 (1.0R) / 4464.62 (2.0R) / 4497.38 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "prob": 0.64
+    },
     {
       "tipo": "cierre",
       "momento": "2026-08-07T04:00:00+00:00",
@@ -160,5 +178,134 @@
       "prob": 0.64
     }
   ],
-  "abiertas": []
+  "abiertas": [
+    {
+      "direccion": "compra",
+      "entrada": 4399.10009765625,
+      "riesgo": 32.758809958821985,
+      "stop_actual": 4366.341287697428,
+      "en_breakeven": false,
+      "restante": 1.0,
+      "r_acumulado": 0.0,
+      "estado": "abierta",
+      "abierta_en": "2026-08-07T17:00:00+00:00",
+      "resumen": "[COMPRA] XAU/USD @ 4399.10 | SL 4366.34 | TP 4431.86 (1.0R) / 4464.62 (2.0R) / 4497.38 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "cerrar_intradia": true,
+      "hora_cierre": 21,
+      "trailing": true,
+      "peak": 4399.10009765625,
+      "probabilidad": 0.638,
+      "confianza": 0.84,
+      "stop_inicial": 4366.341287697428,
+      "features": {
+        "ret_1": 0.002185,
+        "ret_5": -0.005169,
+        "ret_20": 0.023087,
+        "dist_ema20_atr": 1.471079,
+        "dist_ema50_atr": 3.509455,
+        "dist_ema200_atr": 9.025207,
+        "pendiente_ema50": 0.780992,
+        "rsi_14": 64.953873,
+        "rsi_norm": 0.299077,
+        "macd_hist_norm": 0.125992,
+        "adx": 35.66556,
+        "di_diff": 0.149189,
+        "bb_pct_b": 0.767301,
+        "bb_ancho": 0.036461,
+        "atr_rel": 1.231566,
+        "atr_z": 1.178686,
+        "dist_vwap_atr": 0.798869,
+        "vol_rel": 1.181667,
+        "sesion_sin": -0.965926,
+        "sesion_cos": -0.258819,
+        "cuerpo_rel": 0.727251,
+        "mecha_sup_rel": 0.181821,
+        "mecha_inf_rel": 0.090928
+      },
+      "niveles": [
+        [
+          4431.858907615072,
+          0.5,
+          1.0,
+          false
+        ],
+        [
+          4464.617717573893,
+          0.3,
+          2.0,
+          false
+        ],
+        [
+          4497.376527532715,
+          0.2,
+          3.0,
+          false
+        ]
+      ]
+    },
+    {
+      "direccion": "compra",
+      "entrada": 4400.5,
+      "riesgo": 32.758809958821985,
+      "stop_actual": 4367.741190041178,
+      "en_breakeven": false,
+      "restante": 1.0,
+      "r_acumulado": 0.0,
+      "estado": "abierta",
+      "abierta_en": "2026-08-07T17:00:00+00:00",
+      "resumen": "[COMPRA] XAU/USD @ 4400.50 | SL 4367.74 | TP 4433.26 (1.0R) / 4466.02 (2.0R) / 4498.78 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "cerrar_intradia": true,
+      "hora_cierre": 21,
+      "trailing": true,
+      "peak": 4400.5,
+      "probabilidad": 0.638,
+      "confianza": 0.84,
+      "stop_inicial": 4367.741190041178,
+      "features": {
+        "ret_1": 0.002503,
+        "ret_5": -0.004851,
+        "ret_20": 0.023405,
+        "dist_ema20_atr": 1.529074,
+        "dist_ema50_atr": 3.571042,
+        "dist_ema200_atr": 9.08867,
+        "pendiente_ema50": 0.783505,
+        "rsi_14": 65.265047,
+        "rsi_norm": 0.305301,
+        "macd_hist_norm": 0.130083,
+        "adx": 35.66556,
+        "di_diff": 0.149189,
+        "bb_pct_b": 0.775147,
+        "bb_ancho": 0.03653,
+        "atr_rel": 1.231566,
+        "atr_z": 1.178686,
+        "dist_vwap_atr": 0.860025,
+        "vol_rel": 1.232721,
+        "sesion_sin": -0.965926,
+        "sesion_cos": -0.258819,
+        "cuerpo_rel": 0.825144,
+        "mecha_sup_rel": 0.083928,
+        "mecha_inf_rel": 0.090928
+      },
+      "niveles": [
+        [
+          4433.258809958822,
+          0.5,
+          1.0,
+          false
+        ],
+        [
+          4466.017619917643,
+          0.3,
+          2.0,
+          false
+        ],
+        [
+          4498.776429876465,
+          0.2,
+          3.0,
+          false
+        ]
+      ]
+    }
+  ]
 }
