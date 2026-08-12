@@ -4,6 +4,34 @@
   "perdida_r_hoy": 0.0,
   "historial": [
     {
+      "tipo": "mover_stop",
+      "momento": "2026-08-12T11:00:00+00:00",
+      "precio": 4462.8,
+      "mensaje": "Mover STOP a break-even (4462.80). Operación sin riesgo a partir de ahora.",
+      "r": 0.5
+    },
+    {
+      "tipo": "tp_alcanzado",
+      "momento": "2026-08-12T11:00:00+00:00",
+      "precio": 4487.0,
+      "mensaje": "TP1 alcanzado a 4487.00 (1.0R). Cerrar 50% de la posición.",
+      "r": 0.5
+    },
+    {
+      "tipo": "mover_stop",
+      "momento": "2026-08-12T11:00:00+00:00",
+      "precio": 4460.9,
+      "mensaje": "Mover STOP a break-even (4460.90). Operación sin riesgo a partir de ahora.",
+      "r": 0.5
+    },
+    {
+      "tipo": "tp_alcanzado",
+      "momento": "2026-08-12T11:00:00+00:00",
+      "precio": 4485.1,
+      "mensaje": "TP1 alcanzado a 4485.10 (1.0R). Cerrar 50% de la posición.",
+      "r": 0.5
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-08-12T06:00:00+00:00",
       "direccion": "compra",
@@ -247,17 +275,17 @@
       "direccion": "compra",
       "entrada": 4462.7998046875,
       "riesgo": 24.20208314611955,
-      "stop_actual": 4438.59772154138,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
+      "stop_actual": 4471.19791685388,
+      "en_breakeven": true,
+      "restante": 0.5,
+      "r_acumulado": 0.5,
       "estado": "abierta",
       "abierta_en": "2026-08-12T06:00:00+00:00",
       "resumen": "",
       "cerrar_intradia": true,
       "hora_cierre": 21,
       "trailing": true,
-      "peak": 4462.7998046875,
+      "peak": 4495.4,
       "probabilidad": 0.645,
       "confianza": 0.85,
       "stop_inicial": 4438.59772154138,
@@ -291,7 +319,7 @@
           4487.00188783362,
           0.5,
           1.0,
-          false
+          true
         ],
         [
           4511.203970979738,
@@ -311,17 +339,17 @@
       "direccion": "compra",
       "entrada": 4460.89990234375,
       "riesgo": 24.20208314611955,
-      "stop_actual": 4436.69781919763,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
+      "stop_actual": 4471.19791685388,
+      "en_breakeven": true,
+      "restante": 0.5,
+      "r_acumulado": 0.5,
       "estado": "abierta",
       "abierta_en": "2026-08-12T06:00:00+00:00",
       "resumen": "",
       "cerrar_intradia": true,
       "hora_cierre": 21,
       "trailing": true,
-      "peak": 4460.89990234375,
+      "peak": 4495.4,
       "probabilidad": 0.645,
       "confianza": 0.85,
       "stop_inicial": 4436.69781919763,
@@ -355,7 +383,7 @@
           4485.10198548987,
           0.5,
           1.0,
-          false
+          true
         ],
         [
           4509.304068635988,
