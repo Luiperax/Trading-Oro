@@ -4,6 +4,20 @@
   "perdida_r_hoy": 0.0,
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-08-12T15:00:00+00:00",
+      "precio": 4471.8,
+      "mensaje": "Cierre por STOP DINÁMICO a 4471.80 (beneficio asegurado). Resultado total: +0.73R.",
+      "r": 0.73
+    },
+    {
+      "tipo": "cierre",
+      "momento": "2026-08-12T15:00:00+00:00",
+      "precio": 4471.8,
+      "mensaje": "Cierre por STOP DINÁMICO a 4471.80 (beneficio asegurado). Resultado total: +0.69R.",
+      "r": 0.69
+    },
+    {
       "tipo": "mover_stop",
       "momento": "2026-08-12T11:00:00+00:00",
       "precio": 4462.8,
@@ -270,134 +284,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "compra",
-      "entrada": 4462.7998046875,
-      "riesgo": 24.20208314611955,
-      "stop_actual": 4471.79791685388,
-      "en_breakeven": true,
-      "restante": 0.5,
-      "r_acumulado": 0.5,
-      "estado": "abierta",
-      "abierta_en": "2026-08-12T06:00:00+00:00",
-      "resumen": "",
-      "cerrar_intradia": true,
-      "hora_cierre": 21,
-      "trailing": true,
-      "peak": 4496.0,
-      "probabilidad": 0.645,
-      "confianza": 0.85,
-      "stop_inicial": 4438.59772154138,
-      "features": {
-        "ret_1": 0.002648,
-        "ret_5": 0.00148,
-        "ret_20": 0.007061,
-        "dist_ema20_atr": 0.936595,
-        "dist_ema50_atr": 2.130656,
-        "dist_ema200_atr": 9.90592,
-        "pendiente_ema50": 0.472409,
-        "rsi_14": 58.961958,
-        "rsi_norm": 0.179239,
-        "macd_hist_norm": 0.106968,
-        "adx": 17.009822,
-        "di_diff": 0.03136,
-        "bb_pct_b": 0.815433,
-        "bb_ancho": 0.012248,
-        "atr_rel": 0.901403,
-        "atr_z": -0.669089,
-        "dist_vwap_atr": 0.396722,
-        "vol_rel": 0.670224,
-        "sesion_sin": 1.0,
-        "sesion_cos": 0.0,
-        "cuerpo_rel": 0.661106,
-        "mecha_sup_rel": 0.027778,
-        "mecha_inf_rel": 0.311117
-      },
-      "niveles": [
-        [
-          4487.00188783362,
-          0.5,
-          1.0,
-          true
-        ],
-        [
-          4511.203970979738,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4535.406054125858,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    },
-    {
-      "direccion": "compra",
-      "entrada": 4460.89990234375,
-      "riesgo": 24.20208314611955,
-      "stop_actual": 4471.79791685388,
-      "en_breakeven": true,
-      "restante": 0.5,
-      "r_acumulado": 0.5,
-      "estado": "abierta",
-      "abierta_en": "2026-08-12T06:00:00+00:00",
-      "resumen": "",
-      "cerrar_intradia": true,
-      "hora_cierre": 21,
-      "trailing": true,
-      "peak": 4496.0,
-      "probabilidad": 0.645,
-      "confianza": 0.85,
-      "stop_inicial": 4436.69781919763,
-      "features": {
-        "ret_1": 0.002222,
-        "ret_5": 0.001054,
-        "ret_20": 0.006635,
-        "dist_ema20_atr": 0.830057,
-        "dist_ema50_atr": 2.017521,
-        "dist_ema200_atr": 9.78934,
-        "pendiente_ema50": 0.467792,
-        "rsi_14": 58.251839,
-        "rsi_norm": 0.165037,
-        "macd_hist_norm": 0.099453,
-        "adx": 17.009822,
-        "di_diff": 0.03136,
-        "bb_pct_b": 0.784669,
-        "bb_ancho": 0.012145,
-        "atr_rel": 0.901403,
-        "atr_z": -0.669089,
-        "dist_vwap_atr": 0.284319,
-        "vol_rel": 0.744175,
-        "sesion_sin": 1.0,
-        "sesion_cos": 0.0,
-        "cuerpo_rel": 0.555556,
-        "mecha_sup_rel": 0.133328,
-        "mecha_inf_rel": 0.311117
-      },
-      "niveles": [
-        [
-          4485.10198548987,
-          0.5,
-          1.0,
-          true
-        ],
-        [
-          4509.304068635988,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4533.506151782108,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
