@@ -1,7 +1,7 @@
 {
-  "fecha": "2026-08-19",
-  "senales_hoy": 2,
-  "perdida_r_hoy": 2.0,
+  "fecha": "2026-08-20",
+  "senales_hoy": 0,
+  "perdida_r_hoy": 0.0,
   "historial": [
     {
       "tipo": "cierre",
