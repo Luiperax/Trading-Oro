@@ -2,6 +2,7 @@
   "fecha": "2026-08-24",
   "senales_hoy": 0,
   "perdida_r_hoy": 0.0,
+  "ultima_vela_senal": null,
   "historial": [
     {
       "tipo": "cierre",
