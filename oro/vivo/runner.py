@@ -50,7 +50,7 @@ class RunnerVivo:
         notificador: Optional[Notificador] = None,
         analizador: Optional[AnalizadorSentimiento] = None,
         modelo=None,
-        max_concurrentes: int = 2,
+        max_concurrentes: int = 1,
         usar_sentimiento: bool = True,
     ) -> None:
         self.cfg = cfg or cargar_configuracion()
@@ -64,6 +64,10 @@ class RunnerVivo:
         self.abiertas: List[GestorOperaciones] = []
         self._senales_hoy = 0
         self._perdida_r_hoy = 0.0                 # pérdida acumulada hoy, en R (tope diario).
+        # Marca de la última vela que YA generó señal. Evita que el vigilante,
+        # que revisa cada pocos minutos, vuelva a emitir la MISMA señal sobre la
+        # misma vela cerrada (duplicaba la operación y el aviso).
+        self._ultima_vela_senal: Optional[datetime] = None
         self._fecha: Optional[date] = None
         self.historial: List[dict] = []          # eventos recientes (entradas y salidas).
         self._ultimo_ciclo: Optional[CicloResultado] = None
@@ -88,7 +92,14 @@ class RunnerVivo:
             pa = obtener_pa()
             if pa is not None and pa > 0:
                 precio_gestion = float(pa)
-        self._reset_diario(momento)
+        # RELOJ para las decisiones de TIEMPO (cierre intradía, cambio de día,
+        # "demasiado tarde para abrir"). Con datos en vivo hay que usar la hora
+        # REAL: cuando el mercado cierra (noche/fin de semana) dejan de llegar
+        # velas, la marca de la última vela se CONGELA y una operación se
+        # quedaría abierta el fin de semana entero. Con datos sintéticos o de
+        # backtest se usa la marca de la vela (determinista).
+        ahora = self._reloj(momento)
+        self._reset_diario(ahora)
 
         # Contexto informativo (sentimiento + riesgo de noticia).
         if self.usar_sentimiento:
@@ -103,11 +114,11 @@ class RunnerVivo:
 
         # 1) Gestionar salidas de las operaciones abiertas (con el precio EN VIVO).
         for gestor in list(self.abiertas):
-            for ev in gestor.actualizar(precio_gestion, momento):
+            for ev in gestor.actualizar(precio_gestion, ahora):
                 self._notificar_evento(ev, gestor)
                 resultado.eventos_salida.append(ev.mensaje)
                 self._registrar_historial({
-                    "tipo": ev.tipo.value, "momento": momento.isoformat(),
+                    "tipo": ev.tipo.value, "momento": ahora.isoformat(),
                     "precio": round(ev.precio, 2), "mensaje": ev.mensaje,
                     "r": round(ev.r_acumulado, 2),
                 })
@@ -115,7 +126,7 @@ class RunnerVivo:
                 # Tope de pérdida diaria: acumular las pérdidas del día (en R).
                 if gestor.r_acumulado < 0:
                     self._perdida_r_hoy += abs(gestor.r_acumulado)
-                self._registrar_operacion(gestor, momento)
+                self._registrar_operacion(gestor, ahora)
                 self.abiertas.remove(gestor)
         resultado.abiertas = len(self.abiertas)
 
@@ -123,7 +134,7 @@ class RunnerVivo:
         r_cfg = self.cfg.riesgo
         # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar el mismo día).
         tarde_para_intradia = (
-            r_cfg.cerrar_intradia and momento.hour >= r_cfg.hora_cierre_utc - 1
+            r_cfg.cerrar_intradia and ahora.hour >= r_cfg.hora_cierre_utc - 1
         )
         # Tope de pérdida diaria: si ya se ha perdido el máximo del día, no más operaciones.
         cap_perdida_r = (r_cfg.riesgo_diario_max / r_cfg.riesgo_por_operacion
@@ -138,6 +149,9 @@ class RunnerVivo:
             resultado.motivo_sin_entrada = "Tope diario de señales alcanzado."
         elif tarde_para_intradia:
             resultado.motivo_sin_entrada = "Demasiado tarde para abrir una operación intradía hoy."
+        elif self._ultima_vela_senal is not None and momento <= self._ultima_vela_senal:
+            resultado.motivo_sin_entrada = (
+                "Esta vela ya generó su señal (no se repite la misma entrada).")
         else:
             snapshot = self._snapshot(df, momento, precio, contexto)
             analisis = self.motor.analizar(df, snapshot)
@@ -150,6 +164,7 @@ class RunnerVivo:
                 )
                 self.abiertas.append(gestor)
                 self._senales_hoy += 1
+                self._ultima_vela_senal = momento
                 if not self.notificador.notificar_senal(analisis.signal):
                     print("⚠️  AVISO NO ENVIADO (entrada): revisa la configuración de "
                           "email/Telegram (secretos ORO_SMTP_* / ORO_TELEGRAM_*).")
@@ -216,6 +231,10 @@ class RunnerVivo:
             "fecha": self._fecha.isoformat() if self._fecha else None,
             "senales_hoy": self._senales_hoy,
             "perdida_r_hoy": round(self._perdida_r_hoy, 3),
+            # Sin esto, cada nueva ejecución volvería a emitir la señal de la
+            # última vela ya avisada (aviso y operación duplicados).
+            "ultima_vela_senal": (self._ultima_vela_senal.isoformat()
+                                  if self._ultima_vela_senal else None),
             "historial": self.historial,
             "abiertas": [g.a_dict() for g in self.abiertas],
         }
@@ -237,6 +256,8 @@ class RunnerVivo:
         self._fecha = date.fromisoformat(datos["fecha"]) if datos.get("fecha") else None
         self._senales_hoy = int(datos.get("senales_hoy", 0))
         self._perdida_r_hoy = float(datos.get("perdida_r_hoy", 0.0))
+        uvs = datos.get("ultima_vela_senal")
+        self._ultima_vela_senal = datetime.fromisoformat(uvs) if uvs else None
         self.historial = list(datos.get("historial", []))
         self.abiertas = [GestorOperaciones.desde_dict(x) for x in datos.get("abiertas", [])]
 
@@ -283,6 +304,20 @@ class RunnerVivo:
             time.sleep(intervalo_seg)
 
     # ---- helpers ----
+    def _reloj(self, momento: datetime) -> datetime:
+        """Hora que manda en las decisiones de TIEMPO.
+
+        Con una fuente EN VIVO se usa la hora real UTC. Es imprescindible: al
+        cerrar el mercado dejan de publicarse velas, así que la marca de la
+        última vela se queda congelada (un viernes a las 21:00 sigue diciendo
+        "viernes 21:00" todo el fin de semana) y el cierre intradía nunca se
+        dispararía. Con fuentes sintéticas o de backtest se respeta la marca de
+        la vela para que el comportamiento sea determinista.
+        """
+        if getattr(self.proveedor, "en_vivo", False):
+            return datetime.now(timezone.utc)
+        return momento
+
     def _reset_diario(self, momento: datetime) -> None:
         hoy = momento.date()
         if self._fecha != hoy:

@@ -40,7 +40,11 @@ def _cargar_operaciones(ruta: Path) -> list:
             filas.append(json.loads(linea))
         except json.JSONDecodeError:
             continue
-    return filas
+    # Sin deduplicar, la MISMA operación podría caer en entrenamiento y en
+    # prueba a la vez (fuga de datos): el AUC saldría inflado y se promocionaría
+    # un modelo que en realidad no predice nada.
+    from .informe import deduplicar
+    return deduplicar(filas)
 
 
 def main(argv=None) -> int:

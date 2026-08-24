@@ -38,6 +38,11 @@ _AGG = {"open": "first", "high": "max", "low": "min",
 
 
 class ProveedorYahoo(ProveedorDatos):
+    # Sigue el mercado real: el runner puede usar el RELOJ REAL para el cierre
+    # intradía (si no, al parar el mercado la última vela congela la hora y una
+    # operación se quedaría abierta todo el fin de semana).
+    en_vivo = True
+
     def __init__(self, simbolo: str = "GC=F", timeframe: str = "H4", tiempo_espera: int = 15) -> None:
         self._simbolo = simbolo
         self._intervalo, self._rango, self._resample, self._duracion = \

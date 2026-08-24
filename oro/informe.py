@@ -17,6 +17,26 @@ from pathlib import Path
 from .config import cargar_configuracion
 
 
+def deduplicar(registros: list) -> list:
+    """Quita señales repetidas: una sola por vela de apertura y dirección.
+
+    El vigilante revisa cada pocos minutos y, hasta el arreglo del 24-ago-2026,
+    volvía a emitir la MISMA señal sobre la misma vela cerrada. Eso dejó
+    operaciones duplicadas en el registro. No se borra el fichero (es el
+    histórico real de lo que se envió), pero al LEERLO se cuenta una sola vez:
+    si no, las estadísticas engañan y el aprendizaje vería la misma operación en
+    entrenamiento y en prueba (fuga de datos -> confianza falsa).
+    """
+    unicos, vistos = [], set()
+    for r in registros:
+        clave = (str(r.get("apertura", "")), str(r.get("direccion", "")))
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicos.append(r)
+    return unicos
+
+
 def _cargar(ruta: Path) -> list:
     if not ruta.exists():
         return []
@@ -28,7 +48,7 @@ def _cargar(ruta: Path) -> list:
                 registros.append(json.loads(linea))
             except json.JSONDecodeError:
                 continue
-    return registros
+    return deduplicar(registros)
 
 
 def _filtrar_mes(ops: list, aaaa_mm: str | None) -> list:

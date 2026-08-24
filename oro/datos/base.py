@@ -16,6 +16,15 @@ class ProveedorDatos(ABC):
       * sin ``NaN`` en OHLC.
     """
 
+    # ¿La fuente sigue el mercado REAL en este momento? Los proveedores en vivo
+    # (Yahoo) lo ponen a True; los sintéticos/de backtest lo dejan en False.
+    # El runner lo usa para saber si puede fiarse del RELOJ REAL en las
+    # decisiones de tiempo (cierre intradía, cambio de día). Es importante:
+    # cuando el mercado cierra (noche/fin de semana) dejan de llegar velas
+    # nuevas, así que la marca de la última vela se CONGELA y no sirve como
+    # reloj.
+    en_vivo: bool = False
+
     @abstractmethod
     def historico(self, velas: int) -> pd.DataFrame:
         """Devuelve las últimas ``velas`` velas cerradas."""
