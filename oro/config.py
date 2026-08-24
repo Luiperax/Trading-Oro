@@ -36,6 +36,11 @@ class ConfiguracionRiesgo:
     # Salida dinámica: tras el primer objetivo, el stop persigue al precio (a 1R
     # del máximo/mínimo favorable) para proteger beneficio y capturar el movimiento.
     trailing_activo: bool = True
+    # Distancia del stop dinámico, en múltiplos de R desde el máximo favorable.
+    # 1.0 aprieta mucho (protege beneficio pero corta las ganadoras pronto);
+    # valores mayores dan más recorrido a la operación a cambio de devolver más
+    # desde el pico. Ajustable por ORO_TRAILING_R.
+    trailing_r: float = 1.0
 
 
 @dataclass(slots=True)
@@ -130,6 +135,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )
+    cfg.riesgo.trailing_r = _num("ORO_TRAILING_R", cfg.riesgo.trailing_r)
     cfg.riesgo.operaciones_max_dia = int(
         _num("ORO_OPERACIONES_MAX_DIA", cfg.riesgo.operaciones_max_dia)
     )

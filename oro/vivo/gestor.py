@@ -49,6 +49,7 @@ class GestorOperaciones:
         cerrar_intradia: bool = True,
         hora_cierre_utc: int = 21,
         trailing_activo: bool = True,
+        trailing_r: float = 1.0,
     ) -> None:
         self.signal = signal
         self.direccion = signal.direccion
@@ -66,6 +67,7 @@ class GestorOperaciones:
         self._cerrar_intradia = cerrar_intradia
         self._hora_cierre = hora_cierre_utc
         self._trailing = trailing_activo
+        self._trailing_r = max(0.1, float(trailing_r))
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
         # Datos de la señal, para el registro histórico y el aprendizaje al cerrar.
         self.probabilidad = signal.probabilidad if signal else 0.0
@@ -74,12 +76,17 @@ class GestorOperaciones:
         self.features = dict(signal.features) if signal else {}
 
     def _trailing_stop(self, precio: float) -> None:
-        """Tras el break-even, el stop persigue al precio a 1R del máximo favorable."""
+        """Tras el break-even, el stop persigue al precio desde el máximo favorable.
+
+        La distancia (``trailing_r``, en múltiplos de R) decide el equilibrio:
+        apretar mucho protege beneficio pero corta las ganadoras pronto; aflojar
+        da recorrido a cambio de devolver más desde el pico.
+        """
         if not (self._trailing and self._en_breakeven and self.restante > 0):
             return
         signo = self.direccion.signo
         self._peak = max(self._peak, precio) if signo > 0 else min(self._peak, precio)
-        nuevo = self._peak - signo * self._riesgo
+        nuevo = self._peak - signo * self._riesgo * self._trailing_r
         # El stop solo se aprieta a favor, nunca se afloja.
         if signo > 0:
             self.stop_actual = max(self.stop_actual, nuevo)
@@ -205,6 +212,7 @@ class GestorOperaciones:
             "cerrar_intradia": self._cerrar_intradia,
             "hora_cierre": self._hora_cierre,
             "trailing": self._trailing,
+            "trailing_r": self._trailing_r,
             "peak": self._peak,
             "probabilidad": self.probabilidad,
             "confianza": self.confianza,
@@ -232,6 +240,7 @@ class GestorOperaciones:
         g._cerrar_intradia = d.get("cerrar_intradia", True)
         g._hora_cierre = d.get("hora_cierre", 21)
         g._trailing = d.get("trailing", True)
+        g._trailing_r = float(d.get("trailing_r", 1.0))
         g._peak = d.get("peak", d["entrada"])
         g.probabilidad = d.get("probabilidad", 0.0)
         g.confianza = d.get("confianza", 0.0)

@@ -110,3 +110,45 @@ def test_la_guarda_sobrevive_al_reinicio(tmp_path):
     r2 = _runner(en_vivo=False)
     r2.cargar_estado(ruta)
     assert r2._ultima_vela_senal == marca
+
+
+# ---------- 3) operación fantasma ----------
+class _NotificadorCaido:
+    """Simula un canal de aviso que falla (SMTP caído, secreto mal puesto)."""
+
+    def notificar_senal(self, signal):
+        return False
+
+    def enviar(self, titulo, cuerpo, evento=None, html=None):
+        return False
+
+
+def test_si_el_aviso_falla_no_se_abre_la_operacion(monkeypatch):
+    """Sin aviso entregado el usuario no entra: abrirla crearía una fantasma.
+
+    Una operación fantasma mandaría luego avisos de SALIDA de algo que nunca se
+    abrió y falsearía el registro que alimenta el aprendizaje.
+    """
+    from oro.dominio import Signal as _S
+
+    r = _runner(en_vivo=False)
+    r.notificador = _NotificadorCaido()
+
+    # Forzar que el motor encuentre siempre una señal.
+    sig = _signal(entrada=2000.0)
+
+    class _Analisis:
+        hay_operacion = True
+        signal = sig
+        motivos_no: list = []
+        mensaje = ""
+
+    monkeypatch.setattr(r.motor, "analizar", lambda df, snap: _Analisis())
+
+    res = r.ciclo()
+    assert res.nueva_senal is None
+    assert len(r.abiertas) == 0
+    assert r._senales_hoy == 0
+    assert "no se pudo enviar" in res.motivo_sin_entrada
+    # No se marca la vela: así se reintenta el mismo aviso en el próximo ciclo.
+    assert r._ultima_vela_senal is None

@@ -161,21 +161,33 @@ class RunnerVivo:
                     cerrar_intradia=r_cfg.cerrar_intradia,
                     hora_cierre_utc=r_cfg.hora_cierre_utc,
                     trailing_activo=r_cfg.trailing_activo,
+                    trailing_r=r_cfg.trailing_r,
                 )
-                self.abiertas.append(gestor)
-                self._senales_hoy += 1
-                self._ultima_vela_senal = momento
+                # La operación SOLO existe si el aviso llegó. Si no se pudo
+                # enviar, el usuario no habría entrado: darla por abierta crearía
+                # una operación fantasma que luego mandaría avisos de salida de
+                # algo que nunca se abrió y falsearía el registro de aprendizaje.
+                # No se marca la vela como avisada, así que se reintenta en el
+                # ciclo siguiente (unos minutos después) sobre la misma señal.
                 if not self.notificador.notificar_senal(analisis.signal):
-                    print("⚠️  AVISO NO ENVIADO (entrada): revisa la configuración de "
-                          "email/Telegram (secretos ORO_SMTP_* / ORO_TELEGRAM_*).")
-                resultado.nueva_senal = analisis.signal
-                s = analisis.signal
-                self._registrar_historial({
-                    "tipo": "entrada", "momento": momento.isoformat(),
-                    "direccion": s.direccion.value, "entrada": round(precio, 2),
-                    "stop": round(s.stop_loss, 2),
-                    "mensaje": s.resumen(), "prob": round(s.probabilidad, 2),
-                })
+                    print("⚠️  AVISO NO ENVIADO (entrada): NO se abre la operación; "
+                          "se reintenta en el próximo ciclo. Revisa los secretos "
+                          "ORO_SMTP_* / ORO_TELEGRAM_*.")
+                    resultado.motivo_sin_entrada = (
+                        "Señal encontrada pero el aviso no se pudo enviar: no se abre "
+                        "la operación (se reintenta en el próximo ciclo).")
+                else:
+                    self.abiertas.append(gestor)
+                    self._senales_hoy += 1
+                    self._ultima_vela_senal = momento
+                    resultado.nueva_senal = analisis.signal
+                    s = analisis.signal
+                    self._registrar_historial({
+                        "tipo": "entrada", "momento": momento.isoformat(),
+                        "direccion": s.direccion.value, "entrada": round(precio, 2),
+                        "stop": round(s.stop_loss, 2),
+                        "mensaje": s.resumen(), "prob": round(s.probabilidad, 2),
+                    })
             else:
                 resultado.motivo_sin_entrada = "; ".join(analisis.motivos_no) or analisis.mensaje
 

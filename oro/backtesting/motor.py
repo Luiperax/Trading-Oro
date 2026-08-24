@@ -199,12 +199,13 @@ class Backtester:
             # 3) Salida dinámica (trailing): tras el break-even el stop persigue
             #    al precio a 1R del máximo/mínimo favorable.
             if r_cfg.trailing_activo and en_be and restante > 1e-9:
+                dist = riesgo_unidad * r_cfg.trailing_r
                 if signo > 0:
                     peak = max(peak, hi)
-                    stop_actual = max(stop_actual, peak - riesgo_unidad)
+                    stop_actual = max(stop_actual, peak - dist)
                 else:
                     peak = min(peak, lo)
-                    stop_actual = min(stop_actual, peak + riesgo_unidad)
+                    stop_actual = min(stop_actual, peak + dist)
 
             if restante <= 1e-9:
                 estado = EstadoOperacion.CERRADA_TP
