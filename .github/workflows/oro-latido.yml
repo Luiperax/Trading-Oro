@@ -1,0 +1,40 @@
+# Parte diario del vigilante XAU/USD.
+#
+# Manda un correo al día contando si el sistema está vivo, qué ha hecho, si hay
+# alguna operación abierta y —cuando no hay señales— POR QUÉ no las hay.
+#
+# Existe por un motivo concreto: el sistema puede pasar días sin señal porque sus
+# filtros son muy selectivos y el oro está en rango. Ese silencio, desde fuera,
+# es idéntico a una avería. Este parte elimina esa duda.
+
+name: Parte diario XAU/USD
+
+on:
+  schedule:
+    - cron: "17 21 * * 1-5"   # de lunes a viernes, 21:17 UTC (tras el cierre intradía).
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  parte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r oro/requirements-web.txt
+      - name: Enviar el parte diario
+        env:
+          ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
+          ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
+          ORO_SMTP_CLAVE: ${{ secrets.ORO_SMTP_CLAVE }}
+          ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
+          ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
+          ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+        run: python -m oro.latido --email
