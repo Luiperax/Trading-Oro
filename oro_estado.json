@@ -337,7 +337,7 @@
       "r_acumulado": 0.0,
       "estado": "abierta",
       "abierta_en": "2026-08-25T16:00:00+00:00",
-      "resumen": "[VENTA] XAU/USD @ 4702.60 | SL 4735.34 | TP 4669.86 (1.0R) / 4637.12 (2.0R) / 4604.39 (3.0R) | P≈66% conf 87% | R:R 1.70",
+      "resumen": "",
       "cerrar_intradia": true,
       "hora_cierre": 21,
       "trailing": true,
