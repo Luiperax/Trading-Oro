@@ -78,13 +78,27 @@ def construir_resumen(ops: list, titulo: str = "REGISTRO REAL DE SEÑALES — XA
         act_g, act_p = (act_g + 1, 0) if r > 0 else (0, act_p + 1)
         max_g, max_p = max(max_g, act_g), max(max_p, act_p)
 
+    # Coste REAL de operar: cada operación cruza el spread. Sin descontarlo, el
+    # marcador engaña (y el engaño crece con el número de operaciones).
+    from .config import cargar_configuracion as _cfg
+    coste = _cfg().riesgo.coste_operacion
+    coste_r = 0.0
+    for o in ops:
+        riesgo = abs(float(o.get("entrada", 0)) - float(o.get("stop_inicial", 0)))
+        if riesgo > 0:
+            coste_r += coste / riesgo
+    neto = sum(erres) - coste_r
+    exp_neta = neto / n if n else 0.0
+
     lineas += [
         f"Operaciones cerradas : {n}",
         f"Se cumplieron (ganadas): {len(ganadas)}   |   Fallaron: {len(perdidas)}",
         f"% de ACIERTO         : {win:.1%}",
         "Profit Factor        : ∞" if pf == float("inf") else f"Profit Factor        : {pf:.2f}",
         f"Expectancy (R media) : {expectancy:+.3f}R",
-        f"Resultado total      : {sum(erres):+.2f}R",
+        f"Resultado total      : {sum(erres):+.2f}R  (antes de costes)",
+        f"Coste de operar      : -{coste_r:.2f}R  ({coste:.2f} $/op de spread)",
+        f"RESULTADO NETO       : {neto:+.2f}R   (expectativa {exp_neta:+.3f}R/op)",
         f"Racha ganadora máx   : {max_g}   | perdedora máx: {max_p}",
         "-" * 52,
         "Últimas operaciones:",

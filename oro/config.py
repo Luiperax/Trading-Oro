@@ -41,6 +41,11 @@ class ConfiguracionRiesgo:
     # valores mayores dan más recorrido a la operación a cambio de devolver más
     # desde el pico. Ajustable por ORO_TRAILING_R.
     trailing_r: float = 1.0
+    # Coste real de operar, en $/oz por operación completa (abrir + cerrar).
+    # Al comprar pagas el ask y al vender cobras el bid: cruzas el spread. Sin
+    # esto el backtest da resultados optimistas, y el efecto crece con el número
+    # de operaciones. Ajustable por ORO_COSTE_OPERACION según tu bróker.
+    coste_operacion: float = 0.30
 
 
 @dataclass(slots=True)
@@ -136,6 +141,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )
     cfg.riesgo.trailing_r = _num("ORO_TRAILING_R", cfg.riesgo.trailing_r)
+    cfg.riesgo.coste_operacion = _num("ORO_COSTE_OPERACION", cfg.riesgo.coste_operacion)
     cfg.riesgo.operaciones_max_dia = int(
         _num("ORO_OPERACIONES_MAX_DIA", cfg.riesgo.operaciones_max_dia)
     )

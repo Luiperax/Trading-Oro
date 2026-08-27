@@ -226,6 +226,15 @@ class Backtester:
             pnl += restante * tamano_total * signo * (precio_cierre - entrada)
             estado = EstadoOperacion.CERRADA_MANUAL
 
+        # COSTE REAL de operar: al abrir pagas el ask y al cerrar cobras el bid,
+        # así que cruzas el spread una vez por operación completa. Ignorarlo
+        # inflaba los resultados, y el efecto crece cuantas más operaciones se
+        # hagan: es determinante al comparar perfiles de frecuencia distinta.
+        coste = self.cfg.riesgo.coste_operacion
+        if coste > 0 and riesgo_unidad > 0:
+            realizado_r -= coste / riesgo_unidad
+            pnl -= coste * tamano_total
+
         trade = Trade(
             momento_apertura=indices[idx_entrada].to_pydatetime(),
             direccion=signal.direccion,
