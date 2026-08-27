@@ -46,21 +46,8 @@ jobs:
         run: python -m oro.aprender
       - name: Guardar el modelo/estado si mejoró
         run: |
-          git config user.name "oro-aprendizaje-bot"
-          git config user.email "actions@users.noreply.github.com"
-          # Cada fichero por separado: si el modelo no se promocionó (no existe
-          # modelo_oro.pkl), no debe impedir guardar aprendizaje_estado.json.
-          git add -f modelo_oro.pkl 2>/dev/null || true
-          git add -f aprendizaje_estado.json 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "Aprendizaje XAU/USD: actualización del modelo/estado [skip ci]"
-            empujado=""
-            for intento in 1 2 3; do
-              if git push; then empujado="si"; break; fi
-              git fetch origin main && git rebase origin/main || git rebase --abort || true
-              sleep 3
-            done
-            [ -n "$empujado" ] || echo "No se pudo guardar (se reintenta el próximo mes)."
-          else
-            echo "El aprendizaje no cambió el modelo (sin ventaja nueva demostrable)."
-          fi
+          # Guardado a prueba de conflictos (oro/persistencia.py). El rebase que
+          # había aquí es el MISMO patrón que perdió una operación el 24-ago:
+          # si choca con un guardado del vigilante, abortaba y tiraba el modelo
+          # recién aprendido... sin reintentar hasta el mes siguiente.
+          python -m oro.persistencia --aprendizaje

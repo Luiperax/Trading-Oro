@@ -55,6 +55,25 @@ def _guardar_en_repo(ruta: str) -> bool:
     return guardar_en_repo(ruta)
 
 
+def _toca_relevo(cfg) -> bool:
+    """¿Hay que ceder el turno al trabajo de CIERRE de sesión?
+
+    El vigilante (ventana de ~50 min) y el cierre de sesión corren en máquinas
+    distintas, cada una con SU copia del estado. Si se solapan, los dos gestionan
+    la MISMA operación: la cierran por duplicado —dos correos de salida y dos
+    registros— y el push del vigilante puede pisar el estado del cierre.
+
+    Para que eso no ocurra, el vigilante termina su ventana poco antes de que
+    entre el cierre (20:42 UTC): a partir de ahí, el cierre es el único que actúa.
+    """
+    from datetime import datetime, timezone
+
+    ahora = datetime.now(timezone.utc)
+    minuto_relevo = cfg.riesgo.hora_cierre_utc * 60 - 22   # 20:38 UTC con cierre a las 21
+    minuto_actual = ahora.hour * 60 + ahora.minute
+    return minuto_relevo <= minuto_actual < cfg.riesgo.hora_cierre_utc * 60 + 60
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--probar" in argv:
@@ -102,7 +121,7 @@ def main(argv=None) -> int:
         except Exception as e:  # noqa: BLE001 — el bucle no debe caerse por un fallo puntual.
             print("  ! error en el ciclo:", type(e).__name__, str(e)[:100])
 
-        if time.monotonic() >= fin:
+        if time.monotonic() >= fin or _toca_relevo(cfg):
             break
         time.sleep(cada)
 

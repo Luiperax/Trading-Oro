@@ -55,6 +55,42 @@ def _unir_jsonl(nuestro: str | None, remoto: str | None) -> str | None:
     return "\n".join(salida) + "\n"
 
 
+def guardar_ficheros(ficheros: list[str], mensaje: str, intentos: int = 4) -> bool:
+    """Sube ficheros CUALESQUIERA con la misma estrategia a prueba de conflictos.
+
+    La usa el aprendizaje mensual (modelo + informe), que antes hacía su propio
+    rebase y podía tirar el modelo recién aprendido sin avisar —y no reintentaba
+    hasta el mes siguiente—.
+    """
+    if _git("rev-parse", "--is-inside-work-tree").returncode != 0:
+        return False
+    nuestros = {f: Path(f).read_bytes() for f in ficheros if Path(f).exists()}
+    if not nuestros:
+        return False
+
+    _git("config", "user.name", "oro-aprendizaje-bot")
+    _git("config", "user.email", "actions@users.noreply.github.com")
+
+    for _ in range(intentos):
+        if _git("fetch", "origin", "main", timeout=90).returncode != 0:
+            time.sleep(2)
+            continue
+        _git("reset", "--hard", "origin/main")
+        for f, datos in nuestros.items():
+            Path(f).write_bytes(datos)          # lo nuestro manda
+            _git("add", "-f", f)
+        if _git("diff", "--cached", "--quiet").returncode == 0:
+            return False
+        if _git("commit", "-m", mensaje).returncode != 0:
+            time.sleep(2)
+            continue
+        if _git("push", timeout=90).returncode == 0:
+            return True
+        time.sleep(2)
+    print("⚠️  NO se pudo guardar:", ", ".join(nuestros))
+    return False
+
+
 def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     """Sube estado y registro al repositorio. True si se guardó algo.
 
@@ -105,6 +141,14 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
 
 
 def main() -> int:
+    import sys
+    if "--aprendizaje" in sys.argv[1:]:
+        ok = guardar_ficheros(
+            ["modelo_oro.pkl", "aprendizaje_estado.json"],
+            "Aprendizaje XAU/USD: actualización del modelo/estado [skip ci]")
+        print("Modelo/estado de aprendizaje guardado." if ok
+              else "El aprendizaje no cambió el modelo (sin ventaja nueva demostrable).")
+        return 0
     guardado = guardar_en_repo()
     print("Estado guardado en el repositorio." if guardado else "Sin cambios que guardar.")
     return 0
