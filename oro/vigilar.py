@@ -50,47 +50,9 @@ def _num_env(nombre: str, defecto: float) -> float:
 
 
 def _guardar_en_repo(ruta: str) -> bool:
-    """Sube el estado a GitHub AHORA, sin esperar al final de la ventana.
-
-    Es crítico para no perder operaciones. El aviso por correo se envía nada más
-    detectar la señal, pero el estado solo se subía al terminar la ventana (~50
-    min después). Si la máquina moría en ese hueco —GitHub cancela y recicla
-    ejecuciones— el correo de ENTRADA ya había salido y la operación se perdía:
-    ninguna ejecución posterior sabía que estaba abierta y el aviso de SALIDA no
-    llegaba nunca. Guardando en cuanto hay novedad, ese hueco desaparece.
-
-    Devuelve True si se subió algo. Fuera de un repo con remoto (uso local) no
-    hace nada y no molesta.
-    """
-    import subprocess
-
-    def _git(*args) -> subprocess.CompletedProcess:
-        return subprocess.run(("git",) + args, capture_output=True, text=True, timeout=60)
-
-    try:
-        if _git("rev-parse", "--is-inside-work-tree").returncode != 0:
-            return False
-        _git("config", "user.name", "oro-alertas-bot")
-        _git("config", "user.email", "actions@users.noreply.github.com")
-        # Cada fichero por separado: si uno no existe aún, no debe abortar el otro.
-        _git("add", "-f", ruta)
-        _git("add", "-f", "operaciones_oro.jsonl")
-        if _git("diff", "--cached", "--quiet").returncode == 0:
-            return False  # nada que guardar
-        if _git("commit", "-m", "Estado XAU/USD tras señal [skip ci]").returncode != 0:
-            return False
-        for _ in range(3):
-            if _git("push").returncode == 0:
-                return True
-            _git("fetch", "origin", "main")
-            if _git("rebase", "origin/main").returncode != 0:
-                _git("rebase", "--abort")
-            time.sleep(2)
-        print("  ⚠️  no se pudo subir el estado ahora; se reintenta al cerrar la ventana.")
-        return False
-    except Exception as e:  # noqa: BLE001 — guardar no debe tumbar el vigilante.
-        print("  ! error guardando el estado:", type(e).__name__, str(e)[:80])
-        return False
+    """Sube el estado AHORA (ver oro/persistencia: a prueba de conflictos)."""
+    from .persistencia import guardar_en_repo
+    return guardar_en_repo(ruta)
 
 
 def main(argv=None) -> int:

@@ -35,35 +35,21 @@ def test_num_env_valor_invalido_usa_defecto(monkeypatch):
 
 
 # ---------- guardado durable inmediato ----------
-def test_guardar_en_repo_sube_al_detectar_señal(tmp_path, monkeypatch):
-    """Tras una señal, el estado debe subirse YA (no al cerrar la ventana).
+def test_vigilar_delega_en_la_persistencia_robusta(monkeypatch):
+    """El vigilante guarda con el módulo a prueba de conflictos, no a mano.
 
-    Es el fallo que deja entradas huérfanas: el correo sale al instante pero el
-    estado tardaba hasta 50 min en subirse; si la máquina moría en ese hueco, la
-    operación se perdía y su aviso de SALIDA no llegaba nunca.
+    El guardado casero con rebase perdió una operación abierta el 24-ago-2026
+    (chocó, abortó y el fallo se tragaba). Ver oro/tests/test_persistencia.py.
     """
-    import subprocess
-
     vig = importlib.import_module("oro.vigilar")
-    monkeypatch.chdir(tmp_path)
-    subprocess.run(["git", "init", "-q"], check=True)
-    subprocess.run(["git", "config", "user.email", "t@t.t"], check=True)
-    subprocess.run(["git", "config", "user.name", "t"], check=True)
-    (tmp_path / "estado.json").write_text('{"abiertas": []}', encoding="utf-8")
-    subprocess.run(["git", "add", "estado.json"], check=True)
-    subprocess.run(["git", "commit", "-qm", "init"], check=True)
-
-    # Cambio de estado (como al abrir una operación).
-    (tmp_path / "estado.json").write_text('{"abiertas": [{"dir": "compra"}]}', encoding="utf-8")
-
-    # Sin remoto el push falla, pero el COMMIT debe quedar hecho igualmente:
-    # así la siguiente ejecución encuentra la operación.
-    vig._guardar_en_repo("estado.json")
-    log = subprocess.run(["git", "log", "--oneline"], capture_output=True, text=True).stdout
-    assert "Estado XAU/USD tras señal" in log
+    llamadas = []
+    monkeypatch.setattr("oro.persistencia.guardar_en_repo",
+                        lambda ruta="oro_estado.json": llamadas.append(ruta) or True)
+    assert vig._guardar_en_repo("estado.json") is True
+    assert llamadas == ["estado.json"]
 
 
-def test_guardar_en_repo_no_falla_fuera_de_git(tmp_path, monkeypatch):
+def test_guardar_fuera_de_git_no_rompe(tmp_path, monkeypatch):
     """En uso local (sin repo) no debe romper el vigilante."""
     vig = importlib.import_module("oro.vigilar")
     monkeypatch.chdir(tmp_path)

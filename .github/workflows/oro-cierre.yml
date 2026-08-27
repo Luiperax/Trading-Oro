@@ -1,0 +1,57 @@
+# Cierre garantizado de fin de sesión (XAU/USD).
+#
+# Existe porque el aviso de "sal de la operación" NO puede depender de que justo
+# a esa hora haya una ventana de vigilancia viva. Las ventanas duran ~50 min y
+# GitHub las encola y cancela a su antojo: puede no haber ninguna corriendo al
+# cierre, y entonces la operación se quedaría abierta de un día para otro —justo
+# lo que el modo intradía debe impedir—.
+#
+# Es un trabajo CORTO e independiente (arranca en segundos), así que no compite
+# con la ventana larga ni se queda encolado detrás de ella.
+#
+# Se ejecuta dos veces por seguridad: si la primera no consigue máquina, la
+# segunda lo cubre. Ambas con margen ANTES del cierre del mercado (21:00 UTC),
+# para que dé tiempo a cerrar en el bróker.
+
+name: Cierre de sesión XAU/USD
+
+on:
+  schedule:
+    - cron: "42 20 * * 1-5"   # 20:42 UTC: aviso con margen antes del cierre.
+    - cron: "56 20 * * 1-5"   # 20:56 UTC: red de seguridad por si falló la 1ª.
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oro-cierre           # nunca dos cierres a la vez.
+  cancel-in-progress: false
+
+jobs:
+  cerrar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r oro/requirements-web.txt
+      - name: Cerrar lo que quede abierto y avisar
+        env:
+          ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
+          ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
+          ORO_SMTP_CLAVE: ${{ secrets.ORO_SMTP_CLAVE }}
+          ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
+          ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
+          ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+        run: python -m oro.cierre
+      - name: Guardar el estado y el registro de operaciones
+        run: |
+          # Guardado a prueba de conflictos (ver oro/persistencia.py). El rebase
+          # en shell que había aquí llegó a PERDER una operación abierta: chocó,
+          # abortó y el fallo se tragaba con un echo.
+          python -m oro.persistencia

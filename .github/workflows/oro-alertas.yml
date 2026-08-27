@@ -101,26 +101,9 @@ jobs:
             python -m oro.vigilar
           fi
 
-      - name: Guardar el estado y el registro de operaciones si cambió
+      - name: Guardar el estado y el registro de operaciones
         run: |
-          git config user.name "oro-alertas-bot"
-          git config user.email "actions@users.noreply.github.com"
-          # IMPORTANTE: añadir cada fichero POR SEPARADO. 'git add A B' aborta la
-          # operación ENTERA si B no existe todavía (p. ej. operaciones_oro.jsonl
-          # antes del primer cierre), dejando A sin preparar -> el estado no se
-          # guardaba nunca y las salidas no se seguan entre ejecuciones.
-          git add -f oro_estado.json 2>/dev/null || true
-          git add -f operaciones_oro.jsonl 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "Estado y registro de señales XAU/USD [skip ci]"
-            # Reintento con rebase por si el trabajo mensual empujó a la vez.
-            empujado=""
-            for intento in 1 2 3; do
-              if git push; then empujado="si"; break; fi
-              git fetch origin main && git rebase origin/main || git rebase --abort || true
-              sleep 3
-            done
-            [ -n "$empujado" ] || echo "No se pudo guardar este estado (se reintenta en el próximo ciclo)."
-          else
-            echo "Sin cambios que guardar."
-          fi
+          # Guardado a prueba de conflictos (ver oro/persistencia.py). El rebase
+          # en shell que había aquí llegó a PERDER una operación abierta: chocó,
+          # abortó y el fallo se tragaba con un echo.
+          python -m oro.persistencia

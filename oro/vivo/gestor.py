@@ -16,7 +16,7 @@ El gestor es determinista y se prueba sin red ni tiempo real.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 
 from ..dominio import Direccion, EstadoOperacion, Signal
@@ -102,9 +102,32 @@ class GestorOperaciones:
         """True si hay que cerrar por ser intradía: cambió el día o llegó la hora."""
         if not self._cerrar_intradia:
             return False
-        cambio_dia = momento.date() > self.abierta_en.date()
+        # Se compara con el tiempo REAL transcurrido, no solo con la fecha: una
+        # señal de la vela de las 23:00 vista a las 00:30 ya es "otro día" por
+        # calendario, pero la operación acaba de abrirse y cerrarla al instante
+        # no tiene sentido. Se le da margen hasta la hora de cierre siguiente.
+        cambio_dia = (momento.date() > self.abierta_en.date()
+                      and (momento - self.abierta_en) >= timedelta(hours=2))
         fin_sesion = momento.hour >= self._hora_cierre and momento.date() == self.abierta_en.date()
         return cambio_dia or fin_sesion
+
+    def cerrar_ahora(self, precio: float, momento: datetime,
+                     motivo: str = "Cierre forzoso") -> List[EventoGestion]:
+        """Cierra la operación YA al precio dado, pase lo que pase.
+
+        Lo usa el cierre garantizado de fin de sesión: el aviso de salida no
+        puede depender de que justo en ese minuto haya una ventana de vigilancia
+        viva. Si ya está cerrada, no hace nada.
+        """
+        if self.estado is not EstadoOperacion.ABIERTA:
+            return []
+        self.r_acumulado += self.restante * self._r_en(precio)
+        self.restante = 0.0
+        self.estado = EstadoOperacion.CERRADA_MANUAL
+        return [EventoGestion(
+            Evento.CIERRE, momento, precio,
+            f"{motivo} a {precio:.2f}. Resultado total: {self.r_acumulado:+.2f}R.",
+            self.r_acumulado, cierra_operacion=True)]
 
     def actualizar(self, precio: float, momento: datetime) -> List[EventoGestion]:
         """Procesa un nuevo precio y devuelve los eventos de gestión generados."""
