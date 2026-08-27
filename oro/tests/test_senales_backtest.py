@@ -73,5 +73,10 @@ def test_backtest_no_supera_tope_diario():
     df = ProveedorSintetico(velas=3000, semilla=2).historico(3000)
     res = Backtester(cfg, calentamiento=250).ejecutar(df)
     from collections import Counter
-    por_dia = Counter(t.momento_apertura.date() for t in res.operaciones)
-    assert all(v <= 2 for v in por_dia.values())
+
+    from oro.dominio import dia_sesion
+
+    # El tope es por DÍA DE SESIÓN del oro (22:00->21:00 UTC), no por día de
+    # calendario: una fecha de calendario contiene trozos de DOS sesiones.
+    por_sesion = Counter(dia_sesion(t.momento_apertura) for t in res.operaciones)
+    assert all(v <= 2 for v in por_sesion.values())

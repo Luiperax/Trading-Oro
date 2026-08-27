@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import cargar_configuracion
+from .tiempo import etiqueta_zona, hora_local
 
 
 def _estado(ruta: str) -> dict:
@@ -91,7 +92,7 @@ def construir_parte(cfg, ahora: datetime | None = None) -> str:
     precio, motivo = _motivo_actual(cfg)
 
     L = ["=" * 52, f"  PARTE DIARIO XAU/USD — {hoy}", "=" * 52,
-         "El vigilante está EN MARCHA." ]
+         f"El vigilante está EN MARCHA. (Horas en {etiqueta_zona(ahora)}, tu hora.)"]
     L.append(f"Oro ahora: {precio:.2f} $" if precio else "Oro ahora: (sin dato)")
     L.append("")
     L.append(f"Hoy: {len(entradas)} entrada(s), {len(salidas)} salida(s), "
@@ -100,7 +101,11 @@ def construir_parte(cfg, ahora: datetime | None = None) -> str:
     if entradas or salidas or gestiones:
         L.append("")
         for h in reversed(entradas + gestiones + salidas):
-            L.append(f"  · {str(h.get('momento',''))[11:16]}  {str(h.get('mensaje',''))[:70]}")
+            try:
+                hh = hora_local(datetime.fromisoformat(str(h.get("momento", ""))))
+            except ValueError:
+                hh = str(h.get("momento", ""))[11:16]
+            L.append(f"  · {hh}  {str(h.get('mensaje',''))[:70]}")
 
     L.append("")
     if abiertas:

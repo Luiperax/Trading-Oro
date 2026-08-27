@@ -22,6 +22,7 @@ from typing import List, Optional
 from ..config import ConfiguracionSistema, cargar_configuracion
 from ..datos import ProveedorDatos, ProveedorYahoo
 from ..dominio import MarketSnapshot, Signal, sesion_de
+from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
 from ..indicadores import atr as _atr
 from ..notificaciones import Notificador, NotificadorConsola
 from ..notificaciones.base import Evento
@@ -133,6 +134,11 @@ class RunnerVivo:
         # 2) ¿Buscar nueva entrada?
         r_cfg = self.cfg.riesgo
         # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar el mismo día).
+        # No se abre desde una hora antes del cierre hasta medianoche UTC.
+        # Ojo: técnicamente a partir de las 22:00 ya hay sesión nueva con 22 h por
+        # delante, así que podrían tomarse. Se midió sobre 874 días reales y NO
+        # compensa: incluirlas empeora el resultado (PF 1.00 y -5.6R, frente a
+        # PF 1.04 y +3.5R dejándolas fuera). Son horas de poca liquidez.
         tarde_para_intradia = (
             r_cfg.cerrar_intradia and ahora.hour >= r_cfg.hora_cierre_utc - 1
         )
@@ -331,7 +337,9 @@ class RunnerVivo:
         return momento
 
     def _reset_diario(self, momento: datetime) -> None:
-        hoy = momento.date()
+        # Por día de SESIÓN: los topes diarios deben acompañar a la sesión real
+        # del oro (22:00->21:00 UTC), no reiniciarse a medianoche en mitad de ella.
+        hoy = dia_sesion(momento)
         if self._fecha != hoy:
             self._fecha = hoy
             self._senales_hoy = 0
@@ -355,10 +363,13 @@ class RunnerVivo:
             Evento.CIERRE: "🚪 SAL DE LA OPERACIÓN — cierre (XAU/USD)",
         }
         titulo = titulos.get(ev.tipo, "Actualización — XAU/USD")
+        from ..tiempo import etiqueta_zona, hora_local
+        hora = f"{hora_local(ev.momento)} {etiqueta_zona(ev.momento)}"
         cuerpo_txt = (f"{ev.mensaje}\n\nQué hacer: {self._instruccion(ev.tipo)}\n"
+                      f"Hora: {hora}\n"
                       f"Dirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}")
         cuerpo_html = (f"<b>{self._instruccion(ev.tipo)}</b><br>{ev.mensaje}<br><br>"
-                       f"<span style='color:#8A93A3;'>Dirección: "
+                       f"<span style='color:#8A93A3;'>Hora: <b>{hora}</b> · Dirección: "
                        f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
         from ..notificaciones.base import mensaje_html_evento
         ok = self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,

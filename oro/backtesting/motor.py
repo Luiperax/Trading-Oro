@@ -19,6 +19,7 @@ from typing import List, Optional
 import pandas as pd
 
 from ..config import ConfiguracionSistema
+from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
 from ..dominio import (
     Direccion,
     EstadoOperacion,
@@ -77,12 +78,15 @@ class Backtester:
 
         while i < n - 1:
             momento = indices[i].to_pydatetime()
-            dia = momento.date()
+            dia = dia_sesion(momento)
             if ops_por_dia.get(dia, 0) >= self.cfg.riesgo.operaciones_max_dia:
                 i += 1
                 continue
             # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar hoy).
-            if self.cfg.riesgo.cerrar_intradia and momento.hour >= self.cfg.riesgo.hora_cierre_utc - 1:
+            # Igual que en vivo: no se abre de 20:00 a 23:59 UTC (medido: las
+            # entradas nocturnas empeoran el resultado).
+            if (self.cfg.riesgo.cerrar_intradia
+                    and momento.hour >= self.cfg.riesgo.hora_cierre_utc - 1):
                 i += 1
                 continue
 
@@ -159,8 +163,12 @@ class Backtester:
             #    ÚLTIMA vela del día de entrada (antes del hueco de fin de semana).
             if r_cfg.cerrar_intradia and j > idx_entrada:
                 ts = indices[j]
-                proximo_nuevo_dia = (j + 1 >= n) or (indices[j + 1].date() != entrada_dia.date())
-                if (ts.date() != entrada_dia.date() or ts.hour >= r_cfg.hora_cierre_utc
+                sesion_entrada = dia_sesion(entrada_dia.to_pydatetime())
+                sesion_actual = dia_sesion(ts.to_pydatetime())
+                proximo_nuevo_dia = (j + 1 >= n) or (
+                    dia_sesion(indices[j + 1].to_pydatetime()) != sesion_entrada)
+                if (sesion_actual != sesion_entrada
+                        or r_cfg.hora_cierre_utc <= ts.hour < HORA_APERTURA_UTC
                         or proximo_nuevo_dia):
                     precio_cierre = (hi + lo) / 2.0  # salida imparcial en esa vela.
                     realizado_r += restante * signo * (precio_cierre - entrada) / riesgo_unidad

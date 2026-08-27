@@ -29,6 +29,21 @@ class Evento(str, Enum):
     CAMBIO_MERCADO = "cambio_mercado"
 
 
+def _cierre_local() -> str:
+    """Hora de cierre de la sesión, en la hora del usuario (p. ej. 23:00 en Madrid).
+
+    En el mensaje no sirve decir "21:00 UTC": quien lo lee necesita su hora.
+    """
+    from datetime import datetime, timezone
+
+    from ..dominio.mercado import HORA_CIERRE_UTC
+    from ..tiempo import etiqueta_zona, hora_local
+
+    hoy = datetime.now(timezone.utc).replace(
+        hour=HORA_CIERRE_UTC, minute=0, second=0, microsecond=0)
+    return f"{hora_local(hoy)} {etiqueta_zona(hoy)}"
+
+
 def _lote_y_riesgo(signal: Signal):
     """Convierte el tamaño (oz) al LOTE del bróker y calcula la pérdida máxima.
 
@@ -151,7 +166,9 @@ def mensaje_html_de_senal(signal: Signal) -> str:
     </td></tr>
    </table>
   </td></tr>
-  <tr><td style="text-align:center;padding:12px;color:#4a5568;font-size:11px;">Sistema XAU/USD · señal generada automáticamente</td></tr>
+  <tr><td style="text-align:center;padding:12px 14px;color:#4a5568;font-size:11px;">
+     ⏱ Operación INTRADÍA: se cierra hoy antes de las <b>{_cierre_local()}</b> (tu hora).<br>
+     Sistema XAU/USD · señal generada automáticamente</td></tr>
  </table>
 </div>"""
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from typing import Optional
 
@@ -57,6 +57,31 @@ class Sesion(str, Enum):
     NUEVA_YORK = "nueva_york"
     SOLAPE_LDN_NY = "solape_ldn_ny"
     CIERRE = "cierre"
+
+
+# El oro (futuro CME) cotiza de 22:00 a 21:00 UTC: solo cierra una hora al día
+# (21:00-22:00) y el fin de semana. Comprobado sobre las velas reales: hay datos
+# en todas las horas UTC salvo las 21:00, y tras el fin de semana la primera vela
+# es la del domingo a las 22:00.
+#
+# Por tanto el "día de operativa" NO es el día de calendario: va de las 22:00 de
+# un día a las 21:00 del siguiente. Usar el calendario provocaba dos disparates:
+# bloquear entradas a las 22:00 y 23:00 "por ser tarde" cuando en realidad acaba
+# de empezar una sesión de 22 horas, y cerrar a medianoche una operación abierta
+# hora y media antes.
+HORA_APERTURA_UTC = 22   # abre la sesión siguiente.
+HORA_CIERRE_UTC = 21     # cierra la sesión (y empieza la pausa diaria).
+
+
+def dia_sesion(momento: datetime) -> date:
+    """Día de operativa del oro al que pertenece un instante.
+
+    A partir de las 22:00 UTC ya se está operando la sesión del día SIGUIENTE.
+    """
+    m = momento.astimezone(timezone.utc)
+    if m.hour >= HORA_APERTURA_UTC:
+        return (m + timedelta(days=1)).date()
+    return m.date()
 
 
 def sesion_de(momento: datetime) -> Sesion:

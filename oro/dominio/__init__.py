@@ -6,7 +6,7 @@ cálculo ni de red) para que el resto del sistema dependa de ellas y no al revé
 
 from __future__ import annotations
 
-from .mercado import Candle, MarketSnapshot, Sesion, sesion_de
+from .mercado import Candle, MarketSnapshot, Sesion, dia_sesion, sesion_de
 from .senal import Direccion, Signal, TakeProfit
 from .operacion import EstadoOperacion, Trade
 
@@ -15,6 +15,7 @@ __all__ = [
     "MarketSnapshot",
     "Sesion",
     "sesion_de",
+    "dia_sesion",
     "Direccion",
     "Signal",
     "TakeProfit",

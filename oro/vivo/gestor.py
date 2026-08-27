@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List
 
+from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
 from ..dominio import Direccion, EstadoOperacion, Signal
 from ..notificaciones.base import Evento
 
@@ -102,14 +103,16 @@ class GestorOperaciones:
         """True si hay que cerrar por ser intradía: cambió el día o llegó la hora."""
         if not self._cerrar_intradia:
             return False
-        # Se compara con el tiempo REAL transcurrido, no solo con la fecha: una
-        # señal de la vela de las 23:00 vista a las 00:30 ya es "otro día" por
-        # calendario, pero la operación acaba de abrirse y cerrarla al instante
-        # no tiene sentido. Se le da margen hasta la hora de cierre siguiente.
-        cambio_dia = (momento.date() > self.abierta_en.date()
-                      and (momento - self.abierta_en) >= timedelta(hours=2))
-        fin_sesion = momento.hour >= self._hora_cierre and momento.date() == self.abierta_en.date()
-        return cambio_dia or fin_sesion
+        # Se razona por DÍA DE SESIÓN del oro (22:00->21:00 UTC), no por día de
+        # calendario. Con el calendario, una operación abierta a las 22:30 —con
+        # la sesión recién abierta y 22 h por delante— se cerraba a medianoche.
+        sesion_ahora = dia_sesion(momento)
+        sesion_apertura = dia_sesion(self.abierta_en)
+        cambio_sesion = sesion_ahora > sesion_apertura
+        # Fin de la sesión en curso: entre la hora de cierre y la reapertura.
+        fin_sesion = (sesion_ahora == sesion_apertura
+                      and self._hora_cierre <= momento.hour < HORA_APERTURA_UTC)
+        return cambio_sesion or fin_sesion
 
     def cerrar_ahora(self, precio: float, momento: datetime,
                      motivo: str = "Cierre forzoso") -> List[EventoGestion]:
