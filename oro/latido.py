@@ -1,11 +1,15 @@
-"""Parte diario del vigilante: "sigo vivo y esto es lo que ha pasado".
+"""Parte diario del vigilante: "sigo vivo y esto es lo que pasó".
 
 Nace de un problema real: el sistema puede pasar días sin emitir una sola señal
 porque sus filtros son muy selectivos y el oro está en rango. Desde fuera, ese
-silencio es indistinguible de una avería —y de hecho el usuario lo interpretó
-como avería tras 6 días sin avisos—. Este parte se manda una vez al día y dice
-con claridad: si está vivo, qué ha hecho hoy, si hay algo abierto y, cuando no
-hay señales, POR QUÉ no las hay.
+silencio es indistinguible de una avería.
+
+Informa SIEMPRE de la última sesión YA CERRADA, no del día de calendario. Es
+importante: GitHub retrasa las tareas programadas de forma muy irregular (se ha
+medido desde 30 min hasta 8 h). Cuando el parte se enviaba "de hoy" y llegaba a
+la mañana siguiente, resumía un día recién empezado —todo a cero— en vez de la
+jornada que acababa de cerrar. Ahora el contenido es correcto llegue cuando
+llegue.
 
     python -m oro.latido            # lo imprime
     python -m oro.latido --email    # lo envía por los canales configurados
@@ -16,10 +20,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import cargar_configuracion
+from .dominio.mercado import HORA_APERTURA_UTC, dia_sesion
 from .tiempo import etiqueta_zona, hora_local
 
 
@@ -31,6 +36,19 @@ def _estado(ruta: str) -> dict:
         return json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def sesion_a_informar(ahora: datetime) -> date:
+    """Última sesión del oro que YA ha cerrado.
+
+    La sesión va de 22:00 a 21:00 UTC. Si la de ahora sigue abierta, se informa
+    de la anterior: así el parte dice la verdad aunque se entregue con horas de
+    retraso.
+    """
+    s = dia_sesion(ahora)
+    cfg_cierre = cargar_configuracion().riesgo.hora_cierre_utc
+    ya_cerro = cfg_cierre <= ahora.hour < HORA_APERTURA_UTC
+    return s if ya_cerro else s - timedelta(days=1)
 
 
 def _motivo_actual(cfg) -> tuple[float | None, str]:
@@ -56,29 +74,23 @@ def _motivo_actual(cfg) -> tuple[float | None, str]:
         return None, f"no se pudo consultar el mercado ({type(e).__name__})."
 
 
-def construir_parte(cfg, ahora: datetime | None = None) -> str:
-    ahora = ahora or datetime.now(timezone.utc)
-    hoy = ahora.date()
+def _recopilar(cfg, ahora: datetime) -> dict:
+    """Reúne todo lo que el parte necesita contar."""
+    sesion = sesion_a_informar(ahora)
     est = _estado(os.getenv("ORO_ESTADO", "oro_estado.json"))
     historial = est.get("historial", []) or []
 
-    def _de_hoy(tipos):
+    def _de_la_sesion(tipos):
         out = []
         for h in historial:
             try:
                 m = datetime.fromisoformat(str(h.get("momento", "")))
             except ValueError:
                 continue
-            if m.date() == hoy and h.get("tipo") in tipos:
+            if dia_sesion(m) == sesion and h.get("tipo") in tipos:
                 out.append(h)
         return out
 
-    entradas = _de_hoy({"entrada"})
-    salidas = _de_hoy({"cierre"})
-    gestiones = _de_hoy({"tp_alcanzado", "mover_stop"})
-    abiertas = est.get("abiertas", []) or []
-
-    # Días desde la última señal (mide el silencio de forma objetiva).
     ultima = None
     for h in historial:
         if h.get("tipo") == "entrada":
@@ -87,61 +99,180 @@ def construir_parte(cfg, ahora: datetime | None = None) -> str:
             except (ValueError, KeyError):
                 pass
             break
-    dias_sin = (ahora - ultima).days if ultima else None
 
     precio, motivo = _motivo_actual(cfg)
+    return {
+        "sesion": sesion,
+        "ahora": ahora,
+        "entradas": _de_la_sesion({"entrada"}),
+        "salidas": _de_la_sesion({"cierre"}),
+        "gestiones": _de_la_sesion({"tp_alcanzado", "mover_stop"}),
+        "abiertas": est.get("abiertas", []) or [],
+        "dias_sin": (ahora - ultima).days if ultima else None,
+        "precio": precio,
+        "motivo": motivo,
+    }
 
-    L = ["=" * 52, f"  PARTE DIARIO XAU/USD — {hoy}", "=" * 52,
-         f"El vigilante está EN MARCHA. (Horas en {etiqueta_zona(ahora)}, tu hora.)"]
-    L.append(f"Oro ahora: {precio:.2f} $" if precio else "Oro ahora: (sin dato)")
+
+# ---------- versión de texto (respaldo para clientes sin HTML) ----------
+def construir_parte(cfg, ahora: datetime | None = None) -> str:
+    d = _recopilar(cfg, ahora or datetime.now(timezone.utc))
+    L = ["=" * 46,
+         f"  PARTE XAU/USD — sesión del {d['sesion']}",
+         "=" * 46,
+         f"El vigilante está EN MARCHA. (Horas en {etiqueta_zona(d['ahora'])}, tu hora.)"]
+    L.append(f"Oro ahora: {d['precio']:.2f} $" if d["precio"] else "Oro ahora: (sin dato)")
     L.append("")
-    L.append(f"Hoy: {len(entradas)} entrada(s), {len(salidas)} salida(s), "
-             f"{len(gestiones)} aviso(s) de gestión.")
-
-    if entradas or salidas or gestiones:
+    L.append(f"En esa sesión: {len(d['entradas'])} entrada(s), {len(d['salidas'])} salida(s), "
+             f"{len(d['gestiones'])} aviso(s) de gestión.")
+    if d["entradas"] or d["salidas"] or d["gestiones"]:
         L.append("")
-        for h in reversed(entradas + gestiones + salidas):
+        for h in reversed(d["entradas"] + d["gestiones"] + d["salidas"]):
             try:
                 hh = hora_local(datetime.fromisoformat(str(h.get("momento", ""))))
             except ValueError:
-                hh = str(h.get("momento", ""))[11:16]
-            L.append(f"  · {hh}  {str(h.get('mensaje',''))[:70]}")
-
+                hh = "--:--"
+            L.append(f"  · {hh}  {str(h.get('mensaje', ''))[:70]}")
     L.append("")
-    if abiertas:
-        L.append(f"OPERACIÓN ABIERTA ({len(abiertas)}): se avisará al cerrarse.")
-        for a in abiertas:
-            L.append(f"  · {str(a.get('direccion','')).upper()} desde {a.get('entrada')} "
+    if d["abiertas"]:
+        L.append(f"OPERACIÓN ABIERTA ({len(d['abiertas'])}): se avisará al cerrarse.")
+        for a in d["abiertas"]:
+            L.append(f"  · {str(a.get('direccion', '')).upper()} desde {a.get('entrada')} "
                      f"| stop {a.get('stop_actual')}")
     else:
         L.append("Sin operaciones abiertas: no hay nada que cerrar ahora mismo.")
         L.append("(Si no recibes avisos de salida es porque no hay nada abierto.)")
-
     L.append("")
-    if not entradas:
-        L.append("Hoy no ha habido señal. Motivo ahora mismo:")
-        L.append(f"  {motivo}")
-    if dias_sin is not None and dias_sin >= 3:
-        L.append("")
-        L.append(f"⚠ Llevas {dias_sin} días sin señales. No es una avería: los filtros")
-        L.append("  son muy selectivos y el oro lleva en rango. Si quieres MÁS avisos")
-        L.append("  (a cambio de menos calidad media) se pueden bajar los umbrales.")
-
+    if not d["entradas"]:
+        L.append("No hubo señal en esa sesión. Motivo ahora mismo:")
+        L.append(f"  {d['motivo']}")
+    if d["dias_sin"] is not None and d["dias_sin"] >= 3:
+        L += ["", f"⚠ Llevas {d['dias_sin']} días sin señales. No es una avería: los",
+              "  filtros son muy selectivos y el oro lleva en rango."]
     L += ["", "Parte automático. Análisis, no asesoramiento financiero."]
     return "\n".join(L)
+
+
+# ---------- versión visual (tarjeta HTML, como las señales) ----------
+def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
+    from .notificaciones.base import (_AMBAR, _BORDE, _FONDO, _FUENTE, _MUTED,
+                                      _ORO, _ROJO, _TARJETA, _TEXTO, _VERDE)
+
+    d = _recopilar(cfg, ahora or datetime.now(timezone.utc))
+    hay_actividad = bool(d["entradas"] or d["salidas"] or d["gestiones"])
+    color = _VERDE if hay_actividad else _ORO
+    zona = etiqueta_zona(d["ahora"])
+
+    def _cifra(valor, etiqueta, tono):
+        return (f'<td width="33%" align="center" style="padding:6px;">'
+                f'<div style="color:{tono};font-size:26px;font-weight:800;line-height:1;">{valor}</div>'
+                f'<div style="color:{_MUTED};font-size:11px;text-transform:uppercase;'
+                f'letter-spacing:.5px;margin-top:4px;">{etiqueta}</div></td>')
+
+    filas = ""
+    for h in reversed(d["entradas"] + d["gestiones"] + d["salidas"]):
+        try:
+            hh = hora_local(datetime.fromisoformat(str(h.get("momento", ""))))
+        except ValueError:
+            hh = "--:--"
+        tono = {"entrada": _VERDE, "cierre": _ROJO}.get(str(h.get("tipo")), _AMBAR)
+        filas += (f'<tr><td style="padding:7px 0;border-top:1px solid {_BORDE};">'
+                  f'<span style="color:{tono};font-weight:700;">{hh}</span>'
+                  f'<span style="color:{_TEXTO};font-size:13px;"> · '
+                  f'{str(h.get("mensaje", ""))[:64]}</span></td></tr>')
+    bloque_actividad = (
+        f'<table width="100%" style="border-collapse:collapse;margin-top:6px;">{filas}</table>'
+        if filas else
+        f'<div style="color:{_MUTED};font-size:13px;padding:8px 0;">'
+        f'Sin movimientos en esa sesión.</div>')
+
+    if d["abiertas"]:
+        det = "".join(
+            f'<div style="color:{_TEXTO};font-size:14px;">'
+            f'{str(a.get("direccion", "")).upper()} desde <b>{a.get("entrada")}</b> · '
+            f'stop {a.get("stop_actual")}</div>' for a in d["abiertas"])
+        bloque_abiertas = (
+            f'<div style="background:#1a2230;border-left:3px solid {_AMBAR};'
+            f'border-radius:8px;padding:12px 14px;margin-top:14px;">'
+            f'<div style="color:{_AMBAR};font-size:12px;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.5px;">Operación abierta</div>'
+            f'{det}<div style="color:{_MUTED};font-size:12px;margin-top:4px;">'
+            f'Se te avisará al cerrarse.</div></div>')
+    else:
+        bloque_abiertas = (
+            f'<div style="background:#141c17;border-left:3px solid {_VERDE};'
+            f'border-radius:8px;padding:12px 14px;margin-top:14px;">'
+            f'<div style="color:{_VERDE};font-size:13px;font-weight:700;">'
+            f'✓ Sin operaciones abiertas</div>'
+            f'<div style="color:{_MUTED};font-size:12px;margin-top:3px;">'
+            f'No hay nada que cerrar. Si no recibes avisos de salida, es por esto.</div></div>')
+
+    bloque_motivo = ""
+    if not d["entradas"]:
+        bloque_motivo = (
+            f'<div style="margin-top:14px;padding-top:12px;border-top:1px solid {_BORDE};">'
+            f'<div style="color:{_MUTED};font-size:11px;text-transform:uppercase;'
+            f'letter-spacing:.5px;">Por qué no hay señal ahora</div>'
+            f'<div style="color:{_TEXTO};font-size:13px;margin-top:4px;">{d["motivo"]}</div></div>')
+
+    bloque_silencio = ""
+    if d["dias_sin"] is not None and d["dias_sin"] >= 3:
+        bloque_silencio = (
+            f'<div style="background:#241f14;border-left:3px solid {_AMBAR};'
+            f'border-radius:8px;padding:11px 14px;margin-top:12px;color:{_TEXTO};font-size:13px;">'
+            f'⚠ <b>{d["dias_sin"]} días sin señales.</b> No es una avería: los filtros son '
+            f'muy selectivos y el oro lleva en rango.</div>')
+
+    precio = f"{d['precio']:.2f} $" if d["precio"] else "sin dato"
+    return f"""\
+<div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
+ <table role="presentation" align="center" width="100%" style="max-width:460px;margin:0 auto;border-collapse:collapse;">
+  <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;overflow:hidden;">
+   <table role="presentation" width="100%" style="border-collapse:collapse;">
+    <tr><td style="background:{color};padding:16px 22px;">
+      <div style="color:#0b0e14;font-size:11px;font-weight:700;letter-spacing:2px;">XAU/USD · PARTE DIARIO</div>
+      <div style="color:#0b0e14;font-size:21px;font-weight:800;margin-top:2px;">Sesión del {d['sesion']}</div>
+    </td></tr>
+    <tr><td style="padding:16px 22px 4px;">
+      <div style="color:{_MUTED};font-size:12px;">
+        ✓ El vigilante está EN MARCHA · Oro ahora <b style="color:{_TEXTO};">{precio}</b>
+      </div>
+    </td></tr>
+    <tr><td style="padding:8px 12px;">
+      <table role="presentation" width="100%" style="border-collapse:collapse;background:#111823;border-radius:12px;">
+       <tr>{_cifra(len(d['entradas']), 'Entradas', _VERDE)}
+           {_cifra(len(d['salidas']), 'Salidas', _ROJO)}
+           {_cifra(len(d['gestiones']), 'Gestión', _AMBAR)}</tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:6px 22px 18px;">
+      {bloque_actividad}
+      {bloque_abiertas}
+      {bloque_motivo}
+      {bloque_silencio}
+    </td></tr>
+    <tr><td style="background:#0e131c;padding:12px 22px;color:{_MUTED};font-size:11px;">
+      Horas en {zona} (tu hora) · Parte automático.<br>
+      ⚠️ Herramienta de análisis, no asesoramiento financiero.
+    </td></tr>
+   </table>
+  </td></tr>
+ </table>
+</div>"""
 
 
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     cfg = cargar_configuracion()
-    texto = construir_parte(cfg)
+    ahora = datetime.now(timezone.utc)
+    texto = construir_parte(cfg, ahora)
     print(texto)
     if "--email" in argv:
         from .cli import _construir_notificador
         from .notificaciones.base import Evento
         ok = _construir_notificador().enviar(
-            f"📋 Parte diario XAU/USD — {datetime.now(timezone.utc).date()}",
-            texto, Evento.CAMBIO_MERCADO)
+            f"📋 XAU/USD · parte de la sesión del {sesion_a_informar(ahora)}",
+            texto, Evento.CAMBIO_MERCADO, html=construir_parte_html(cfg, ahora))
         print("\n(Parte enviado.)" if ok else "\n⚠️  No se pudo enviar el parte.")
     return 0
 
