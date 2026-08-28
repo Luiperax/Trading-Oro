@@ -19,7 +19,7 @@ from typing import List, Optional
 import pandas as pd
 
 from ..config import ConfiguracionSistema
-from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
+from ..dominio.mercado import APERTURA_ET, dia_sesion, hora_mercado
 from ..dominio import (
     Direccion,
     EstadoOperacion,
@@ -85,8 +85,9 @@ class Backtester:
             # Intradía: no abrir cerca del cierre (no daría tiempo a cerrar hoy).
             # Igual que en vivo: no se abre de 20:00 a 23:59 UTC (medido: las
             # entradas nocturnas empeoran el resultado).
+            h_mercado = hora_mercado(momento)
             if (self.cfg.riesgo.cerrar_intradia
-                    and momento.hour >= self.cfg.riesgo.hora_cierre_utc - 1):
+                    and self.cfg.riesgo.hora_cierre_et - 1 <= h_mercado < APERTURA_ET):
                 i += 1
                 continue
 
@@ -168,7 +169,7 @@ class Backtester:
                 proximo_nuevo_dia = (j + 1 >= n) or (
                     dia_sesion(indices[j + 1].to_pydatetime()) != sesion_entrada)
                 if (sesion_actual != sesion_entrada
-                        or r_cfg.hora_cierre_utc <= ts.hour < HORA_APERTURA_UTC
+                        or r_cfg.hora_cierre_et <= hora_mercado(ts.to_pydatetime()) < APERTURA_ET
                         or proximo_nuevo_dia):
                     precio_cierre = (hi + lo) / 2.0  # salida imparcial en esa vela.
                     realizado_r += restante * signo * (precio_cierre - entrada) / riesgo_unidad

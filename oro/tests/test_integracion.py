@@ -83,7 +83,7 @@ def test_una_operacion_solo_se_cierra_una_vez():
                  probabilidad=0.6, confianza=0.8, riesgo_recompensa=1.7,
                  tamano_posicion=1.0)
     g = GestorOperaciones(sig, entrada_real=4700.0, cerrar_intradia=True,
-                          hora_cierre_utc=21)
+                          hora_cierre_et=16)
     primeros = g.cerrar_ahora(4710.0, _a_las(20, 45), "CIERRE DE SESIÓN")
     segundos = g.cerrar_ahora(4710.0, _a_las(20, 56), "CIERRE DE SESIÓN")
     terceros = g.actualizar(4600.0, _a_las(21, 30))     # el vigilante insistiendo
@@ -101,7 +101,7 @@ def test_ciclo_de_vida_completo_de_una_operacion():
                  probabilidad=0.65, confianza=0.86, riesgo_recompensa=1.7,
                  tamano_posicion=1.0)
     g = GestorOperaciones(sig, entrada_real=4700.0, cerrar_intradia=True,
-                          hora_cierre_utc=21)
+                          hora_cierre_et=16)
     tipos = []
     for precio, momento in ((4710.0, _a_las(11)), (4730.0, _a_las(12)),
                             (4700.0, _a_las(13))):
@@ -146,15 +146,57 @@ def test_el_estado_sobrevive_al_viaje_completo(tmp_path):
 # ---------- coherencia de reglas entre piezas ----------
 def test_la_misma_regla_de_sesion_en_vivo_y_en_backtest():
     """Runner, gestor y backtester deben usar el MISMO día de sesión."""
-    from oro.dominio.mercado import HORA_APERTURA_UTC, HORA_CIERRE_UTC
+    from oro.dominio.mercado import APERTURA_ET, CIERRE_ET
 
-    # Son DOS conceptos distintos y no deben confundirse:
-    #  - HORA_CIERRE_UTC (21): cuando cierra el MERCADO (deja de haber velas).
-    #  - riesgo.hora_cierre_utc (20): nuestro cierre OPERATIVO, antes, para dar
-    #    margen al usuario a cerrar en el bróker.
-    assert HORA_CIERRE_UTC == 21
-    assert cargar_configuracion().riesgo.hora_cierre_utc < HORA_CIERRE_UTC
-    assert HORA_APERTURA_UTC == 22
+    # Son DOS conceptos distintos y no deben confundirse, ambos en hora de
+    # MERCADO (Nueva York) para que el cambio de horario no los desajuste:
+    #  - CIERRE_ET (17): cuando cierra el MERCADO (deja de haber velas).
+    #  - riesgo.hora_cierre_et (16): nuestro cierre OPERATIVO, una hora antes,
+    #    para dar margen al usuario a cerrar en el bróker.
+    assert CIERRE_ET == 17 and APERTURA_ET == 18
+    assert cargar_configuracion().riesgo.hora_cierre_et < CIERRE_ET
     # 22:00 UTC ya es la sesión del día siguiente, en cualquier pieza.
     assert dia_sesion(_a_las(22)) != dia_sesion(_a_las(20))
     assert dia_sesion(_a_las(23)) == dia_sesion(_a_las(10, dia=28))
+
+
+# ---------- robustez: lo accesorio no puede tumbar lo crítico ----------
+def test_un_fallo_de_sentimiento_no_impide_gestionar_las_salidas():
+    """El sentimiento usa fuentes externas (RSS, calendario) que pueden caerse.
+
+    Si eso tumbara el ciclo, se dejarían de vigilar las operaciones ABIERTAS,
+    que es lo único verdaderamente crítico.
+    """
+    class _Roto(AnalizadorSentimiento):
+        def analizar(self, momento):
+            raise TimeoutError("RSS caído")
+
+    cfg = cargar_configuracion()
+    prov = ProveedorSintetico(velas=600, semilla=3)
+    r = RunnerVivo(cfg, proveedor=prov, analizador=_Roto(), usar_sentimiento=True,
+                   notificador=_Espia())
+    # Niveles amplios alrededor del precio real de la serie, para que la
+    # operación siga viva y podamos comprobar que se la sigue vigilando.
+    p = float(prov.historico(1)["close"].iloc[-1])
+    sig = Signal(momento=_a_las(10), direccion=Direccion.COMPRA, entrada=p,
+                 stop_loss=p * 0.5, take_profits=[TakeProfit(p * 1.5, 1.0, 1.0)],
+                 probabilidad=0.6, confianza=0.8, riesgo_recompensa=1.7,
+                 tamano_posicion=1.0)
+    r.abiertas.append(GestorOperaciones(sig, entrada_real=p, cerrar_intradia=False))
+    res = r.ciclo()                       # no debe lanzar
+    assert res.precio > 0
+    assert len(r.abiertas) == 1           # la operación se sigue vigilando
+
+
+def test_un_estado_corrupto_no_deja_el_sistema_muerto(tmp_path):
+    """Un fichero ilegible no puede tumbar TODAS las ejecuciones futuras."""
+    cfg = cargar_configuracion()
+    ruta = tmp_path / "roto.json"
+    ruta.write_text("{esto no es json", encoding="utf-8")
+    r = RunnerVivo(cfg, proveedor=ProveedorSintetico(velas=600, semilla=3),
+                   analizador=AnalizadorSentimiento(fuente_titulares=lambda: [],
+                                                    fuente_eventos=lambda: []),
+                   usar_sentimiento=False, notificador=_Espia())
+    r.cargar_estado(ruta)                 # no debe lanzar
+    assert r.abiertas == []
+    assert r.ciclo().precio > 0           # y sigue funcionando

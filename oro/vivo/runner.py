@@ -22,7 +22,7 @@ from typing import List, Optional
 from ..config import ConfiguracionSistema, cargar_configuracion
 from ..datos import ProveedorDatos, ProveedorYahoo
 from ..dominio import MarketSnapshot, Signal, sesion_de
-from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
+from ..dominio.mercado import APERTURA_ET, dia_sesion, hora_mercado
 from ..indicadores import atr as _atr
 from ..notificaciones import Notificador, NotificadorConsola
 from ..notificaciones.base import Evento
@@ -102,11 +102,18 @@ class RunnerVivo:
         ahora = self._reloj(momento)
         self._reset_diario(ahora)
 
-        # Contexto informativo (sentimiento + riesgo de noticia).
+        # Contexto informativo (sentimiento + riesgo de noticia). Es un
+        # COMPLEMENTO: se nutre de fuentes externas (RSS, calendario macro) que
+        # pueden caerse o tardar. Si falla, se sigue sin él. Lo contrario sería
+        # grave: un RSS caído dejaría de gestionar las operaciones ABIERTAS, que
+        # es lo único verdaderamente crítico.
+        contexto = ContextoInformativo(None, 0, 0, False)
         if self.usar_sentimiento:
-            contexto = self.analizador.analizar(momento)
-        else:
-            contexto = ContextoInformativo(None, 0, 0, False)
+            try:
+                contexto = self.analizador.analizar(momento)
+            except Exception as e:  # noqa: BLE001
+                print(f"⚠️  sentimiento no disponible ({type(e).__name__}); "
+                      f"se continúa sin él.")
 
         resultado = CicloResultado(
             momento=momento, precio=precio,
@@ -140,7 +147,8 @@ class RunnerVivo:
         # compensa: incluirlas empeora el resultado (PF 1.00 y -5.6R, frente a
         # PF 1.04 y +3.5R dejándolas fuera). Son horas de poca liquidez.
         tarde_para_intradia = (
-            r_cfg.cerrar_intradia and ahora.hour >= r_cfg.hora_cierre_utc - 1
+            r_cfg.cerrar_intradia
+            and r_cfg.hora_cierre_et - 1 <= hora_mercado(ahora) < APERTURA_ET
         )
         # Tope de pérdida diaria: si ya se ha perdido el máximo del día, no más operaciones.
         cap_perdida_r = (r_cfg.riesgo_diario_max / r_cfg.riesgo_por_operacion
@@ -165,7 +173,7 @@ class RunnerVivo:
                 gestor = GestorOperaciones(
                     analisis.signal, entrada_real=precio,
                     cerrar_intradia=r_cfg.cerrar_intradia,
-                    hora_cierre_utc=r_cfg.hora_cierre_utc,
+                    hora_cierre_et=r_cfg.hora_cierre_et,
                     trailing_activo=r_cfg.trailing_activo,
                     trailing_r=r_cfg.trailing_r,
                 )
@@ -270,7 +278,15 @@ class RunnerVivo:
         p = Path(ruta)
         if not p.exists():
             return
-        datos = json.loads(p.read_text(encoding="utf-8"))
+        try:
+            datos = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            # Un estado ilegible no puede dejar el sistema muerto para siempre:
+            # se arranca limpio y se avisa. El fichero está versionado en el
+            # repositorio, así que la versión buena se puede recuperar.
+            print(f"⚠️  ESTADO ILEGIBLE ({type(e).__name__}): se arranca sin "
+                  f"operaciones. Si tenías alguna abierta, revísala en el bróker.")
+            return
         self._fecha = date.fromisoformat(datos["fecha"]) if datos.get("fecha") else None
         self._senales_hoy = int(datos.get("senales_hoy", 0))
         self._perdida_r_hoy = float(datos.get("perdida_r_hoy", 0.0))

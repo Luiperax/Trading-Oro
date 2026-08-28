@@ -59,27 +59,52 @@ class Sesion(str, Enum):
     CIERRE = "cierre"
 
 
-# El oro (futuro CME) cotiza de 22:00 a 21:00 UTC: solo cierra una hora al día
-# (21:00-22:00) y el fin de semana. Comprobado sobre las velas reales: hay datos
-# en todas las horas UTC salvo las 21:00, y tras el fin de semana la primera vela
-# es la del domingo a las 22:00.
+# El oro (futuro CME) cotiza de 18:00 a 17:00 hora de NUEVA YORK: solo cierra una
+# hora al día (17:00-18:00) y el fin de semana.
 #
-# Por tanto el "día de operativa" NO es el día de calendario: va de las 22:00 de
-# un día a las 21:00 del siguiente. Usar el calendario provocaba dos disparates:
-# bloquear entradas a las 22:00 y 23:00 "por ser tarde" cuando en realidad acaba
-# de empezar una sesión de 22 horas, y cerrar a medianoche una operación abierta
-# hora y media antes.
-HORA_APERTURA_UTC = 22   # abre la sesión siguiente.
-HORA_CIERRE_UTC = 21     # cierra la sesión (y empieza la pausa diaria).
+# IMPORTANTE: el horario del mercado se define en la hora de Nueva York, NO en
+# UTC. Comprobado sobre las velas reales: la hora sin cotización es las 21:00 UTC
+# en verano y las 22:00 UTC en invierno —siempre las 17:00 de Nueva York—. Tener
+# las horas fijadas en UTC funcionaba en verano y se habría desajustado una hora
+# al llegar el cambio de horario de octubre.
+#
+# Anclarlo al reloj del mercado resuelve el cambio de hora solo, y de paso encaja
+# con el usuario: Madrid y Nueva York cambian la hora casi a la vez, así que el
+# cierre cae siempre a la misma hora de Madrid (23:00) todo el año.
+ZONA_MERCADO = "America/New_York"
+CIERRE_ET = 17      # 17:00 en Nueva York: cierra la sesión.
+APERTURA_ET = 18    # 18:00 en Nueva York: abre la siguiente.
+
+
+def _zona_mercado():
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(ZONA_MERCADO)
+    except Exception:  # noqa: BLE001 — sin zoneinfo, aproximar con UTC-4.
+        return timezone(timedelta(hours=-4))
+
+
+def hora_mercado(momento: datetime) -> int:
+    """Hora del instante en el reloj del mercado (Nueva York)."""
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    return momento.astimezone(_zona_mercado()).hour
+
+
+def mercado_cerrado(momento: datetime) -> bool:
+    """¿Estamos en la pausa diaria del mercado (17:00-18:00 de Nueva York)?"""
+    return CIERRE_ET <= hora_mercado(momento) < APERTURA_ET
 
 
 def dia_sesion(momento: datetime) -> date:
     """Día de operativa del oro al que pertenece un instante.
 
-    A partir de las 22:00 UTC ya se está operando la sesión del día SIGUIENTE.
+    A partir de las 18:00 de Nueva York ya se opera la sesión del día SIGUIENTE.
     """
-    m = momento.astimezone(timezone.utc)
-    if m.hour >= HORA_APERTURA_UTC:
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    m = momento.astimezone(_zona_mercado())
+    if m.hour >= APERTURA_ET:
         return (m + timedelta(days=1)).date()
     return m.date()
 

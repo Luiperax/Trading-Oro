@@ -34,7 +34,7 @@ def _gestor(momento_apertura):
                  probabilidad=0.6, confianza=0.8, riesgo_recompensa=1.7,
                  tamano_posicion=1.0)
     return GestorOperaciones(sig, entrada_real=4700.0, cerrar_intradia=True,
-                             hora_cierre_utc=21)
+                             hora_cierre_et=16)
 
 
 def test_abierta_de_noche_no_se_cierra_a_medianoche():
@@ -48,12 +48,34 @@ def test_abierta_de_noche_no_se_cierra_a_medianoche():
     assert not g.abierta
 
 
-def test_se_cierra_al_llegar_el_cierre_de_su_sesion():
+def test_se_cierra_al_llegar_el_cierre_operativo():
+    """Cierre operativo: 16:00 Nueva York = 22:00 Madrid, todo el año."""
     g = _gestor(_utc(24, 10))
-    g.actualizar(4705.0, _utc(24, 20, 30))
+    g.actualizar(4705.0, _utc(24, 19, 30))    # 21:30 Madrid: aún abierta
     assert g.abierta
-    g.actualizar(4705.0, _utc(24, 21, 10))
+    g.actualizar(4705.0, _utc(24, 19, 50))    # 21:50 Madrid: llega TU aviso
+    assert g.abierta, "a las 21:50 debe seguir abierta para poder avisarte"
+    g.actualizar(4705.0, _utc(24, 20, 10))    # 22:00+ Madrid: cierra
     assert not g.abierta
+
+
+def test_el_cierre_cae_a_la_misma_hora_de_madrid_en_invierno():
+    """El cambio de horario no debe desajustarlo: siempre 22:00 en Madrid.
+
+    Con las horas fijadas en UTC esto fallaba: el mercado cierra a las 17:00 de
+    Nueva York, que son las 21:00 UTC en verano pero las 22:00 en invierno.
+    """
+    invierno = datetime(2026, 1, 16, 10, tzinfo=timezone.utc)
+    sig = Signal(momento=invierno, direccion=Direccion.COMPRA, entrada=4700.0,
+                 stop_loss=4670.0, take_profits=[TakeProfit(4730.0, 1.0, 1.0)],
+                 probabilidad=0.6, confianza=0.8, riesgo_recompensa=1.7,
+                 tamano_posicion=1.0)
+    g = GestorOperaciones(sig, entrada_real=4700.0, cerrar_intradia=True,
+                          hora_cierre_et=16)
+    g.actualizar(4705.0, datetime(2026, 1, 16, 20, 50, tzinfo=timezone.utc))
+    assert g.abierta, "21:50 en Madrid (invierno): debe seguir abierta"
+    g.actualizar(4705.0, datetime(2026, 1, 16, 21, 10, tzinfo=timezone.utc))
+    assert not g.abierta, "22:10 en Madrid (invierno): debe estar cerrada"
 
 
 def test_no_sobrevive_a_la_apertura_de_la_sesion_siguiente():

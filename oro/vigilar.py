@@ -102,7 +102,7 @@ def main(argv=None) -> int:
     runner.cargar_estado(ruta)
 
     print(f"▶ Vigilancia iniciada: ventana {minutos:.0f} min, revisión cada "
-          f"{cada:.0f}s, cierre intradía {cfg.riesgo.hora_cierre_utc}:00 UTC.")
+          f"{cada:.0f}s, cierre operativo {cfg.riesgo.hora_cierre_et}:00 Nueva York.")
     fin = time.monotonic() + minutos * 60.0
     n = 0
     while True:

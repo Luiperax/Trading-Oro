@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import cargar_configuracion
-from .dominio.mercado import HORA_APERTURA_UTC, dia_sesion
+from .dominio.mercado import APERTURA_ET, dia_sesion, hora_mercado
 from .tiempo import etiqueta_zona, hora_local
 
 
@@ -46,8 +46,8 @@ def sesion_a_informar(ahora: datetime) -> date:
     retraso.
     """
     s = dia_sesion(ahora)
-    cfg_cierre = cargar_configuracion().riesgo.hora_cierre_utc
-    ya_cerro = cfg_cierre <= ahora.hour < HORA_APERTURA_UTC
+    cfg_cierre = cargar_configuracion().riesgo.hora_cierre_et
+    ya_cerro = cfg_cierre <= hora_mercado(ahora) < APERTURA_ET
     return s if ya_cerro else s - timedelta(days=1)
 
 

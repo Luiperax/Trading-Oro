@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List
 
-from ..dominio.mercado import HORA_APERTURA_UTC, dia_sesion
+from ..dominio.mercado import APERTURA_ET, dia_sesion, hora_mercado
 from ..dominio import Direccion, EstadoOperacion, Signal
 from ..notificaciones.base import Evento
 
@@ -48,7 +48,7 @@ class GestorOperaciones:
         signal: Signal,
         entrada_real: float | None = None,
         cerrar_intradia: bool = True,
-        hora_cierre_utc: int = 21,
+        hora_cierre_et: int = 16,
         trailing_activo: bool = True,
         trailing_r: float = 1.0,
     ) -> None:
@@ -66,7 +66,7 @@ class GestorOperaciones:
         self.estado = EstadoOperacion.ABIERTA
         self.abierta_en = signal.momento
         self._cerrar_intradia = cerrar_intradia
-        self._hora_cierre = hora_cierre_utc
+        self._hora_cierre = hora_cierre_et
         self._trailing = trailing_activo
         self._trailing_r = max(0.1, float(trailing_r))
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
@@ -110,8 +110,10 @@ class GestorOperaciones:
         sesion_apertura = dia_sesion(self.abierta_en)
         cambio_sesion = sesion_ahora > sesion_apertura
         # Fin de la sesión en curso: entre la hora de cierre y la reapertura.
+        # En hora de MERCADO: entre el cierre operativo y la reapertura.
+        h_mercado = hora_mercado(momento)
         fin_sesion = (sesion_ahora == sesion_apertura
-                      and self._hora_cierre <= momento.hour < HORA_APERTURA_UTC)
+                      and self._hora_cierre <= h_mercado < APERTURA_ET)
         return cambio_sesion or fin_sesion
 
     def cerrar_ahora(self, precio: float, momento: datetime,
@@ -236,6 +238,7 @@ class GestorOperaciones:
             "abierta_en": self.abierta_en.isoformat(),
             "resumen": self.signal.resumen() if self.signal else "",
             "cerrar_intradia": self._cerrar_intradia,
+            "hora_cierre_et": self._hora_cierre,
             "hora_cierre": self._hora_cierre,
             "trailing": self._trailing,
             "trailing_r": self._trailing_r,
@@ -264,6 +267,7 @@ class GestorOperaciones:
         g.estado = EstadoOperacion(d["estado"])
         g.abierta_en = datetime.fromisoformat(d["abierta_en"])
         g._cerrar_intradia = d.get("cerrar_intradia", True)
+        g._hora_cierre = int(d.get("hora_cierre_et", d.get("hora_cierre_utc", 16)))
         g._hora_cierre = d.get("hora_cierre", 21)
         g._trailing = d.get("trailing", True)
         g._trailing_r = float(d.get("trailing_r", 1.0))

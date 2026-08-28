@@ -21,7 +21,7 @@ def _gestor():
                  probabilidad=0.6, confianza=0.8, riesgo_recompensa=1.7,
                  tamano_posicion=1.0)
     return GestorOperaciones(sig, entrada_real=4700.0, cerrar_intradia=True,
-                             hora_cierre_utc=21)
+                             hora_cierre_et=16)
 
 
 def test_cerrar_ahora_cierra_y_avisa():

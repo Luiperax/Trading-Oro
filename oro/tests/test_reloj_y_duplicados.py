@@ -60,7 +60,7 @@ def test_reloj_sintetico_usa_la_vela():
 def test_en_vivo_cierra_operacion_de_un_dia_anterior():
     """La operación abierta OTRO día se cierra (no aguanta el fin de semana)."""
     r = _runner(en_vivo=True)
-    g = GestorOperaciones(_signal(), cerrar_intradia=True, hora_cierre_utc=21)
+    g = GestorOperaciones(_signal(), cerrar_intradia=True, hora_cierre_et=16)
     # Abierta en 2020: con el reloj real (hoy) el día ha cambiado -> debe cerrar.
     r.abiertas.append(g)
     res = r.ciclo()
@@ -71,7 +71,7 @@ def test_en_vivo_cierra_operacion_de_un_dia_anterior():
 
 def test_sin_reloj_real_la_vela_congelada_no_cerraria():
     """Comprobación del fallo original: con la marca de vela, no cerraba."""
-    g = GestorOperaciones(_signal(), cerrar_intradia=True, hora_cierre_utc=21)
+    g = GestorOperaciones(_signal(), cerrar_intradia=True, hora_cierre_et=16)
     congelado = g.abierta_en + timedelta(hours=3)   # misma marca "congelada"
     assert not g._debe_cerrar_intradia(congelado)
     # Con el reloj real (día siguiente) sí cierra.
