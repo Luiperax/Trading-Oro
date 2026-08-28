@@ -261,10 +261,52 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
 </div>"""
 
 
+MARCA = "ultimo_parte.txt"      # última sesión ya informada (evita duplicados)
+HORA_ENVIO_LOCAL = 7            # "con el café": 7:00 en la hora del usuario
+
+
+def _ya_informada(sesion: date) -> bool:
+    try:
+        return Path(MARCA).read_text(encoding="utf-8").strip() == str(sesion)
+    except OSError:
+        return False
+
+
+def _toca_enviar(ahora: datetime) -> tuple[bool, str]:
+    """¿Toca mandar el parte AHORA?
+
+    Se busca que llegue a las 7:00 del usuario, pero con dos complicaciones
+    reales: el cron va en UTC y no sabe del cambio de hora (7:00 en Madrid son
+    las 05:00 UTC en verano y las 06:00 en invierno), y GitHub retrasa las
+    tareas de forma muy irregular (medido: de 30 min a 8 h).
+
+    Solución: varias citas a lo largo de la mañana y una MARCA con la última
+    sesión informada. Se envía en la primera oportunidad a partir de las 7:00
+    locales y, si esa se retrasa, la siguiente lo recoge. La marca garantiza que
+    nunca se manda dos veces la misma sesión.
+    """
+    sesion = sesion_a_informar(ahora)
+    if _ya_informada(sesion):
+        return False, f"la sesión {sesion} ya se informó."
+    from .tiempo import a_local
+    hora = a_local(ahora).hour
+    if hora < HORA_ENVIO_LOCAL:
+        return False, f"aún es pronto (son las {hora}:00 en tu hora)."
+    return True, ""
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     cfg = cargar_configuracion()
     ahora = datetime.now(timezone.utc)
+
+    # Modo programado: decide solo si toca (hora local + no repetir sesión).
+    if "--si-toca" in argv:
+        toca, motivo = _toca_enviar(ahora)
+        if not toca:
+            print(f"No se envía: {motivo}")
+            return 0
+        argv = list(argv) + ["--email"]
     texto = construir_parte(cfg, ahora)
     print(texto)
     if "--email" in argv:
@@ -274,6 +316,12 @@ def main(argv=None) -> int:
             f"📋 XAU/USD · parte de la sesión del {sesion_a_informar(ahora)}",
             texto, Evento.CAMBIO_MERCADO, html=construir_parte_html(cfg, ahora))
         print("\n(Parte enviado.)" if ok else "\n⚠️  No se pudo enviar el parte.")
+        if ok:
+            # Dejar constancia para no repetir esta sesión en la siguiente cita.
+            sesion = sesion_a_informar(ahora)
+            Path(MARCA).write_text(f"{sesion}\n", encoding="utf-8")
+            from .persistencia import guardar_ficheros
+            guardar_ficheros([MARCA], f"Parte de la sesión {sesion} enviado [skip ci]")
     return 0
 
 

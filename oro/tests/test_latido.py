@@ -107,3 +107,53 @@ def test_parte_html_se_genera_y_es_visual(tmp_path, monkeypatch):
     assert "Sesión del 2026-08-27" in h
     assert "Operación abierta" in h        # avisa de lo que sigue vivo
     assert "CEST" in h or "CET" in h       # hora local
+
+
+# ---------- envío a las 7:00 locales, sin duplicados ----------
+def _sin_marca(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+
+def test_no_se_envia_antes_de_las_siete_locales(tmp_path, monkeypatch):
+    from oro.latido import _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    # 04:00 UTC = 06:00 en Madrid (verano): todavía no.
+    toca, motivo = _toca_enviar(datetime(2026, 8, 28, 4, tzinfo=timezone.utc))
+    assert toca is False and "pronto" in motivo
+
+
+def test_se_envia_a_las_siete_en_verano_y_en_invierno(tmp_path, monkeypatch):
+    """El cron va en UTC y no sabe del cambio de hora; el programa sí."""
+    from oro.latido import _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    # Verano (CEST, UTC+2): 05:03 UTC = 07:03 en Madrid.
+    assert _toca_enviar(datetime(2026, 8, 28, 5, 3, tzinfo=timezone.utc))[0] is True
+    # Invierno (CET, UTC+1): 05:03 UTC serían las 06:03 -> aún no; 06:03 UTC sí.
+    assert _toca_enviar(datetime(2026, 1, 16, 5, 3, tzinfo=timezone.utc))[0] is False
+    assert _toca_enviar(datetime(2026, 1, 16, 6, 3, tzinfo=timezone.utc))[0] is True
+
+
+def test_una_entrega_retrasada_tambien_se_envia(tmp_path, monkeypatch):
+    """Si GitHub retrasa la cita, la siguiente recoge el parte igualmente."""
+    from oro.latido import _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    assert _toca_enviar(datetime(2026, 8, 28, 11, 3, tzinfo=timezone.utc))[0] is True
+
+
+def test_no_se_repite_la_misma_sesion(tmp_path, monkeypatch):
+    """Con cuatro citas por la mañana, la marca evita mandarlo varias veces."""
+    from oro.latido import MARCA, _toca_enviar, sesion_a_informar
+    _sin_marca(tmp_path, monkeypatch)
+    ahora = datetime(2026, 8, 28, 5, 3, tzinfo=timezone.utc)
+    assert _toca_enviar(ahora)[0] is True
+    (tmp_path / MARCA).write_text(f"{sesion_a_informar(ahora)}\n", encoding="utf-8")
+    for h in (6, 8, 11):                       # las siguientes citas
+        toca, motivo = _toca_enviar(datetime(2026, 8, 28, h, 3, tzinfo=timezone.utc))
+        assert toca is False and "ya se informó" in motivo
+
+
+def test_al_dia_siguiente_vuelve_a_enviarse(tmp_path, monkeypatch):
+    from oro.latido import MARCA, _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    (tmp_path / MARCA).write_text("2026-08-27\n", encoding="utf-8")   # sesión vieja
+    assert _toca_enviar(datetime(2026, 8, 29, 5, 3, tzinfo=timezone.utc))[0] is True

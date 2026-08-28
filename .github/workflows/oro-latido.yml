@@ -11,11 +11,22 @@ name: Parte diario XAU/USD
 
 on:
   schedule:
-    - cron: "17 21 * * 1-5"   # de lunes a viernes, 21:17 UTC (tras el cierre intradía).
+    # Objetivo: que llegue a las 7:00 de la mañana en Madrid, con el café.
+    # Dos complicaciones reales: el cron va en UTC y NO conoce el cambio de hora
+    # (las 7:00 de Madrid son las 05:00 UTC en verano y las 06:00 en invierno),
+    # y GitHub retrasa las tareas de forma muy irregular (medido: de 30 min a
+    # 8 h). Por eso hay varias citas por la mañana: el propio programa decide si
+    # toca (--si-toca) mirando la hora LOCAL y una marca con la última sesión ya
+    # informada, así que se envía una sola vez y lo antes posible a partir de
+    # las 7:00. De martes a sábado: cada parte resume la sesión de la víspera.
+    - cron: "3 5 * * 2-6"     # 07:00 en Madrid (verano)
+    - cron: "3 6 * * 2-6"     # 07:00 en Madrid (invierno)
+    - cron: "3 8 * * 2-6"     # red de seguridad si GitHub retrasa
+    - cron: "3 11 * * 2-6"    # última oportunidad de la mañana
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write             # para anotar qué sesión ya se informó.
 
 jobs:
   parte:
@@ -37,4 +48,4 @@ jobs:
           ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
           ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
           ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
-        run: python -m oro.latido --email
+        run: python -m oro.latido --si-toca
