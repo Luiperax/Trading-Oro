@@ -55,19 +55,24 @@ def _con_reloj(h, m, fn):
 
 # ---------- vigilante vs cierre de sesión ----------
 def test_el_vigilante_cede_el_turno_al_cierre_de_sesion():
-    """Si se solapan, cierran la misma operación dos veces (dos correos)."""
+    """Si se solapan, cierran la misma operación dos veces (dos correos).
+
+    El relevo se rige por la hora LOCAL del usuario (verano: UTC+2).
+    """
     cfg = cargar_configuracion()
-    hc = cfg.riesgo.hora_cierre_utc
-    assert _con_reloj(hc - 1, 0, lambda: V._toca_relevo(cfg)) is False   # 20:00 vigila
-    assert _con_reloj(hc - 1, 45, lambda: V._toca_relevo(cfg)) is True   # 20:45 cede
-    assert _con_reloj(hc, 30, lambda: V._toca_relevo(cfg)) is True       # 21:30 cede
-    assert _con_reloj(hc + 1, 5, lambda: V._toca_relevo(cfg)) is False   # 22:05 vuelve
+    assert _con_reloj(19, 0, lambda: V._toca_relevo(cfg)) is False   # 21:00 local: vigila
+    assert _con_reloj(19, 40, lambda: V._toca_relevo(cfg)) is True   # 21:40 local: cede
+    assert _con_reloj(20, 30, lambda: V._toca_relevo(cfg)) is True   # 22:30 local: cede
+    assert _con_reloj(22, 5, lambda: V._toca_relevo(cfg)) is False   # 00:05 local: vuelve
 
 
 def test_el_relevo_cubre_toda_la_franja_del_cierre():
-    """El relevo debe cubrir los DOS intentos de cierre (20:42 y 20:56 UTC)."""
+    """Debe cubrir las cuatro citas de cierre (verano e invierno)."""
+    from oro.cierre import _toca_cerrar
+
     cfg = cargar_configuracion()
-    for h, m in ((20, 42), (20, 56)):
+    for h, m in ((19, 50), (19, 58)):        # citas de verano
+        assert _toca_cerrar(datetime(2026, 8, 28, h, m, tzinfo=timezone.utc))[0] is True
         assert _con_reloj(h, m, lambda: V._toca_relevo(cfg)) is True
 
 
@@ -143,7 +148,12 @@ def test_la_misma_regla_de_sesion_en_vivo_y_en_backtest():
     """Runner, gestor y backtester deben usar el MISMO día de sesión."""
     from oro.dominio.mercado import HORA_APERTURA_UTC, HORA_CIERRE_UTC
 
-    assert HORA_CIERRE_UTC == cargar_configuracion().riesgo.hora_cierre_utc
+    # Son DOS conceptos distintos y no deben confundirse:
+    #  - HORA_CIERRE_UTC (21): cuando cierra el MERCADO (deja de haber velas).
+    #  - riesgo.hora_cierre_utc (20): nuestro cierre OPERATIVO, antes, para dar
+    #    margen al usuario a cerrar en el bróker.
+    assert HORA_CIERRE_UTC == 21
+    assert cargar_configuracion().riesgo.hora_cierre_utc < HORA_CIERRE_UTC
     assert HORA_APERTURA_UTC == 22
     # 22:00 UTC ya es la sesión del día siguiente, en cualquier pieza.
     assert dia_sesion(_a_las(22)) != dia_sesion(_a_las(20))

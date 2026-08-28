@@ -58,20 +58,25 @@ def _guardar_en_repo(ruta: str) -> bool:
 def _toca_relevo(cfg) -> bool:
     """¿Hay que ceder el turno al trabajo de CIERRE de sesión?
 
-    El vigilante (ventana de ~50 min) y el cierre de sesión corren en máquinas
-    distintas, cada una con SU copia del estado. Si se solapan, los dos gestionan
-    la MISMA operación: la cierran por duplicado —dos correos de salida y dos
-    registros— y el push del vigilante puede pisar el estado del cierre.
+    El vigilante (ventana de ~50 min) y el cierre corren en máquinas distintas,
+    cada una con SU copia del estado. Si se solapan, los dos gestionan la MISMA
+    operación: la cierran por duplicado —dos correos y dos registros— y el push
+    del vigilante puede pisar el estado del cierre.
 
-    Para que eso no ocurra, el vigilante termina su ventana poco antes de que
-    entre el cierre (20:42 UTC): a partir de ahí, el cierre es el único que actúa.
+    Se decide con la hora LOCAL del usuario, no en UTC, porque el mercado del oro
+    cierra siempre a las 23:00 de Madrid pero eso son las 21:00 UTC en verano y
+    las 22:00 en invierno. El vigilante se aparta desde las 21:30 locales (antes
+    del aviso de cierre de las 21:50) y vuelve pasada la medianoche, cuando ya
+    ha abierto la sesión siguiente.
     """
     from datetime import datetime, timezone
 
-    ahora = datetime.now(timezone.utc)
-    minuto_relevo = cfg.riesgo.hora_cierre_utc * 60 - 22   # 20:38 UTC con cierre a las 21
-    minuto_actual = ahora.hour * 60 + ahora.minute
-    return minuto_relevo <= minuto_actual < cfg.riesgo.hora_cierre_utc * 60 + 60
+    from .tiempo import a_local
+
+    local = a_local(datetime.now(timezone.utc))
+    if local.hour == 21:
+        return local.minute >= 30
+    return local.hour in (22, 23)
 
 
 def main(argv=None) -> int:

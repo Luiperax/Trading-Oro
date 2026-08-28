@@ -30,18 +30,14 @@ class Evento(str, Enum):
 
 
 def _cierre_local() -> str:
-    """Hora de cierre de la sesión, en la hora del usuario (p. ej. 23:00 en Madrid).
+    """Hora a la que llegará el AVISO de cierre, en la hora del usuario.
 
-    En el mensaje no sirve decir "21:00 UTC": quien lo lee necesita su hora.
+    Es el dato accionable: no sirve decir "21:00 UTC" ni la hora a la que cierra
+    el mercado, sino a qué hora recibirá el aviso para cerrar en el bróker.
+    Coincide con la franja del trabajo de cierre (oro.cierre).
     """
-    from datetime import datetime, timezone
-
-    from ..dominio.mercado import HORA_CIERRE_UTC
-    from ..tiempo import etiqueta_zona, hora_local
-
-    hoy = datetime.now(timezone.utc).replace(
-        hour=HORA_CIERRE_UTC, minute=0, second=0, microsecond=0)
-    return f"{hora_local(hoy)} {etiqueta_zona(hoy)}"
+    from ..cierre import HORA_AVISO_LOCAL
+    return f"{HORA_AVISO_LOCAL}:50"
 
 
 def _lote_y_riesgo(signal: Signal):
@@ -167,7 +163,8 @@ def mensaje_html_de_senal(signal: Signal) -> str:
    </table>
   </td></tr>
   <tr><td style="text-align:center;padding:12px 14px;color:#4a5568;font-size:11px;">
-     ⏱ Operación INTRADÍA: se cierra hoy antes de las <b>{_cierre_local()}</b> (tu hora).<br>
+     ⏱ Operación INTRADÍA: recibirás el aviso para cerrarla hoy sobre las
+     <b>{_cierre_local()}</b> (tu hora), antes de que cierre el mercado.<br>
      Sistema XAU/USD · señal generada automáticamente</td></tr>
  </table>
 </div>"""

@@ -17,8 +17,16 @@ name: Cierre de sesión XAU/USD
 
 on:
   schedule:
-    - cron: "42 20 * * 1-5"   # 20:42 UTC: aviso con margen antes del cierre.
-    - cron: "56 20 * * 1-5"   # 20:56 UTC: red de seguridad por si falló la 1ª.
+    # Objetivo: avisar a las 21:50 de la hora del usuario, ~70 min antes de que
+    # el mercado cierre (23:00 en Madrid todo el año). El cron va en UTC y no
+    # conoce el cambio de hora, así que hay un par de citas para el horario de
+    # verano y otro para el de invierno; el propio programa comprueba la hora
+    # LOCAL (--si-toca) y solo actúa en la franja correcta. La segunda cita de
+    # cada par es la red de seguridad por si GitHub retrasa la primera.
+    - cron: "50 19 * * 1-5"   # 21:50 en Madrid (verano)
+    - cron: "58 19 * * 1-5"   # red de seguridad (verano)
+    - cron: "50 20 * * 1-5"   # 21:50 en Madrid (invierno)
+    - cron: "58 20 * * 1-5"   # red de seguridad (invierno)
   workflow_dispatch: {}
 
 permissions:
@@ -48,7 +56,7 @@ jobs:
           ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
           ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
           ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
-        run: python -m oro.cierre
+        run: python -m oro.cierre --si-toca
       - name: Guardar el estado y el registro de operaciones
         run: |
           # Guardado a prueba de conflictos (ver oro/persistencia.py). El rebase

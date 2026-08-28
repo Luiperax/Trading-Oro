@@ -32,7 +32,11 @@ class ConfiguracionRiesgo:
     r_objetivos: tuple = (1.0, 2.0, 3.0)  # cada TP en múltiplos de R.
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
-    hora_cierre_utc: int = 21             # cierre forzado a las 21:00 UTC (cierre NY).
+    # Cierre operativo (red de seguridad del gestor). El aviso de salida lo manda
+    # antes el trabajo de cierre, a las 21:50 de la hora del usuario. Medido
+    # sobre 872 días: adelantarlo de 21:00 a 20:00 UTC no cuesta nada
+    # (PF 1.00 -> 1.01) y deja 70 min de margen antes del cierre del mercado.
+    hora_cierre_utc: int = 20
     # Salida dinámica: tras el primer objetivo, el stop persigue al precio (a 1R
     # del máximo/mínimo favorable) para proteger beneficio y capturar el movimiento.
     trailing_activo: bool = True

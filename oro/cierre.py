@@ -32,9 +32,35 @@ from .vigilar import _guardar_en_repo
 from .vivo import RunnerVivo
 
 
+HORA_AVISO_LOCAL = 21        # 21:5x en la hora del usuario, antes del cierre.
+
+
+def _toca_cerrar(ahora: datetime) -> tuple[bool, str]:
+    """¿Estamos en la franja de cierre (21:5x en la hora del usuario)?
+
+    Se mira la hora LOCAL, no la UTC: el mercado del oro cierra siempre a las
+    23:00 de Madrid, pero eso son las 21:00 UTC en verano y las 22:00 en
+    invierno. Con dos pares de citas (una para cada horario) y esta guarda, el
+    aviso cae a las 21:50 locales todo el año, con ~70 min de margen.
+    """
+    from .tiempo import a_local
+
+    local = a_local(ahora)
+    if local.hour != HORA_AVISO_LOCAL or local.minute < 40:
+        return False, f"fuera de la franja de cierre (son las {local:%H:%M} en tu hora)."
+    return True, ""
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     solo_revisar = "--revisar" in argv
+
+    # Modo programado: solo actúa en la franja de cierre local.
+    if "--si-toca" in argv:
+        toca, motivo = _toca_cerrar(datetime.now(timezone.utc))
+        if not toca:
+            print(f"No toca cerrar: {motivo}")
+            return 0
 
     cfg = cargar_configuracion()
     runner = RunnerVivo(
