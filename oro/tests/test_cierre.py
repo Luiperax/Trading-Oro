@@ -77,11 +77,47 @@ def test_el_aviso_cae_a_las_2150_locales_en_verano_y_en_invierno():
 
 
 def test_no_cierra_fuera_de_la_franja():
+    """Sin nada abierto no hay nada que cerrar, sea la hora que sea."""
     from oro.cierre import _toca_cerrar
 
     for m in (_utc(8, 28, 10, 0), _utc(8, 28, 19, 0), _utc(8, 28, 22, 30)):
         toca, motivo = _toca_cerrar(m)
-        assert toca is False and "fuera de la franja" in motivo
+        assert toca is False and "no hay nada abierto" in motivo
+
+
+def test_no_cierra_una_operacion_sana_de_la_sesion_en_curso():
+    """A media mañana, lo abierto HOY se respeta: aún no es hora de cerrar."""
+    from oro.cierre import _toca_cerrar
+
+    abierta_hoy = [{"abierta_en": "2026-08-28T13:00:00+00:00"}]
+    toca, motivo = _toca_cerrar(_utc(8, 28, 14, 0), abierta_hoy)
+    assert toca is False and "sesión en curso" in motivo
+
+
+def test_recupera_lo_que_quedo_abierto_de_una_sesion_anterior():
+    """El caso REAL que dejaba operaciones sin cerrar.
+
+    GitHub arrancó este trabajo entre 5 h 29 min y 7 h 59 min tarde en las seis
+    ejecuciones programadas que hubo: siempre de madrugada, nunca en la franja de
+    20 minutos que exigía la guarda anterior. Resultado: el aviso de cierre no se
+    ejecutó jamás. Ahora, si llega tarde pero hay algo abierto de una sesión ya
+    terminada, cierra igualmente.
+    """
+    from oro.cierre import _toca_cerrar
+
+    abierta_ayer = [{"abierta_en": "2026-08-28T13:00:00+00:00"}]
+    # Horas REALES en que GitHub arrancó la tarea (madrugada del día siguiente).
+    for h, mi in ((2, 27), (2, 43), (2, 55), (3, 4)):
+        toca, _ = _toca_cerrar(_utc(8, 29, h, mi), abierta_ayer)
+        assert toca is True, f"a las {h:02d}:{mi:02d} UTC debía recuperar el cierre"
+
+
+def test_una_abierta_sin_fecha_fiable_se_cierra():
+    """Ante la duda, cerrar: quedarse abierto de un día para otro es lo peor."""
+    from oro.cierre import _toca_cerrar
+
+    assert _toca_cerrar(_utc(8, 29, 3, 0), [{"abierta_en": "no-es-una-fecha"}])[0] is True
+    assert _toca_cerrar(_utc(8, 29, 3, 0), [{}])[0] is True
 
 
 def test_la_red_de_seguridad_tambien_entra_en_la_franja():
@@ -118,3 +154,57 @@ def test_el_vigilante_ya_cedio_cuando_entra_el_cierre():
               _utc(1, 16, 20, 50), _utc(1, 16, 20, 58)):
         assert _toca_cerrar(m)[0] is True
         assert cede(m) is True, f"el vigilante seguía activo en {m}"
+
+
+# ---------- el vigilante cierra ANTES de ceder el turno ----------
+def test_el_vigilante_cierra_lo_abierto_antes_de_apartarse(tmp_path, monkeypatch):
+    """El agujero que dejaba la operación huérfana.
+
+    El vigilante se apartaba a las 21:30 locales para dejar paso al trabajo de
+    cierre, pero ese trabajo llegaba de madrugada (5-8 h tarde, medido en las
+    seis ejecuciones reales). Nadie cerraba. Ahora el vigilante cierra él mismo
+    justo antes de ceder, y avisa.
+    """
+    import oro.vigilar as vig
+
+    monkeypatch.chdir(tmp_path)
+    avisos = []
+
+    class RunnerFalso:
+        def __init__(self):
+            self.abiertas = [_gestor()]
+            self.proveedor = type("P", (), {"precio_actual": staticmethod(lambda: 4712.0)})()
+            self.historial = []
+            self._perdida_r_hoy = 0.0
+            self.guardado = False
+
+        def _notificar_evento(self, ev, gestor):
+            avisos.append(ev.mensaje)
+
+        def _registrar_historial(self, d):
+            self.historial.append(d)
+
+        def _registrar_operacion(self, gestor, ahora):
+            pass
+
+        def guardar_estado(self, ruta):
+            self.guardado = True
+
+    monkeypatch.setattr(vig, "_guardar_en_repo", lambda ruta: True)
+    r = RunnerFalso()
+    vig._cerrar_antes_de_ceder(r, "estado.json")
+
+    assert r.abiertas == [], "la operación debía quedar cerrada"
+    assert any("CIERRE DE SESIÓN" in m for m in avisos), "debía avisarte del cierre"
+    assert r.guardado is True, "el estado debía guardarse antes de terminar"
+    assert r.historial and r.historial[0]["tipo"] == "cierre"
+
+
+def test_ceder_el_turno_sin_nada_abierto_no_hace_nada(tmp_path, monkeypatch):
+    import oro.vigilar as vig
+
+    monkeypatch.chdir(tmp_path)
+    llamadas = []
+    monkeypatch.setattr(vig, "_guardar_en_repo", lambda ruta: llamadas.append(ruta))
+    vig._cerrar_antes_de_ceder(type("R", (), {"abiertas": []})(), "estado.json")
+    assert llamadas == []

@@ -35,20 +35,72 @@ from .vivo import RunnerVivo
 HORA_AVISO_LOCAL = 21        # 21:5x en la hora del usuario, antes del cierre.
 
 
-def _toca_cerrar(ahora: datetime) -> tuple[bool, str]:
-    """¿Estamos en la franja de cierre (21:5x en la hora del usuario)?
+def _toca_cerrar(ahora: datetime, abiertas=()) -> tuple[bool, str]:
+    """¿Hay que cerrar y avisar AHORA?
 
     Se mira la hora LOCAL, no la UTC: el mercado del oro cierra siempre a las
     23:00 de Madrid, pero eso son las 21:00 UTC en verano y las 22:00 en
-    invierno. Con dos pares de citas (una para cada horario) y esta guarda, el
-    aviso cae a las 21:50 locales todo el año, con ~70 min de margen.
+    invierno.
+
+    Dos motivos para actuar, y el segundo es imprescindible:
+
+    * **Aviso con margen** (21:40-21:59 locales): lo ideal, ~70 min antes del
+      cierre del mercado para que dé tiempo a cerrar en el bróker.
+
+    * **Recuperación**: hay algo abierto de una sesión que YA terminó. Esto no
+      puede depender del reloj, porque GitHub arranca las tareas programadas con
+      un retraso enorme e irregular. Medido en las 6 ejecuciones reales de este
+      trabajo: entre 5 h 29 min y 7 h 59 min tarde, **las seis**. Con la guarda
+      anterior (solo la franja de 20 minutos) el aviso de cierre no llegó a
+      ejecutarse ni una sola vez: el trabajo arrancaba de madrugada, se
+      descartaba a sí mismo y terminaba en verde. Ahora, si llega tarde pero hay
+      una operación que se ha quedado abierta de la sesión anterior, la cierra
+      igualmente: tarde es mucho mejor que nunca, porque el modo intradía exige
+      que no quede nada de un día para otro.
+
+    Si no hay nada abierto, no hay nada que hacer (no se envía ningún aviso).
     """
+    from .dominio.mercado import dia_sesion
     from .tiempo import a_local
 
     local = a_local(ahora)
-    if local.hour != HORA_AVISO_LOCAL or local.minute < 40:
-        return False, f"fuera de la franja de cierre (son las {local:%H:%M} en tu hora)."
-    return True, ""
+    if local.hour == HORA_AVISO_LOCAL and local.minute >= 40:
+        return True, ""
+
+    sesion_actual = dia_sesion(ahora)
+    for op in abiertas:
+        # El gestor serializa la apertura como "abierta_en" (ver gestor.a_dict).
+        apertura = None
+        if isinstance(op, dict):
+            apertura = op.get("abierta_en") or op.get("apertura")
+        else:
+            apertura = getattr(op, "abierta_en", None)
+        if not apertura:
+            # Sin fecha fiable, se cierra: quedarse abierto es el peor resultado.
+            return True, ""
+        try:
+            momento = datetime.fromisoformat(str(apertura))
+        except ValueError:
+            return True, ""
+        if dia_sesion(momento) != sesion_actual:
+            return True, ""
+
+    if abiertas:
+        return False, (f"hay {len(abiertas)} operación(es) de la sesión en curso y aún no "
+                       f"es la hora del aviso (son las {local:%H:%M} en tu hora).")
+    return False, f"no hay nada abierto (son las {local:%H:%M} en tu hora)."
+
+
+def _abiertas_del_estado(ruta: str) -> list:
+    """Lee SOLO la lista de operaciones abiertas del estado, sin montar nada."""
+    import json
+    from pathlib import Path
+    try:
+        datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    abiertas = datos.get("abiertas") or []
+    return abiertas if isinstance(abiertas, list) else []
 
 
 def main(argv=None) -> int:
@@ -57,7 +109,9 @@ def main(argv=None) -> int:
 
     # Modo programado: solo actúa en la franja de cierre local.
     if "--si-toca" in argv:
-        toca, motivo = _toca_cerrar(datetime.now(timezone.utc))
+        ruta_estado = os.getenv("ORO_ESTADO", "oro_estado.json")
+        toca, motivo = _toca_cerrar(datetime.now(timezone.utc),
+                                    _abiertas_del_estado(ruta_estado))
         if not toca:
             print(f"No toca cerrar: {motivo}")
             return 0

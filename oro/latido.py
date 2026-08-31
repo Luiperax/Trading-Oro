@@ -114,6 +114,23 @@ def _recopilar(cfg, ahora: datetime) -> dict:
     }
 
 
+def _cronologico(d: dict) -> list:
+    """Los eventos de la sesión ordenados por su hora real (de primera a última).
+
+    OJO: el historial del estado se guarda del MÁS RECIENTE al más antiguo, y
+    ``_recopilar`` lo trocea en tres listas. Concatenarlas e invertirlas dejaba
+    el parte contando la sesión al revés —primero el cierre, luego la entrada—,
+    que es justo lo contrario de cómo se lee una jornada. Ordenar por el momento
+    es correcto independientemente de cómo esté guardado el historial.
+    """
+    def clave(h):
+        try:
+            return datetime.fromisoformat(str(h.get("momento", "")))
+        except ValueError:
+            return datetime.max.replace(tzinfo=timezone.utc)
+    return sorted(d["entradas"] + d["gestiones"] + d["salidas"], key=clave)
+
+
 # ---------- versión de texto (respaldo para clientes sin HTML) ----------
 def construir_parte(cfg, ahora: datetime | None = None) -> str:
     d = _recopilar(cfg, ahora or datetime.now(timezone.utc))
@@ -127,7 +144,7 @@ def construir_parte(cfg, ahora: datetime | None = None) -> str:
              f"{len(d['gestiones'])} aviso(s) de gestión.")
     if d["entradas"] or d["salidas"] or d["gestiones"]:
         L.append("")
-        for h in reversed(d["entradas"] + d["gestiones"] + d["salidas"]):
+        for h in _cronologico(d):
             try:
                 hh = hora_local(datetime.fromisoformat(str(h.get("momento", ""))))
             except ValueError:
@@ -170,7 +187,7 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
                 f'letter-spacing:.5px;margin-top:4px;">{etiqueta}</div></td>')
 
     filas = ""
-    for h in reversed(d["entradas"] + d["gestiones"] + d["salidas"]):
+    for h in _cronologico(d):
         try:
             hh = hora_local(datetime.fromisoformat(str(h.get("momento", ""))))
         except ValueError:
@@ -263,7 +280,7 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
 
 MARCA = "ultimo_parte.txt"      # última sesión ya informada (evita duplicados)
 HORA_ENVIO_LOCAL = 7            # "con el café": 7:00 en la hora del usuario
-HORA_LIMITE_LOCAL = 13          # pasada esta hora ya no es un parte de mañana
+HORA_LIMITE_LOCAL = 21          # tope: nunca de noche, y sin pisar el aviso de cierre
 
 
 def _ya_informada(sesion: date) -> bool:
@@ -294,12 +311,18 @@ def _toca_enviar(ahora: datetime) -> tuple[bool, str]:
     if hora < HORA_ENVIO_LOCAL:
         return False, f"aún es pronto (son las {hora}:00 en tu hora)."
     if hora >= HORA_LIMITE_LOCAL:
-        # Sin este tope pasó lo siguiente: GitHub retrasó las cuatro citas de la
-        # mañana más de 7 h y el parte se envió a las 20:32; horas después había
-        # cerrado otra sesión y se envió un SEGUNDO parte a las 23:19. Dos avisos
-        # nocturnos en vez de uno con el café. Fuera de la franja de mañana se
-        # deja pasar: al día siguiente llega el de esa sesión.
-        return False, (f"ya no es por la mañana (son las {hora}:00 en tu hora); "
+        # Nunca de noche. El 28-ago, sin tope, GitHub retrasó las citas más de 7 h
+        # y llegaron dos partes seguidos, a las 20:32 y a las 23:19.
+        #
+        # Pero el tope NO puede ser estrecho. Con el corte en las 13:00 no se
+        # habría enviado NINGUNO de los 7 partes reales: GitHub arrancó las citas
+        # entre 2 min y 9 h 45 min tarde, y la última cita (11:33 UTC) cae ya en
+        # las 13:33 de Madrid, o sea fuera del tope incluso sin retraso alguno.
+        # Con el tope en las 21:00, los duplicados los sigue impidiendo la MARCA
+        # (una sola vez por sesión) y se acepta la única alternativa razonable:
+        # que llegue más tarde de las 7:00 es peor que con el café, pero mucho
+        # mejor que no llegar nunca.
+        return False, (f"ya es de noche (son las {hora}:00 en tu hora); "
                        f"este parte se omite.")
     return True, ""
 
