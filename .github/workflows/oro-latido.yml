@@ -30,6 +30,12 @@ on:
     - cron: "33 11 * * 2-6"   # descarta las que caigan fuera de la mañana.
   workflow_dispatch: {}
 
+# Nunca dos partes a la vez: la marca se escribe DESPUÉS de enviar, así que
+# dos citas solapadas leerían la marca vieja y mandarían dos correos.
+concurrency:
+  group: oro-latido
+  cancel-in-progress: false
+
 permissions:
   contents: write             # para anotar qué sesión ya se informó.
 

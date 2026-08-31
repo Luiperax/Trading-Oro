@@ -13,6 +13,11 @@ on:
     - cron: "0 6 1 * *"        # el día 1 de cada mes a las 06:00 UTC.
   workflow_dispatch: {}
 
+# Nunca dos reentrenamientos a la vez (los dos escribirían el modelo).
+concurrency:
+  group: oro-aprender
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
