@@ -133,11 +133,27 @@ def test_se_envia_a_las_siete_en_verano_y_en_invierno(tmp_path, monkeypatch):
     assert _toca_enviar(datetime(2026, 1, 16, 6, 3, tzinfo=timezone.utc))[0] is True
 
 
-def test_una_entrega_retrasada_tambien_se_envia(tmp_path, monkeypatch):
-    """Si GitHub retrasa la cita, la siguiente recoge el parte igualmente."""
+def test_una_entrega_retrasada_se_envia_si_sigue_siendo_por_la_mañana(tmp_path, monkeypatch):
+    """Si GitHub retrasa la cita, otra posterior recoge el parte... dentro de la mañana."""
     from oro.latido import _toca_enviar
     _sin_marca(tmp_path, monkeypatch)
-    assert _toca_enviar(datetime(2026, 8, 28, 11, 3, tzinfo=timezone.utc))[0] is True
+    # 08:33 UTC = 10:33 en Madrid: retrasado pero aún es por la mañana.
+    assert _toca_enviar(datetime(2026, 8, 28, 8, 33, tzinfo=timezone.utc))[0] is True
+
+
+def test_no_se_envia_por_la_tarde_ni_de_noche(tmp_path, monkeypatch):
+    """Ocurrió de verdad: GitHub retrasó las citas 7 h y llegaron DOS partes.
+
+    El 28-ago se enviaron a las 20:32 y a las 23:19 (hora de Madrid) porque la
+    guarda solo exigía 'a partir de las 7'. Un parte de la mañana que llega de
+    noche no sirve, y encima llegó duplicado al cerrar otra sesión entretanto.
+    """
+    from oro.latido import _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    for h in (11, 14, 16, 18, 21):        # 13:00 a 23:00 en Madrid
+        toca, motivo = _toca_enviar(datetime(2026, 8, 28, h, 3, tzinfo=timezone.utc))
+        assert toca is False
+        assert "mañana" in motivo
 
 
 def test_no_se_repite_la_misma_sesion(tmp_path, monkeypatch):

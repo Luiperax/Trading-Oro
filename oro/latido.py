@@ -263,6 +263,7 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
 
 MARCA = "ultimo_parte.txt"      # última sesión ya informada (evita duplicados)
 HORA_ENVIO_LOCAL = 7            # "con el café": 7:00 en la hora del usuario
+HORA_LIMITE_LOCAL = 13          # pasada esta hora ya no es un parte de mañana
 
 
 def _ya_informada(sesion: date) -> bool:
@@ -292,6 +293,14 @@ def _toca_enviar(ahora: datetime) -> tuple[bool, str]:
     hora = a_local(ahora).hour
     if hora < HORA_ENVIO_LOCAL:
         return False, f"aún es pronto (son las {hora}:00 en tu hora)."
+    if hora >= HORA_LIMITE_LOCAL:
+        # Sin este tope pasó lo siguiente: GitHub retrasó las cuatro citas de la
+        # mañana más de 7 h y el parte se envió a las 20:32; horas después había
+        # cerrado otra sesión y se envió un SEGUNDO parte a las 23:19. Dos avisos
+        # nocturnos en vez de uno con el café. Fuera de la franja de mañana se
+        # deja pasar: al día siguiente llega el de esa sesión.
+        return False, (f"ya no es por la mañana (son las {hora}:00 en tu hora); "
+                       f"este parte se omite.")
     return True, ""
 
 
