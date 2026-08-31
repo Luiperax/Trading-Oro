@@ -104,6 +104,21 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     if estado_nuestro is None and ops_nuestro is None:
         return False
 
+    # No subir un estado ilegible: machacaría la copia BUENA del remoto con
+    # basura y perdería las operaciones abiertas de todas las máquinas. El
+    # runner siempre escribe JSON válido, así que llegar aquí con algo ilegible
+    # significa disco corrupto o escritura a medias: mejor conservar el remoto.
+    if estado_nuestro is not None:
+        import json as _json
+        try:
+            _json.loads(estado_nuestro)
+        except ValueError:
+            print(f"⚠️  {ruta_estado} no es JSON válido: NO se sube "
+                  f"(se conserva la versión del repositorio).")
+            estado_nuestro = None
+            if ops_nuestro is None:
+                return False
+
     _git("config", "user.name", "oro-alertas-bot")
     _git("config", "user.email", "actions@users.noreply.github.com")
 

@@ -103,3 +103,19 @@ def test_unir_jsonl_deduplica_y_conserva_orden():
     assert _unir_jsonl('{"b": 2}\n', '{"a": 1}\n') == '{"a": 1}\n{"b": 2}\n'
     assert _unir_jsonl('{"a": 1}\n', '{"a": 1}\n') == '{"a": 1}\n'
     assert _unir_jsonl(None, '{"a": 1}\n') == '{"a": 1}\n'
+
+
+def test_no_sube_un_estado_ilegible(repo_con_remoto, capsys):
+    """Un estado corrupto NO debe machacar la copia buena del repositorio.
+
+    El runner siempre escribe JSON válido, así que llegar aquí con algo ilegible
+    significa disco corrupto o escritura a medias. Subirlo destruiría las
+    operaciones abiertas de todas las máquinas.
+    """
+    from pathlib import Path
+
+    from oro.persistencia import guardar_en_repo
+
+    Path("oro_estado.json").write_text("{esto no es json", encoding="utf-8")
+    assert guardar_en_repo("oro_estado.json") is False
+    assert "no es JSON válido" in capsys.readouterr().out

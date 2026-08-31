@@ -17,7 +17,12 @@ from .base import Evento, Notificador
 
 
 class NotificadorConsola(Notificador):
-    """Imprime por consola. Útil en desarrollo, backtesting y como respaldo."""
+    """Imprime por consola. Útil en desarrollo, backtesting y como respaldo.
+
+    NO cuenta como entrega: en una máquina desatendida nadie lee la consola.
+    """
+
+    entrega = False
 
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:

@@ -1,0 +1,87 @@
+# Pruebas automáticas del sistema XAU/USD.
+#
+# Por qué existe: hasta ahora las 117 pruebas SOLO se ejecutaban a mano. Los
+# cuatro workflows del sistema se disparan por horario, no por push, así que un
+# cambio podía romper el cierre de sesión, el parte o la persistencia y nada lo
+# detectaba. Los dos fallos graves de este proyecto —el guardado muerto 16 días
+# y el aviso de cierre que no se ejecutó nunca— se descubrieron por el SILENCIO,
+# semanas después. Esto los habría cazado en minutos.
+
+name: Pruebas
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true      # un push nuevo deja obsoleta la ejecución previa.
+
+permissions:
+  contents: read                # solo lee: no toca el estado ni el registro.
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        # pytest y pyyaml son herramientas de DESARROLLO: no van en
+        # requirements.txt para no cargar la imagen del vigilante en producción,
+        # así que se instalan aquí explícitamente.
+        run: |
+          pip install -r oro/requirements.txt
+          pip install pytest pyyaml
+
+      - name: Comprobar que TODOS los módulos importan
+        # Un fallo de importación deja el vigilante muerto en producción y el
+        # workflow saldría "success" igual. Se comprueba aquí.
+        run: |
+          python - <<'PY'
+          import importlib, pkgutil, sys
+          import oro
+          fallos = []
+          for mod in pkgutil.walk_packages(oro.__path__, "oro."):
+              if ".tests" in mod.name:
+                  continue
+              try:
+                  importlib.import_module(mod.name)
+              except Exception as e:
+                  fallos.append(f"{mod.name}: {type(e).__name__}: {e}")
+          print(f"módulos importados sin fallo: {'sí' if not fallos else 'NO'}")
+          for f in fallos:
+              print("  ✗", f)
+          sys.exit(1 if fallos else 0)
+          PY
+
+      - name: Pruebas
+        # Sin red: las pruebas no deben depender de Yahoo. Si alguna lo hiciera,
+        # el CI sería inestable y dejaríamos de fiarnos de él, que es peor que
+        # no tenerlo.
+        run: python -m pytest oro/tests -q
+
+      - name: Comprobar que los workflows son YAML válido
+        # Un workflow mal indentado NO se ejecuta y GitHub no siempre lo avisa
+        # de forma visible: el sistema se quedaría mudo sin que nadie lo note.
+        run: |
+          python - <<'PY'
+          import glob, sys, yaml
+          malos = []
+          for f in sorted(glob.glob(".github/workflows/*.yml")):
+              try:
+                  d = yaml.safe_load(open(f, encoding="utf-8"))
+                  assert isinstance(d, dict) and "jobs" in d, "sin bloque jobs"
+                  print(f"  ok  {f}")
+              except Exception as e:
+                  malos.append(f"{f}: {e}")
+          for m in malos:
+              print("  ✗", m)
+          sys.exit(1 if malos else 0)
+          PY

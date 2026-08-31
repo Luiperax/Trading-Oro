@@ -58,6 +58,17 @@ def _construir_notificador():
         canales.append(NotificadorWebhook())
     if os.getenv("ORO_SMTP_HOST"):
         canales.append(NotificadorEmail())
+
+    # Sin ningún canal REAL, la consola haría de tapadera: el sistema creería
+    # que te avisó. Desatendido eso abriría operaciones fantasma, así que se
+    # grita en el log en vez de seguir en silencio.
+    if len(canales) == 1 and os.getenv("GITHUB_ACTIONS", "").lower() == "true":
+        print("=" * 68)
+        print("❌ NO HAY NINGÚN CANAL DE AVISO CONFIGURADO.")
+        print("   Faltan los secretos ORO_SMTP_HOST / ORO_TELEGRAM_TOKEN /")
+        print("   ORO_WEBHOOK_URL. No se abrirá ninguna operación: sin aviso")
+        print("   entregado, abrirla crearía una operación fantasma.")
+        print("=" * 68)
     return NotificadorMultiple(canales)
 
 

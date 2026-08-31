@@ -104,6 +104,20 @@ def _fila_nivel(etiqueta: str, valor: str, color: str, extra: str = "") -> str:
     )
 
 
+def _esc(texto) -> str:
+    """Escapa texto antes de meterlo en HTML.
+
+    Hoy todo lo que se interpola se genera dentro del sistema, así que no hay
+    inyección posible. Pero parte de ese texto ROZA lo externo: el resumen de
+    sentimiento incluye el nombre del próximo evento macro, que viene de un
+    calendario de terceros. El día que alguien lo añada a la tarjeta, un nombre
+    con "<" rompería el correo o inyectaría marcado. Escapar cuesta nada y
+    quita el pie del filo.
+    """
+    import html as _html
+    return _html.escape(str(texto), quote=True)
+
+
 def mensaje_html_de_senal(signal: Signal) -> str:
     """Tarjeta HTML elegante para el correo (diseño responsive, tema oscuro)."""
     compra = signal.direccion.value == "compra"
@@ -118,7 +132,7 @@ def mensaje_html_de_senal(signal: Signal) -> str:
 
     motivos = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:13px;padding:3px 0;">'
-        f'<span style="color:{_VERDE};">✓</span>&nbsp; {m}</td></tr>'
+        f'<span style="color:{_VERDE};">✓</span>&nbsp; {_esc(m)}</td></tr>'
         for m in signal.motivos_entrada[:5]
     )
 
@@ -151,7 +165,7 @@ def mensaje_html_de_senal(signal: Signal) -> str:
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Motivos de entrada</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:14px;">{motivos}</table>
       <div style="color:{_MUTED};font-size:12px;line-height:1.5;border-top:1px solid {_BORDE};padding-top:12px;">
-        {signal.contexto_tecnico}
+        {_esc(signal.contexto_tecnico)}
       </div>
     </td></tr>
     <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;">
@@ -182,8 +196,8 @@ def mensaje_html_evento(titulo: str, cuerpo: str, evento: Evento) -> str:
  <table role="presentation" align="center" width="100%" style="max-width:460px;margin:0 auto;border-collapse:collapse;">
   <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;">
    <table role="presentation" width="100%" style="border-collapse:collapse;">
-    <tr><td style="background:{color};border-radius:18px 18px 0 0;padding:14px 24px;color:#0b0e14;font-size:18px;font-weight:800;">{titulo}</td></tr>
-    <tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;line-height:1.6;">{cuerpo}</td></tr>
+    <tr><td style="background:{color};border-radius:18px 18px 0 0;padding:14px 24px;color:#0b0e14;font-size:18px;font-weight:800;">{_esc(titulo)}</td></tr>
+    <tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;line-height:1.6;">{_esc(cuerpo)}</td></tr>
     <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;color:{_MUTED};font-size:11px;">
       ⚠️ Herramienta de análisis, no asesoramiento financiero.</td></tr>
    </table>
@@ -192,7 +206,17 @@ def mensaje_html_evento(titulo: str, cuerpo: str, evento: Evento) -> str:
 </div>"""
 
 
+def _en_automatico() -> bool:
+    """¿Corremos desatendidos (GitHub Actions)? Nadie mira la consola."""
+    import os
+    return os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+
+
 class Notificador(ABC):
+    #: ¿Este canal ENTREGA el aviso al usuario? La consola solo lo MUESTRA: en
+    #: una máquina desatendida nadie la lee, así que no cuenta como entrega.
+    entrega = True
+
     @abstractmethod
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:
@@ -206,17 +230,43 @@ class Notificador(ABC):
 
 
 class NotificadorMultiple(Notificador):
-    """Reenvía a varios canales; no falla si alguno individual falla."""
+    """Reenvía a varios canales; no falla si alguno individual falla.
+
+    Devuelve verdadero solo si el aviso ha LLEGADO de verdad. La distinción es
+    crítica: la consola siempre "funciona", así que antes este método devolvía
+    verdadero aunque no hubiera ningún canal real configurado. En GitHub Actions
+    eso significaba que, si faltaba o caducaba un secreto SMTP, el vigilante daba
+    la señal por avisada, ABRÍA la operación y el usuario no recibía nada —y
+    luego le llegaban las salidas de una operación que nunca abrió. Es
+    exactamente la operación fantasma que la comprobación del runner existe para
+    impedir, colándose por la puerta de atrás.
+    """
 
     def __init__(self, canales: List[Notificador]) -> None:
         self._canales = canales
+        self._reales = [c for c in canales if getattr(c, "entrega", True)]
+        self._avisado = False
 
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:
-        ok = False
+        entregado = mostrado = False
         for canal in self._canales:
             try:
-                ok = canal.enviar(titulo, cuerpo, evento, html=html) or ok
+                r = bool(canal.enviar(titulo, cuerpo, evento, html=html))
             except Exception:  # noqa: BLE001 — un canal caído no debe tumbar el resto.
                 continue
-        return ok
+            if getattr(canal, "entrega", True):
+                entregado = entregado or r
+            else:
+                mostrado = mostrado or r
+        if self._reales:
+            return entregado
+        # Ningún canal de entrega configurado.
+        if not self._avisado:
+            self._avisado = True
+            print("⚠️  NINGÚN canal de aviso configurado (ORO_SMTP_* / "
+                  "ORO_TELEGRAM_* / ORO_WEBHOOK_URL). El aviso solo se ha "
+                  "impreso por consola.")
+        # En local, la consola es un destino legítimo: el usuario la está
+        # mirando. Desatendido, no lo es: mejor NO abrir la operación.
+        return False if _en_automatico() else mostrado
