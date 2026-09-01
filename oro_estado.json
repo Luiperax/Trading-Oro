@@ -353,7 +353,7 @@
       "r_acumulado": 0.0,
       "estado": "abierta",
       "abierta_en": "2026-08-31T23:00:00+00:00",
-      "resumen": "[COMPRA] XAU/USD @ 4496.00 | SL 4469.00 | TP 4523.00 (1.0R) / 4549.99 (2.0R) / 4576.99 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "resumen": "",
       "cerrar_intradia": true,
       "hora_cierre_et": 16,
       "hora_cierre": 16,
