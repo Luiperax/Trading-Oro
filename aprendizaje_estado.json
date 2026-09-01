@@ -1,7 +1,6 @@
 {
-  "auc_test": 0.5432,
-  "auc_train": 0.8156,
-  "brecha_sobreajuste": 0.2725,
-  "aceptable": false,
-  "modelo_promocionado": false
+  "operaciones_reales": 7,
+  "minimo": 50,
+  "modelo_promocionado": false,
+  "motivo": "datos insuficientes"
 }
