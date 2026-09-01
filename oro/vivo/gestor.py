@@ -42,6 +42,37 @@ class _NivelTP:
     alcanzado: bool = False
 
 
+_HORA_CIERRE_POR_DEFECTO = 16      # 16:00 en Nueva York (reloj del mercado).
+
+
+def _hora_cierre_de(d: dict) -> int:
+    """Hora de cierre operativo, en el reloj de NUEVA YORK, desde un estado guardado.
+
+    Aquí había DOS asignaciones seguidas y la segunda pisaba a la primera, así
+    que la migración desde el nombre antiguo era código muerto y el valor por
+    defecto quedaba en 21 —la hora UTC de la época anterior—.
+
+    Un 21 leído como hora de Nueva York rompe el cierre de fin de sesión EN
+    SILENCIO: la condición ``21 <= hora_mercado < 18`` no se cumple nunca, así
+    que la operación no se cierra al acabar la sesión y aguanta hasta el cambio
+    de día, ya con el mercado cerrado. Es exactamente el síntoma que llevamos
+    persiguiendo.
+
+    Los estados anteriores a la migración guardaban una hora UTC, y convertirla
+    no es fiable (depende del horario de verano). Se descarta y se aplica la
+    política actual: es más seguro que arrastrar un número con el significado
+    equivocado.
+    """
+    valor = d.get("hora_cierre_et")
+    if valor is None:
+        return _HORA_CIERRE_POR_DEFECTO
+    try:
+        hora = int(valor)
+    except (TypeError, ValueError):
+        return _HORA_CIERRE_POR_DEFECTO
+    return hora if 0 <= hora < 24 else _HORA_CIERRE_POR_DEFECTO
+
+
 class GestorOperaciones:
     def __init__(
         self,
@@ -267,8 +298,16 @@ class GestorOperaciones:
         g.estado = EstadoOperacion(d["estado"])
         g.abierta_en = datetime.fromisoformat(d["abierta_en"])
         g._cerrar_intradia = d.get("cerrar_intradia", True)
-        g._hora_cierre = int(d.get("hora_cierre_et", d.get("hora_cierre_utc", 16)))
-        g._hora_cierre = d.get("hora_cierre", 21)
+        # Hora de cierre operativo, en el reloj de NUEVA YORK. Ojo con el orden:
+        # aquí había DOS asignaciones y la segunda pisaba a la primera, así que
+        # la migración desde el nombre antiguo era código muerto y el valor por
+        # defecto era 21 —la hora UTC de la época anterior—. Un 21 leído como
+        # hora de Nueva York rompe en silencio el cierre de fin de sesión, porque
+        # la condición "21 <= hora_mercado < 18" no se cumple NUNCA: la operación
+        # se quedaría abierta hasta el cambio de sesión, ya con el mercado
+        # cerrado. Es justo el síntoma que perseguimos. Una sola asignación, y el
+        # defecto es 16 (16:00 en Nueva York).
+        g._hora_cierre = _hora_cierre_de(d)
         g._trailing = d.get("trailing", True)
         g._trailing_r = float(d.get("trailing_r", 1.0))
         g._peak = d.get("peak", d["entrada"])

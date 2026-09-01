@@ -28,11 +28,32 @@ COLUMNAS_FEATURES = [
 ]
 
 
+#: Velas mínimas para que el cálculo coincida con el del entrenamiento.
+#:
+#: El modelo se ENTRENA sobre el histórico completo y PREDICE sobre una ventana.
+#: La media exponencial más larga (200) se siembra en la primera vela de la
+#: ventana, así que con pocas velas ese arranque todavía pesa y el valor NO es el
+#: mismo: el modelo vería en producción una variable distinta de la que aprendió.
+#:
+#: Medido sobre datos reales, error de ``dist_ema200_atr`` en desviaciones típicas
+#: de la propia variable (que es la unidad que el modelo nota):
+#:
+#:     400 velas -> 0.0353 sigma      800 velas -> 0.0006 sigma
+#:     500 velas -> 0.0119 sigma     1200 velas -> 0.0000 sigma
+#:
+#: Con las 500 del vivo el desvío es despreciable, así que no se cambia nada. Se
+#: fija el mínimo para que nadie lo baje después sin darse cuenta.
+VELAS_MINIMAS = 400
+
+
 def construir_features(df: pd.DataFrame) -> pd.DataFrame:
     """Devuelve un DataFrame con las columnas de :data:`COLUMNAS_FEATURES`.
 
     Requiere OHLCV. Calcula internamente los indicadores. Las filas del periodo
     de calentamiento contienen ``NaN`` y deben filtrarse antes de entrenar.
+
+    Ver :data:`VELAS_MINIMAS` sobre cuántas velas hacen falta para que el valor
+    coincida con el que se usó al entrenar.
     """
     d = calcular_todos(df)
     close = d["close"]
