@@ -1,7 +1,7 @@
 {
-  "fecha": "2026-09-01",
-  "senales_hoy": 1,
-  "perdida_r_hoy": 1.0,
+  "fecha": "2026-09-02",
+  "senales_hoy": 0,
+  "perdida_r_hoy": 0.0,
   "ultima_vela_senal": "2026-08-31T23:00:00+00:00",
   "historial": [
     {
