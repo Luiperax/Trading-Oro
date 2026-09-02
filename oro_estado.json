@@ -1,9 +1,18 @@
 {
   "fecha": "2026-09-02",
-  "senales_hoy": 0,
+  "senales_hoy": 1,
   "perdida_r_hoy": 0.0,
-  "ultima_vela_senal": "2026-08-31T23:00:00+00:00",
+  "ultima_vela_senal": "2026-09-02T17:00:00+00:00",
   "historial": [
+    {
+      "tipo": "entrada",
+      "momento": "2026-09-02T17:00:00+00:00",
+      "direccion": "compra",
+      "entrada": 4422.5,
+      "stop": 4392.4,
+      "mensaje": "[COMPRA] XAU/USD @ 4422.50 | SL 4392.40 | TP 4452.60 (1.0R) / 4482.69 (2.0R) / 4512.79 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "prob": 0.64
+    },
     {
       "tipo": "cierre",
       "momento": "2026-09-01T08:36:36.176432+00:00",
@@ -349,5 +358,72 @@
       "prob": 0.64
     }
   ],
-  "abiertas": []
+  "abiertas": [
+    {
+      "direccion": "compra",
+      "entrada": 4422.5,
+      "riesgo": 30.095721099261027,
+      "stop_actual": 4392.404278900739,
+      "en_breakeven": false,
+      "restante": 1.0,
+      "r_acumulado": 0.0,
+      "estado": "abierta",
+      "abierta_en": "2026-09-02T17:00:00+00:00",
+      "resumen": "[COMPRA] XAU/USD @ 4422.50 | SL 4392.40 | TP 4452.60 (1.0R) / 4482.69 (2.0R) / 4512.79 (3.0R) | P≈64% conf 84% | R:R 1.70",
+      "cerrar_intradia": true,
+      "hora_cierre_et": 16,
+      "hora_cierre": 16,
+      "trailing": true,
+      "trailing_r": 1.0,
+      "peak": 4422.5,
+      "probabilidad": 0.638,
+      "confianza": 0.84,
+      "stop_inicial": 4392.404278900739,
+      "features": {
+        "ret_1": 0.001675,
+        "ret_5": 0.010045,
+        "ret_20": 0.010639,
+        "dist_ema20_atr": 1.37046,
+        "dist_ema50_atr": -0.091274,
+        "dist_ema200_atr": -4.841363,
+        "pendiente_ema50": -0.017954,
+        "rsi_14": 58.981957,
+        "rsi_norm": 0.179639,
+        "macd_hist_norm": 0.540867,
+        "adx": 37.268881,
+        "di_diff": 0.10413,
+        "bb_pct_b": 0.898712,
+        "bb_ancho": 0.025814,
+        "atr_rel": 0.981478,
+        "atr_z": -0.138889,
+        "dist_vwap_atr": 1.770197,
+        "vol_rel": 0.80247,
+        "sesion_sin": -0.965926,
+        "sesion_cos": -0.258819,
+        "cuerpo_rel": 0.450613,
+        "mecha_sup_rel": 0.302469,
+        "mecha_inf_rel": 0.246918
+      },
+      "niveles": [
+        [
+          4452.595721099261,
+          0.5,
+          1.0,
+          false
+        ],
+        [
+          4482.691442198523,
+          0.3,
+          2.0,
+          false
+        ],
+        [
+          4512.787163297784,
+          0.2,
+          3.0,
+          false
+        ]
+      ]
+    }
+  ]
 }
