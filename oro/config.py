@@ -123,6 +123,29 @@ class ConfiguracionSistema:
         return problemas
 
 
+_MARCOS_VALIDOS = ("M15", "H1", "H4", "D1")
+
+
+def _marco(bruto: str, actual: str) -> str:
+    """Valida el marco temporal en el ORIGEN, no al descargar.
+
+    El proveedor cae en silencio a H1 ante un marco desconocido. Con eso, un
+    ORO_TIMEFRAME mal escrito ("h4", "4H", o la cadena VACÍA que GitHub manda
+    cuando una Variable no está definida) hacía que el sistema operase en H1
+    mientras la configuración decía otra cosa: informaba de algo distinto de lo
+    que hacía. Aquí se normaliza y, si no se reconoce, se avisa y se mantiene el
+    valor actual en vez de aceptar una mentira silenciosa.
+    """
+    limpio = (bruto or "").strip().upper()
+    if not limpio:
+        return actual
+    if limpio not in _MARCOS_VALIDOS:
+        print(f"⚠️  ORO_TIMEFRAME={bruto!r} no es un marco válido "
+              f"({', '.join(_MARCOS_VALIDOS)}); se mantiene {actual}.")
+        return actual
+    return limpio
+
+
 def cargar_configuracion() -> ConfiguracionSistema:
     """Crea la configuración aplicando sobreescrituras desde el entorno.
 
@@ -142,7 +165,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
 
     cfg.capital = _num("ORO_CAPITAL", cfg.capital)
     cfg.simbolo = os.getenv("ORO_SIMBOLO", cfg.simbolo)
-    cfg.timeframe = os.getenv("ORO_TIMEFRAME", cfg.timeframe)  # H4 (rec.), D1, H1, M15…
+    cfg.timeframe = _marco(os.getenv("ORO_TIMEFRAME", ""), cfg.timeframe)
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )

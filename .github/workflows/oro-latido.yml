@@ -19,16 +19,36 @@ on:
     # toca (--si-toca) mirando la hora LOCAL y una marca con la última sesión ya
     # informada, así que se envía una sola vez y lo antes posible a partir de
     # las 7:00. De martes a sábado: cada parte resume la sesión de la víspera.
-    - cron: "3 5 * * 2-6"     # 07:00 en Madrid (verano)
+    # MEDIDO sobre 27 ejecuciones reales: GitHub arranca estas citas con un
+    # retraso muy consistente de 4.4 a 4.9 h. Con la primera cita a las 05:03
+    # UTC, la ejecución más temprana caía a las 09:30 UTC y el parte llegaba
+    # siempre sobre las 11:30 de Madrid, nunca a las 7:00. La solución no es
+    # esperar a que GitHub mejore: es CITAR ANTES. Con las citas de madrugada,
+    # ese mismo retraso de 4.5 h deja el parte a las 07:03 de Madrid.
+    # Las que se adelanten demasiado se descartan solas en 20 segundos (el
+    # programa exige que sean al menos las 7:00 locales), así que sobran citas
+    # sin coste: la MARCA garantiza que solo se envía uno por sesión.
+    - cron: "33 0 * * 2-6"    # con 4.5 h de retraso -> 07:03 Madrid (verano)
+    - cron: "33 1 * * 2-6"
+    - cron: "33 2 * * 2-6"
+    - cron: "33 3 * * 2-6"
+    - cron: "33 4 * * 2-6"
+    - cron: "3 5 * * 2-6"     # 07:00 en Madrid (verano) si NO hay retraso
     - cron: "33 5 * * 2-6"
-    - cron: "3 6 * * 2-6"     # 07:00 en Madrid (invierno)
+    - cron: "3 6 * * 2-6"     # 07:00 en Madrid (invierno) si NO hay retraso
     - cron: "33 6 * * 2-6"
-    - cron: "33 7 * * 2-6"    # red de seguridad: GitHub retrasa mucho y de
-    - cron: "33 8 * * 2-6"    # forma irregular, así que se reparten varias
+    - cron: "33 7 * * 2-6"    # red de seguridad para retrasos intermedios
+    - cron: "33 8 * * 2-6"
     - cron: "33 9 * * 2-6"    # citas por la mañana. La marca impide que se
     - cron: "33 10 * * 2-6"   # envíe más de una vez, y el propio programa
     - cron: "33 11 * * 2-6"   # descarta las que caigan fuera de la mañana.
   workflow_dispatch: {}
+
+# Nunca dos partes a la vez: la marca se escribe DESPUÉS de enviar, así que
+# dos citas solapadas leerían la marca vieja y mandarían dos correos.
+concurrency:
+  group: oro-latido
+  cancel-in-progress: false
 
 permissions:
   contents: write             # para anotar qué sesión ya se informó.

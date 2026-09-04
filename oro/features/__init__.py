@@ -8,6 +8,6 @@ entrenamiento y en producción para garantizar coherencia.
 
 from __future__ import annotations
 
-from .construccion import construir_features, COLUMNAS_FEATURES
+from .construccion import construir_features, COLUMNAS_FEATURES, VELAS_MINIMAS
 
-__all__ = ["construir_features", "COLUMNAS_FEATURES"]
+__all__ = ["construir_features", "COLUMNAS_FEATURES", "VELAS_MINIMAS"]

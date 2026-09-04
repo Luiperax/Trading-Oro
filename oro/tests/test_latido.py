@@ -141,19 +141,34 @@ def test_una_entrega_retrasada_se_envia_si_sigue_siendo_por_la_mañana(tmp_path,
     assert _toca_enviar(datetime(2026, 8, 28, 8, 33, tzinfo=timezone.utc))[0] is True
 
 
-def test_no_se_envia_por_la_tarde_ni_de_noche(tmp_path, monkeypatch):
+def test_no_se_envia_de_noche(tmp_path, monkeypatch):
     """Ocurrió de verdad: GitHub retrasó las citas 7 h y llegaron DOS partes.
 
     El 28-ago se enviaron a las 20:32 y a las 23:19 (hora de Madrid) porque la
-    guarda solo exigía 'a partir de las 7'. Un parte de la mañana que llega de
-    noche no sirve, y encima llegó duplicado al cerrar otra sesión entretanto.
+    guarda solo exigía 'a partir de las 7'. Un parte que llega de noche no sirve.
     """
     from oro.latido import _toca_enviar
     _sin_marca(tmp_path, monkeypatch)
-    for h in (11, 14, 16, 18, 21):        # 13:00 a 23:00 en Madrid
+    for h in (19, 20, 21):                # 21:00, 22:00 y 23:00 en Madrid
         toca, motivo = _toca_enviar(datetime(2026, 8, 28, h, 3, tzinfo=timezone.utc))
         assert toca is False
-        assert "mañana" in motivo
+        assert "noche" in motivo
+
+
+def test_un_parte_tardio_se_manda_igual(tmp_path, monkeypatch):
+    """Tarde es mucho mejor que nunca.
+
+    Con el tope anterior en las 13:00 no se habría enviado NINGUNO de los siete
+    partes reales: GitHub arrancó las citas entre 2 min y 9 h 45 min tarde, y la
+    última cita (11:33 UTC) cae en las 13:33 de Madrid, o sea ya fuera del tope
+    incluso sin retraso. Los duplicados los impide la MARCA, no el tope.
+    """
+    from oro.latido import _toca_enviar
+    _sin_marca(tmp_path, monkeypatch)
+    # Horas REALES en que arrancaron las citas del parte (UTC).
+    for h, mi in ((11, 35), (12, 37), (13, 36), (15, 29), (18, 32)):
+        toca, _ = _toca_enviar(datetime(2026, 8, 29, h, mi, tzinfo=timezone.utc))
+        assert toca is True, f"a las {h:02d}:{mi:02d} UTC el parte debía salir"
 
 
 def test_no_se_repite_la_misma_sesion(tmp_path, monkeypatch):
@@ -173,3 +188,37 @@ def test_al_dia_siguiente_vuelve_a_enviarse(tmp_path, monkeypatch):
     _sin_marca(tmp_path, monkeypatch)
     (tmp_path / MARCA).write_text("2026-08-27\n", encoding="utf-8")   # sesión vieja
     assert _toca_enviar(datetime(2026, 8, 29, 5, 3, tzinfo=timezone.utc))[0] is True
+
+
+# ---------- el parte cuenta la sesión en ORDEN ----------
+def test_parte_cuenta_la_sesion_en_orden_cronologico(tmp_path, monkeypatch):
+    """Primero lo que pasó antes.
+
+    El historial del estado se guarda del más reciente al más antiguo y el parte
+    lo concatenaba en tres listas e invertía el conjunto: el resultado era que
+    el CIERRE aparecía antes que la ENTRADA que lo había originado.
+    """
+    import json
+    from datetime import datetime, timezone
+    from oro.config import cargar_configuracion
+    from oro import latido
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "oro_estado.json").write_text(json.dumps({
+        "fecha": "2026-08-27", "senales_hoy": 1, "perdida_r_hoy": 0.0, "abiertas": [],
+        "historial": [  # tal y como lo guarda el sistema: el más nuevo primero
+            {"tipo": "cierre", "momento": "2026-08-27T15:00:00+00:00",
+             "precio": 4310.0, "mensaje": "Cierre por OBJETIVO", "r": 1.2},
+            {"tipo": "tp_alcanzado", "momento": "2026-08-27T12:00:00+00:00",
+             "precio": 4300.0, "mensaje": "TP1 alcanzado", "r": 0.0},
+            {"tipo": "entrada", "momento": "2026-08-27T10:00:00+00:00",
+             "direccion": "compra", "entrada": 4290.0, "stop": 4280.0,
+             "prob": 0.65, "mensaje": "ENTRADA COMPRA"},
+        ]}), encoding="utf-8")
+    monkeypatch.setattr(latido, "_motivo_actual", lambda cfg: (4300.0, "sin sesgo"))
+
+    ahora = datetime(2026, 8, 28, 5, 10, tzinfo=timezone.utc)
+    for texto in (latido.construir_parte(cargar_configuracion(), ahora),
+                  latido.construir_parte_html(cargar_configuracion(), ahora)):
+        assert texto.index("ENTRADA COMPRA") < texto.index("TP1 alcanzado") \
+            < texto.index("Cierre por OBJETIVO")
