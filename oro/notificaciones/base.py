@@ -258,10 +258,13 @@ def mensaje_html_evento(titulo: str, cuerpo_html: str, evento: Evento,
 
 
 def _cuerpo_evento(d: dict, color: str) -> str:
-    """Cuerpo maquetado: qué hacer, cuánto ha salido, y de dónde a dónde.
+    """Cuerpo maquetado: qué hacer, cuánto llevas, y los precios que importan.
 
-    Lo que el usuario necesita ver de un vistazo en el móvil, por orden: la
-    ACCIÓN, el RESULTADO y los PRECIOS. El resto es contexto y va pequeño.
+    Lo que el usuario necesita de un vistazo en el móvil, por orden: la ACCIÓN,
+    la CIFRA y los PRECIOS. Las dos cajas de precio son genéricas a propósito:
+    en un cierre son "Entrada -> Salida", pero en un break-even NO hay salida
+    —solo se mueve el stop— y poner ahí una "SALIDA" invitaba a cerrar la
+    posición por error.
     """
     r = d.get("r")
     tono = _VERDE if (r or 0) > 0 else _ROJO if (r or 0) < 0 else _MUTED
@@ -273,7 +276,7 @@ def _cuerpo_evento(d: dict, color: str) -> str:
         f'<div style="color:{_TEXTO};font-size:19px;font-weight:800;line-height:1.3;">'
         f'{_esc(d["accion"])}</div></td></tr>')
 
-    # 2) El resultado, grande y a color. Es la cifra que se busca con la vista.
+    # 2) La cifra, grande y a color. Es lo que se busca con la vista.
     if r is not None:
         filas.append(
             f'<tr><td style="padding:12px 24px 4px 24px;">'
@@ -284,11 +287,14 @@ def _cuerpo_evento(d: dict, color: str) -> str:
             f'text-transform:uppercase;">{_esc(d.get("etiqueta_r", "Resultado"))}</div>'
             f'<div style="color:{tono};font-size:34px;font-weight:800;line-height:1.1;'
             f'margin:2px 0;">{r:+.2f}<span style="font-size:18px;">R</span></div>'
-            f'<div style="color:{_MUTED};font-size:12px;">{_esc(d.get("motivo", ""))}</div>'
+            f'<div style="color:{_MUTED};font-size:12px;line-height:1.4;">'
+            f'{_esc(d.get("motivo", ""))}</div>'
             f'</td></tr></table></td></tr>')
 
-    # 3) De dónde a dónde: entrada -> salida.
-    if d.get("salida") is not None:
+    # 3) Dos cajas de precio, con las etiquetas que toquen en cada caso.
+    izq, der = d.get("izq"), d.get("der")
+    if izq and der:
+        borde_der = d.get("color_der", tono)
         filas.append(
             f'<tr><td style="padding:12px 24px 4px 24px;">'
             f'<table role="presentation" width="100%" style="border-collapse:collapse;">'
@@ -296,33 +302,36 @@ def _cuerpo_evento(d: dict, color: str) -> str:
             f'<td width="45%" style="background:#0e131c;border:1px solid {_BORDE};'
             f'border-radius:12px;padding:12px;text-align:center;">'
             f'<div style="color:{_MUTED};font-size:10px;letter-spacing:1px;'
-            f'text-transform:uppercase;">Entrada</div>'
+            f'text-transform:uppercase;">{_esc(izq[0])}</div>'
             f'<div style="color:{_TEXTO};font-size:19px;font-weight:700;">'
-            f'{d["entrada"]:.2f}</div></td>'
+            f'{izq[1]:.2f}</div></td>'
             f'<td width="10%" style="text-align:center;color:{_MUTED};font-size:18px;">&rarr;</td>'
-            f'<td width="45%" style="background:#0e131c;border:1px solid {tono};'
+            f'<td width="45%" style="background:#0e131c;border:1px solid {borde_der};'
             f'border-radius:12px;padding:12px;text-align:center;">'
             f'<div style="color:{_MUTED};font-size:10px;letter-spacing:1px;'
-            f'text-transform:uppercase;">Salida</div>'
-            f'<div style="color:{tono};font-size:19px;font-weight:700;">'
-            f'{d["salida"]:.2f}</div></td>'
+            f'text-transform:uppercase;">{_esc(der[0])}</div>'
+            f'<div style="color:{borde_der};font-size:19px;font-weight:700;">'
+            f'{der[1]:.2f}</div></td>'
             f'</tr></table></td></tr>')
 
     # 4) Contexto en chips pequeños.
+    #
+    # Van como spans en UNA sola celda, no en celdas de tabla separadas: con una
+    # celda por chip la fila no puede partirse y la tarjeta se ensanchaba más
+    # allá de los 460 px, desbordando la pantalla del móvil en cuanto había tres
+    # chips. Así se reparten en varias líneas cuando no caben.
     chips = ""
     for etiqueta, valor in (("Dirección", d.get("direccion")), ("Hora", d.get("hora")),
                             ("Queda abierto", d.get("restante"))):
         if not valor:
             continue
-        chips += (f'<td style="padding:0 6px 0 0;"><span style="display:inline-block;'
-                  f'background:#0e131c;border:1px solid {_BORDE};border-radius:9px;'
-                  f'padding:6px 10px;color:{_MUTED};font-size:11px;">'
+        chips += (f'<span style="display:inline-block;background:#0e131c;'
+                  f'border:1px solid {_BORDE};border-radius:9px;padding:6px 10px;'
+                  f'margin:0 6px 6px 0;color:{_MUTED};font-size:11px;">'
                   f'{etiqueta}: <b style="color:{_TEXTO};">{_esc(str(valor))}</b>'
-                  f'</span></td>')
+                  f'</span>')
     if chips:
-        filas.append(f'<tr><td style="padding:14px 24px 20px 24px;">'
-                     f'<table role="presentation" style="border-collapse:collapse;">'
-                     f'<tr>{chips}</tr></table></td></tr>')
+        filas.append(f'<tr><td style="padding:14px 24px 16px 24px;">{chips}</td></tr>')
     return "\n".join(filas)
 
 

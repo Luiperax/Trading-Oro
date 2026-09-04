@@ -390,22 +390,40 @@ class RunnerVivo:
         cuerpo_html = (f"<b>{_esc(self._instruccion(ev.tipo))}</b><br>{_esc(ev.mensaje)}<br><br>"
                        f"<span style='color:#8A93A3;'>Hora: <b>{_esc(hora)}</b> · Dirección: "
                        f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
-        # Datos estructurados para que la tarjeta se pueda MAQUETAR (resultado
-        # grande y a color, entrada -> salida, chips de contexto) en vez de ser
-        # un párrafo de texto corrido.
+        # Datos estructurados para MAQUETAR la tarjeta. Cada tipo de evento
+        # necesita cosas distintas y mezclarlos engaña:
+        #
+        # * TP alcanzado -> sales de una PARTE. La cifra es lo asegurado hasta
+        #   ahora, no el resultado final, y hay que decir cuánto queda vivo.
+        # * Break-even   -> NO se sale de nada, solo se mueve el stop. Poner una
+        #   caja "SALIDA" ahí invitaba a cerrar la posición por error.
+        # * Cierre       -> sales del todo: resultado total y precio de salida.
+        #
+        # El motivo se corta por ". " (punto y ESPACIO), no por ".", porque los
+        # precios llevan decimales y se quedaba en "STOP alcanzado a 4508".
+        motivo = str(ev.mensaje).split(". ")[0].strip().lstrip("🚪🎯🛡 ").strip()
         datos = {
             "accion": self._instruccion(ev.tipo),
-            "motivo": ev.mensaje.split(".")[0].strip(),
+            "motivo": motivo,
             "r": round(ev.r_acumulado, 2),
-            "etiqueta_r": ("Asegurado hasta ahora" if ev.tipo is Evento.TP_ALCANZADO
-                           else "Resultado total"),
-            "entrada": gestor.entrada,
-            "salida": ev.precio,
             "direccion": gestor.direccion.value.upper(),
             "hora": hora,
-            "restante": (f"{gestor.restante:.0%}"
-                         if gestor.abierta and gestor.restante > 0 else None),
         }
+        if ev.tipo is Evento.MOVER_STOP:
+            datos["etiqueta_r"] = "Asegurado hasta ahora"
+            datos["izq"] = ("Entrada", gestor.entrada)
+            datos["der"] = ("Nuevo stop", ev.precio)
+            datos["color_der"] = "#F5A524"      # ámbar: es protección, no salida
+            datos["restante"] = f"{gestor.restante:.0%}"
+        elif ev.tipo is Evento.TP_ALCANZADO:
+            datos["etiqueta_r"] = "Asegurado hasta ahora"
+            datos["izq"] = ("Entrada", gestor.entrada)
+            datos["der"] = ("Cierre parcial", ev.precio)
+            datos["restante"] = f"{gestor.restante:.0%}"
+        else:
+            datos["etiqueta_r"] = "Resultado total"
+            datos["izq"] = ("Entrada", gestor.entrada)
+            datos["der"] = ("Salida", ev.precio)
         from ..notificaciones.base import mensaje_html_evento
         ok = self.notificador.enviar(
             titulo, cuerpo_txt, ev.tipo,

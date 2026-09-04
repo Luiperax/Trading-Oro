@@ -120,3 +120,47 @@ def test_sin_datos_estructurados_sigue_funcionando():
     """Otras rutas llaman sin `datos`: no deben romperse."""
     html = mensaje_html_evento("Título", "<b>cuerpo</b>", Evento.CIERRE)
     assert "<b>cuerpo</b>" in html
+
+
+# ---------- fallos vistos en la maqueta renderizada ----------
+def test_el_motivo_no_se_corta_en_el_decimal_del_precio():
+    """Se veía "STOP alcanzado a 4508" en vez de "...a 4508.30".
+
+    El motivo se recortaba con split(".") y los precios llevan decimales.
+    """
+    html = _aviso().html
+    assert "4508.30" in html
+    assert "STOP alcanzado a 4508<" not in html and "a 4508 " not in html
+
+
+def test_el_break_even_no_dice_salida_porque_no_se_sale():
+    """Decía "SALIDA 4531.90" y "RESULTADO TOTAL" en un simple movimiento de
+    stop. Invitaba a cerrar la posición por error."""
+    n = _Captura()
+    r = RunnerVivo(cargar_configuracion(), proveedor=None, notificador=n, modelo=None)
+    g = GestorOperaciones(_senal(), cerrar_intradia=False)
+    for ev in g.actualizar(4556.0, datetime(2026, 9, 4, 11, 15, tzinfo=timezone.utc)):
+        if ev.tipo is Evento.MOVER_STOP:
+            r._notificar_evento(ev, g)
+            break
+    assert "NUEVO STOP" in n.html.upper(), "debe hablar de stop, no de salida"
+    assert ">Salida<" not in n.html, "no se sale de nada al mover el stop"
+    assert "Resultado total" not in n.html, "la operación sigue abierta"
+    assert "Asegurado hasta ahora" in n.html
+
+
+def test_la_tarjeta_cabe_en_la_pantalla_de_un_movil():
+    """Con tres chips en celdas de tabla, la tarjeta se ensanchaba y desbordaba.
+
+    Los chips van como spans en UNA celda para que puedan partirse en varias
+    líneas en lugar de estirar la tabla.
+    """
+    n = _Captura()
+    r = RunnerVivo(cargar_configuracion(), proveedor=None, notificador=n, modelo=None)
+    g = GestorOperaciones(_senal(), cerrar_intradia=False)
+    for ev in g.actualizar(4556.0, datetime(2026, 9, 4, 11, 15, tzinfo=timezone.utc)):
+        r._notificar_evento(ev, g)          # TP: es el que lleva TRES chips
+    assert "white-space:nowrap" not in n.html, "impide que los chips se partan"
+    assert n.html.count("max-width:460px") == 1
+    # los chips no pueden ir cada uno en su celda de tabla
+    assert 'padding:0 6px 0 0;"><span' not in n.html
