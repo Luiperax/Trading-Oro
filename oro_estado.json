@@ -1,9 +1,16 @@
 {
   "fecha": "2026-09-04",
   "senales_hoy": 1,
-  "perdida_r_hoy": 0.0,
+  "perdida_r_hoy": 1.0,
   "ultima_vela_senal": "2026-09-04T00:00:00+00:00",
   "historial": [
+    {
+      "tipo": "cierre",
+      "momento": "2026-09-04T13:39:41.132759+00:00",
+      "precio": 4508.3,
+      "mensaje": "STOP alcanzado a 4508.30. Salir. Resultado total: -1.00R.",
+      "r": -1.0
+    },
     {
       "tipo": "entrada",
       "momento": "2026-09-04T00:00:00+00:00",
@@ -390,72 +397,5 @@
       "prob": 0.64
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "compra",
-      "entrada": 4531.89990234375,
-      "riesgo": 23.599650305756768,
-      "stop_actual": 4508.300252037993,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-09-04T00:00:00+00:00",
-      "resumen": "",
-      "cerrar_intradia": true,
-      "hora_cierre_et": 16,
-      "hora_cierre": 16,
-      "trailing": true,
-      "trailing_r": 1.0,
-      "peak": 4531.89990234375,
-      "probabilidad": 0.659,
-      "confianza": 0.87,
-      "stop_inicial": 4508.300252037993,
-      "features": {
-        "ret_1": 0.001104,
-        "ret_5": 0.001988,
-        "ret_20": 0.010849,
-        "dist_ema20_atr": 1.551853,
-        "dist_ema50_atr": 3.446283,
-        "dist_ema200_atr": 1.190431,
-        "pendiente_ema50": 0.657362,
-        "rsi_14": 66.192642,
-        "rsi_norm": 0.323853,
-        "macd_hist_norm": -0.157543,
-        "adx": 50.575888,
-        "di_diff": 0.249583,
-        "bb_pct_b": 0.711488,
-        "bb_ancho": 0.022797,
-        "atr_rel": 0.781205,
-        "atr_z": -1.51793,
-        "dist_vwap_atr": 0.247889,
-        "vol_rel": 0.354905,
-        "sesion_sin": 0.0,
-        "sesion_cos": 1.0,
-        "cuerpo_rel": 0.362956,
-        "mecha_sup_rel": 0.066659,
-        "mecha_inf_rel": 0.570385
-      },
-      "niveles": [
-        [
-          4555.499552649507,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4579.099202955264,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4602.698853261021,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
