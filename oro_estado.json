@@ -5,6 +5,13 @@
   "ultima_vela_senal": "2026-09-04T16:00:00+00:00",
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-09-04T19:33:44.549197+00:00",
+      "precio": 4477.4,
+      "mensaje": "🚪 CIERRE DE SESIÓN: sal de la operación (intradía) a 4477.40. Resultado total: +0.17R.",
+      "r": 0.17
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-09-04T16:00:00+00:00",
       "direccion": "venta",
@@ -386,83 +393,7 @@
       "precio": 4042.81,
       "mensaje": "STOP alcanzado a 4042.81. Salir. Resultado total: -1.00R.",
       "r": -1.0
-    },
-    {
-      "tipo": "entrada",
-      "momento": "2026-07-15T10:18:37+00:00",
-      "direccion": "compra",
-      "entrada": 4039.6,
-      "stop": 4030.63,
-      "mensaje": "[COMPRA] XAU/USD @ 4039.60 | SL 4030.63 | TP 4048.57 (1.0R) / 4057.55 (2.0R) / 4066.52 (3.0R) | P≈67% conf 88% | R:R 1.70",
-      "prob": 0.67
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "venta",
-      "entrada": 4483.39990234375,
-      "riesgo": 36.34963704360143,
-      "stop_actual": 4519.749539387351,
-      "en_breakeven": false,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-09-04T16:00:00+00:00",
-      "resumen": "[VENTA] XAU/USD @ 4483.40 | SL 4519.75 | TP 4447.05 (1.0R) / 4410.70 (2.0R) / 4374.35 (3.0R) | P≈66% conf 87% | R:R 1.70",
-      "cerrar_intradia": true,
-      "hora_cierre_et": 16,
-      "hora_cierre": 16,
-      "trailing": true,
-      "trailing_r": 1.0,
-      "peak": 4483.39990234375,
-      "probabilidad": 0.659,
-      "confianza": 0.87,
-      "stop_inicial": 4519.749539387351,
-      "features": {
-        "ret_1": 2.2e-05,
-        "ret_5": -0.006603,
-        "ret_20": -0.00813,
-        "dist_ema20_atr": -0.57537,
-        "dist_ema50_atr": -0.195503,
-        "dist_ema200_atr": -1.193105,
-        "pendiente_ema50": -0.173371,
-        "rsi_14": 45.765883,
-        "rsi_norm": -0.084682,
-        "macd_hist_norm": -0.287952,
-        "adx": 41.20765,
-        "di_diff": -0.140032,
-        "bb_pct_b": 0.255583,
-        "bb_ancho": 0.021988,
-        "atr_rel": 1.219115,
-        "atr_z": 1.387307,
-        "dist_vwap_atr": 0.126661,
-        "vol_rel": 0.702238,
-        "sesion_sin": -0.866025,
-        "sesion_cos": -0.5,
-        "cuerpo_rel": 0.034774,
-        "mecha_sup_rel": 0.626104,
-        "mecha_inf_rel": 0.339122
-      },
-      "niveles": [
-        [
-          4447.050265300149,
-          0.5,
-          1.0,
-          false
-        ],
-        [
-          4410.700628256547,
-          0.3,
-          2.0,
-          false
-        ],
-        [
-          4374.350991212947,
-          0.2,
-          3.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
