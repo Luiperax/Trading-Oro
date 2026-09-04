@@ -384,8 +384,11 @@ class RunnerVivo:
         cuerpo_txt = (f"{ev.mensaje}\n\nQué hacer: {self._instruccion(ev.tipo)}\n"
                       f"Hora: {hora}\n"
                       f"Dirección: {gestor.direccion.value.upper()} | Entrada: {gestor.entrada:.2f}")
-        cuerpo_html = (f"<b>{self._instruccion(ev.tipo)}</b><br>{ev.mensaje}<br><br>"
-                       f"<span style='color:#8A93A3;'>Hora: <b>{hora}</b> · Dirección: "
+        # El cuerpo se compone como HTML a propósito (negritas, saltos). Las
+        # piezas de texto se escapan AQUÍ, que es donde se sabe cuáles lo son.
+        from ..notificaciones.base import _esc
+        cuerpo_html = (f"<b>{_esc(self._instruccion(ev.tipo))}</b><br>{_esc(ev.mensaje)}<br><br>"
+                       f"<span style='color:#8A93A3;'>Hora: <b>{_esc(hora)}</b> · Dirección: "
                        f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
         from ..notificaciones.base import mensaje_html_evento
         ok = self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,

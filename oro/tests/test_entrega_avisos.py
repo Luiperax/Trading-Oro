@@ -78,16 +78,53 @@ def test_un_canal_que_revienta_no_tumba_al_resto(monkeypatch):
 
 
 # ---------- escapado de HTML ----------
-def test_el_html_del_correo_escapa_el_texto():
-    """El resumen de sentimiento incluye el nombre del evento macro, que viene
-    de un calendario de terceros. Si algún día se añade a la tarjeta, un "<" no
-    debe poder romper el correo ni inyectar marcado."""
+def test_el_titulo_del_correo_se_escapa():
+    """El título es TEXTO PLANO: si llevara un "<" rompería la tarjeta."""
     from oro.notificaciones.base import mensaje_html_evento
 
-    html = mensaje_html_evento("<script>alert(1)</script>", 'a & b "c"', Evento.CIERRE)
+    html = mensaje_html_evento("<script>alert(1)</script>", "cuerpo", Evento.CIERRE)
     assert "<script>alert" not in html
     assert "&lt;script&gt;" in html
-    assert "&amp;" in html
+
+
+def test_el_cuerpo_del_correo_conserva_su_formato():
+    """FALLO REAL que llegó al usuario: el correo de cierre se veía así:
+
+        <b>Cierra la operación completa AHORA.</b><br>STOP alcanzado a 4508.30
+
+    con las etiquetas como texto literal. Al añadir el escapado de HTML se
+    escapó también el CUERPO, que se compone a propósito con negritas y saltos
+    (ver RunnerVivo._notificar_evento). El título sí es texto plano y se escapa;
+    el cuerpo ya es HTML y no debe tocarse.
+    """
+    import re
+
+    from oro.notificaciones.base import mensaje_html_evento
+
+    cuerpo = ("<b>Cierra la operación completa AHORA.</b><br>STOP alcanzado."
+              "<br><br><span style='color:#8A93A3;'>Hora: <b>15:39 CEST</b></span>")
+    html = mensaje_html_evento("SAL DE LA OPERACIÓN", cuerpo, Evento.CIERRE)
+
+    assert "<b>Cierra la operación completa AHORA.</b>" in html, "la negrita se perdió"
+    escapadas = re.findall(r"&lt;/?(?:b|br|span)[^&]*&gt;", html)
+    assert not escapadas, f"etiquetas visibles como texto: {escapadas[:3]}"
+
+
+def test_el_correo_de_entrada_tampoco_muestra_etiquetas():
+    import re
+    from datetime import datetime, timezone
+
+    from oro.dominio import Direccion, Signal, TakeProfit
+    from oro.notificaciones.base import mensaje_html_de_senal
+
+    s = Signal(momento=datetime(2026, 9, 4, tzinfo=timezone.utc),
+               direccion=Direccion.COMPRA, entrada=4531.9, stop_loss=4508.3,
+               take_profits=[TakeProfit(4555.5, 1.0, 1.0)], probabilidad=0.67,
+               confianza=0.86, riesgo_recompensa=1.8, tamano_posicion=0.111,
+               motivos_entrada=["A favor de la tendencia."],
+               contexto_tecnico="Tendencia alcista; ADX 31.")
+    escapadas = re.findall(r"&lt;/?(?:b|br|span)[^&]*&gt;", mensaje_html_de_senal(s))
+    assert not escapadas, f"etiquetas visibles como texto: {escapadas[:3]}"
 
 
 # ---------- validación del marco temporal ----------

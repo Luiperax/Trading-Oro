@@ -215,8 +215,20 @@ def mensaje_html_de_senal(signal: Signal) -> str:
 </div>"""
 
 
-def mensaje_html_evento(titulo: str, cuerpo: str, evento: Evento) -> str:
-    """Tarjeta HTML para eventos de gestión (objetivo, break-even, cierre)."""
+def mensaje_html_evento(titulo: str, cuerpo_html: str, evento: Evento) -> str:
+    """Tarjeta HTML para eventos de gestión (objetivo, break-even, cierre).
+
+    OJO CON EL CONTRATO, que ya se rompió una vez:
+
+    * ``titulo`` es TEXTO PLANO y se escapa aquí.
+    * ``cuerpo_html`` ya viene siendo HTML —lo compone ``RunnerVivo._notificar_evento``
+      con negritas y saltos de línea a propósito— así que NO se escapa. Quien lo
+      construye es responsable de escapar las partes que no controle.
+
+    Al añadir el escapado se escapó también el cuerpo, y el correo de cierre
+    llegó al usuario mostrando "<b>Cierra la operación completa AHORA.</b><br>"
+    como texto literal en vez de en negrita.
+    """
     color = {
         Evento.TP_ALCANZADO: _VERDE,
         Evento.MOVER_STOP: _AMBAR,
@@ -228,7 +240,7 @@ def mensaje_html_evento(titulo: str, cuerpo: str, evento: Evento) -> str:
   <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;">
    <table role="presentation" width="100%" style="border-collapse:collapse;">
     <tr><td style="background:{color};border-radius:18px 18px 0 0;padding:14px 24px;color:#0b0e14;font-size:18px;font-weight:800;">{_esc(titulo)}</td></tr>
-    <tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;line-height:1.6;">{_esc(cuerpo)}</td></tr>
+    <tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;line-height:1.6;">{cuerpo_html}</td></tr>
     <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;color:{_MUTED};font-size:11px;">
       ⚠️ Herramienta de análisis, no asesoramiento financiero.</td></tr>
    </table>
