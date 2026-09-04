@@ -40,16 +40,47 @@ def _cierre_local() -> str:
     return f"{HORA_AVISO_LOCAL}:50"
 
 
+LOTE_MINIMO = 0.01          # el lote más pequeño que acepta un bróker (= 1 oz).
+
+
 def _lote_y_riesgo(signal: Signal):
     """Convierte el tamaño (oz) al LOTE del bróker y calcula la pérdida máxima.
 
     1 lote estándar de XAU/USD = 100 oz. El lote mínimo habitual es 0.01.
+
+    OJO, y es importante: con una cuenta pequeña el lote mínimo puede arriesgar
+    MUCHO MÁS que el porcentaje configurado, y no hay forma de bajarlo. Medido
+    con 3000 EUR de capital y un tope del 0.25% (7.50 EUR), el oro con stops de
+    8 a 50 puntos obliga a arriesgar entre el 112% y el 655% de ese tope. El
+    aviso debe decirlo, no taparlo: quien lee el correo tiene que saber que esa
+    cifra es la de verdad y no el "riesgo mínimo" que pidió.
     """
-    lote = max(0.01, round(signal.tamano_posicion / 100.0, 2))
+    exacto = signal.tamano_posicion / 100.0
+    lote = max(LOTE_MINIMO, round(exacto, 2))
     # Pérdida máxima calculada sobre el LOTE que realmente se coloca (1 lote = 100 oz),
     # para que el importe mostrado coincida con lo que se arriesga de verdad.
     perdida_max = abs(signal.entrada - signal.stop_loss) * lote * 100.0
     return lote, perdida_max
+
+
+def _riesgo_real(signal: Signal) -> tuple[float, float, bool]:
+    """(pérdida en divisa, % del capital, ¿supera el tope configurado?)."""
+    from ..config import cargar_configuracion
+
+    cfg = cargar_configuracion()
+    _, perdida = _lote_y_riesgo(signal)
+    pct = perdida / cfg.capital if cfg.capital > 0 else 0.0
+    return perdida, pct, pct > cfg.riesgo.riesgo_por_operacion * 1.05
+
+
+def _texto_riesgo(signal: Signal) -> str:
+    """Frase honesta sobre lo que se arriesga de verdad con el lote mínimo."""
+    perdida, pct, excede = _riesgo_real(signal)
+    if not excede:
+        return f"Pérdida máxima si salta el stop: ≈{perdida:.0f} ({pct:.2%} del capital)"
+    return (f"Pérdida máxima si salta el stop: ≈{perdida:.0f} = {pct:.2%} del capital. "
+            f"⚠️ Es el LOTE MÍNIMO (0.01) y arriesga MÁS del objetivo configurado; "
+            f"con esta cuenta no se puede bajar más")
 
 
 def mensaje_de_senal(signal: Signal) -> str:
@@ -69,7 +100,7 @@ def mensaje_de_senal(signal: Signal) -> str:
         f"Confianza: {signal.confianza:.0%}   R:R: {signal.riesgo_recompensa:.2f}",
         "",
         f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
-        f"   Pérdida máxima si salta el stop: ≈{_lote_y_riesgo(signal)[1]:.0f} (riesgo mínimo por operación)",
+        f"   {_texto_riesgo(signal)}",
         "   ⚠️ Es LOTES, no onzas. Pon SIEMPRE el Stop Loss indicado arriba.",
         "",
         "Motivos de entrada:",
@@ -158,7 +189,7 @@ def mensaje_html_de_senal(signal: Signal) -> str:
        <tr><td style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:14px 16px;">
          <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;">Lote a introducir en el bróker</div>
          <div style="color:{_ORO};font-size:30px;font-weight:800;">{_lote_y_riesgo(signal)[0]:.2f} <span style="font-size:13px;color:{_MUTED};font-weight:600;">lotes</span></div>
-         <div style="color:{_MUTED};font-size:12px;">Pérdida máxima si salta el stop: <b style="color:{_TEXTO};">≈{_lote_y_riesgo(signal)[1]:.0f}</b> (riesgo mínimo por operación)</div>
+         <div style="color:{_ROJO if _riesgo_real(signal)[2] else _MUTED};font-size:12px;">{_esc(_texto_riesgo(signal))}</div>
          <div style="color:{_ROJO};font-size:12px;margin-top:4px;">⚠️ Es LOTES, no onzas. Pon SIEMPRE el Stop Loss.</div>
        </td></tr>
       </table>
