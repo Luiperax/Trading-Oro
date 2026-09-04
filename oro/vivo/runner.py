@@ -390,9 +390,26 @@ class RunnerVivo:
         cuerpo_html = (f"<b>{_esc(self._instruccion(ev.tipo))}</b><br>{_esc(ev.mensaje)}<br><br>"
                        f"<span style='color:#8A93A3;'>Hora: <b>{_esc(hora)}</b> · Dirección: "
                        f"<b>{gestor.direccion.value.upper()}</b> · Entrada: <b>{gestor.entrada:.2f}</b></span>")
+        # Datos estructurados para que la tarjeta se pueda MAQUETAR (resultado
+        # grande y a color, entrada -> salida, chips de contexto) en vez de ser
+        # un párrafo de texto corrido.
+        datos = {
+            "accion": self._instruccion(ev.tipo),
+            "motivo": ev.mensaje.split(".")[0].strip(),
+            "r": round(ev.r_acumulado, 2),
+            "etiqueta_r": ("Asegurado hasta ahora" if ev.tipo is Evento.TP_ALCANZADO
+                           else "Resultado total"),
+            "entrada": gestor.entrada,
+            "salida": ev.precio,
+            "direccion": gestor.direccion.value.upper(),
+            "hora": hora,
+            "restante": (f"{gestor.restante:.0%}"
+                         if gestor.abierta and gestor.restante > 0 else None),
+        }
         from ..notificaciones.base import mensaje_html_evento
-        ok = self.notificador.enviar(titulo, cuerpo_txt, ev.tipo,
-                                     html=mensaje_html_evento(titulo, cuerpo_html, ev.tipo))
+        ok = self.notificador.enviar(
+            titulo, cuerpo_txt, ev.tipo,
+            html=mensaje_html_evento(titulo, cuerpo_html, ev.tipo, datos))
         if not ok:
             print(f"⚠️  AVISO NO ENVIADO (salida): {titulo}. Revisa la configuración de email/Telegram.")
 

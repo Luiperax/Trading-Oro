@@ -215,38 +215,115 @@ def mensaje_html_de_senal(signal: Signal) -> str:
 </div>"""
 
 
-def mensaje_html_evento(titulo: str, cuerpo_html: str, evento: Evento) -> str:
+def mensaje_html_evento(titulo: str, cuerpo_html: str, evento: Evento,
+                        datos: dict | None = None) -> str:
     """Tarjeta HTML para eventos de gestión (objetivo, break-even, cierre).
+
+    Con ``datos`` se maqueta la tarjeta completa —resultado grande y a color,
+    precios de entrada y salida, chips de contexto—. Sin ``datos`` cae a la
+    versión simple con ``cuerpo_html``, que se usa desde otras rutas.
 
     OJO CON EL CONTRATO, que ya se rompió una vez:
 
     * ``titulo`` es TEXTO PLANO y se escapa aquí.
-    * ``cuerpo_html`` ya viene siendo HTML —lo compone ``RunnerVivo._notificar_evento``
-      con negritas y saltos de línea a propósito— así que NO se escapa. Quien lo
-      construye es responsable de escapar las partes que no controle.
+    * ``cuerpo_html`` ya viene siendo HTML —lo compone
+      ``RunnerVivo._notificar_evento`` con negritas y saltos a propósito— así
+      que NO se escapa. Quien lo construye escapa lo que no controle.
 
     Al añadir el escapado se escapó también el cuerpo, y el correo de cierre
-    llegó al usuario mostrando "<b>Cierra la operación completa AHORA.</b><br>"
-    como texto literal en vez de en negrita.
+    llegó mostrando "<b>Cierra la operación completa AHORA.</b><br>" como texto
+    literal en lugar de en negrita.
     """
     color = {
         Evento.TP_ALCANZADO: _VERDE,
         Evento.MOVER_STOP: _AMBAR,
         Evento.CIERRE: _ORO,
     }.get(evento, _ORO)
+    cuerpo = _cuerpo_evento(datos, color) if datos else (
+        f'<tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;'
+        f'line-height:1.6;">{cuerpo_html}</td></tr>')
     return f"""\
 <div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
  <table role="presentation" align="center" width="100%" style="max-width:460px;margin:0 auto;border-collapse:collapse;">
   <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;">
    <table role="presentation" width="100%" style="border-collapse:collapse;">
     <tr><td style="background:{color};border-radius:18px 18px 0 0;padding:14px 24px;color:#0b0e14;font-size:18px;font-weight:800;">{_esc(titulo)}</td></tr>
-    <tr><td style="padding:20px 24px;color:{_TEXTO};font-size:15px;line-height:1.6;">{cuerpo_html}</td></tr>
+{cuerpo}
     <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;color:{_MUTED};font-size:11px;">
       ⚠️ Herramienta de análisis, no asesoramiento financiero.</td></tr>
    </table>
   </td></tr>
  </table>
 </div>"""
+
+
+def _cuerpo_evento(d: dict, color: str) -> str:
+    """Cuerpo maquetado: qué hacer, cuánto ha salido, y de dónde a dónde.
+
+    Lo que el usuario necesita ver de un vistazo en el móvil, por orden: la
+    ACCIÓN, el RESULTADO y los PRECIOS. El resto es contexto y va pequeño.
+    """
+    r = d.get("r")
+    tono = _VERDE if (r or 0) > 0 else _ROJO if (r or 0) < 0 else _MUTED
+    filas = []
+
+    # 1) La acción, que es lo único que hay que hacer.
+    filas.append(
+        f'<tr><td style="padding:22px 24px 6px 24px;">'
+        f'<div style="color:{_TEXTO};font-size:19px;font-weight:800;line-height:1.3;">'
+        f'{_esc(d["accion"])}</div></td></tr>')
+
+    # 2) El resultado, grande y a color. Es la cifra que se busca con la vista.
+    if r is not None:
+        filas.append(
+            f'<tr><td style="padding:12px 24px 4px 24px;">'
+            f'<table role="presentation" width="100%" style="border-collapse:collapse;">'
+            f'<tr><td style="background:#0e131c;border:1px solid {_BORDE};'
+            f'border-radius:14px;padding:16px 18px;text-align:center;">'
+            f'<div style="color:{_MUTED};font-size:10px;letter-spacing:1.5px;'
+            f'text-transform:uppercase;">{_esc(d.get("etiqueta_r", "Resultado"))}</div>'
+            f'<div style="color:{tono};font-size:34px;font-weight:800;line-height:1.1;'
+            f'margin:2px 0;">{r:+.2f}<span style="font-size:18px;">R</span></div>'
+            f'<div style="color:{_MUTED};font-size:12px;">{_esc(d.get("motivo", ""))}</div>'
+            f'</td></tr></table></td></tr>')
+
+    # 3) De dónde a dónde: entrada -> salida.
+    if d.get("salida") is not None:
+        filas.append(
+            f'<tr><td style="padding:12px 24px 4px 24px;">'
+            f'<table role="presentation" width="100%" style="border-collapse:collapse;">'
+            f'<tr>'
+            f'<td width="45%" style="background:#0e131c;border:1px solid {_BORDE};'
+            f'border-radius:12px;padding:12px;text-align:center;">'
+            f'<div style="color:{_MUTED};font-size:10px;letter-spacing:1px;'
+            f'text-transform:uppercase;">Entrada</div>'
+            f'<div style="color:{_TEXTO};font-size:19px;font-weight:700;">'
+            f'{d["entrada"]:.2f}</div></td>'
+            f'<td width="10%" style="text-align:center;color:{_MUTED};font-size:18px;">&rarr;</td>'
+            f'<td width="45%" style="background:#0e131c;border:1px solid {tono};'
+            f'border-radius:12px;padding:12px;text-align:center;">'
+            f'<div style="color:{_MUTED};font-size:10px;letter-spacing:1px;'
+            f'text-transform:uppercase;">Salida</div>'
+            f'<div style="color:{tono};font-size:19px;font-weight:700;">'
+            f'{d["salida"]:.2f}</div></td>'
+            f'</tr></table></td></tr>')
+
+    # 4) Contexto en chips pequeños.
+    chips = ""
+    for etiqueta, valor in (("Dirección", d.get("direccion")), ("Hora", d.get("hora")),
+                            ("Queda abierto", d.get("restante"))):
+        if not valor:
+            continue
+        chips += (f'<td style="padding:0 6px 0 0;"><span style="display:inline-block;'
+                  f'background:#0e131c;border:1px solid {_BORDE};border-radius:9px;'
+                  f'padding:6px 10px;color:{_MUTED};font-size:11px;">'
+                  f'{etiqueta}: <b style="color:{_TEXTO};">{_esc(str(valor))}</b>'
+                  f'</span></td>')
+    if chips:
+        filas.append(f'<tr><td style="padding:14px 24px 20px 24px;">'
+                     f'<table role="presentation" style="border-collapse:collapse;">'
+                     f'<tr>{chips}</tr></table></td></tr>')
+    return "\n".join(filas)
 
 
 def _en_automatico() -> bool:
