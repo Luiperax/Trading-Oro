@@ -27,40 +27,43 @@ class ConfiguracionRiesgo:
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
     atr_stop_mult: float = 1.5            # stop = 1.5 x ATR desde la entrada.
-    # DOS objetivos, los dos alcanzables, con cierre parcial en el primero.
+    # UN objetivo alcanzable para toda la posición, AMPLIABLE por aviso.
     #
-    # Medida la excursión favorable máxima de las 4.410 entradas de 19,6 años,
-    # respetando el stop dinámico y el cierre intradía —o sea, hasta dónde llega
-    # el precio mientras aún estás dentro—, el porcentaje de operaciones que toca
-    # cada nivel es:
+    # El objetivo se pone en el bróker al abrir y se olvida: si el precio llega
+    # mientras no miras, se ejecuta y te llevas 2R. Pero cuando el precio se
+    # ACERCA sin haber llegado, llega un correo proponiendo subirlo (ver
+    # `r_ampliacion_objetivo`). Si da tiempo a moverlo, la operación puede llegar
+    # más lejos; si no da tiempo, se ejecuta el objetivo original. No hay lado
+    # malo, y por eso el aviso existe.
+    #
+    # Dónde va el objetivo, medido sobre las 4.410 entradas de 19,6 años
+    # (excursión favorable máxima respetando stop dinámico y cierre intradía):
     #
     #     1.0 R  31 %      2.5 R   8 %
     #     1.5 R  19 %      3.0 R   5 %
     #     2.0 R  12 %      4.0 R   2 %      5.0 R  1 %
     #
-    # El PRIMER objetivo va a 2 R: se toca en el 12 % de todas las operaciones y
-    # en el 31 % de las ganadoras. El SEGUNDO va a 3 R, que es el nivel más lejos
-    # que sigue siendo alcanzable de verdad: de las operaciones que llegan a 2 R,
-    # el 39 % continúa hasta 3 R. Más lejos deja de serlo (4 R lo alcanza el 15 %
-    # de ellas y 5 R el 7 %), y un objetivo que no se toca no es un objetivo: es
-    # una orden en el bróker que nunca se ejecuta.
+    # A 2 R se toca en el 12 % de todas las operaciones y en el 31 % de las
+    # ganadoras. Bruto +0.0298 R/op; walk-forward +0.0348 R/op (t = 4.05, gana
+    # 9 de 10 ventanas) frente a la escalera anterior. Si el aviso de ampliación
+    # se atiende siempre, el techo sube a +0.0388 R/op; si no se atiende nunca,
+    # se queda en +0.0298. El resultado real cae entre esos dos.
     #
-    # Cerrar la mitad en el primero y dejar correr la otra mitad gana a un único
-    # objetivo entero: +0.0343 R/op frente a +0.0298 en el histórico completo, y
-    # en walk-forward (elegir con el pasado, cobrar en la ventana siguiente)
-    # +0.0395 R/op con t = 4.54 ganando 10 de 10 ventanas, frente a +0.0348 y
-    # 9 de 10 del objetivo único.
-    #
-    # Sigue sin ser el techo: sin ningún objetivo la ventaja sería +0.0527 R/op.
-    # Ese 35 % restante es el precio de que los objetivos EXISTAN y se ejecuten.
-    # Se comprobó que no hay atajo: mover un objetivo único de 2 R a 3 R cuando el
-    # precio se acerca da EXACTAMENTE lo mismo que ponerlo en 3 R desde el
-    # principio (+0.0388 en ambos), porque no se llega a 2 R sin pasar por 1.5 R;
-    # ese objetivo de 2 R no llegaría a ejecutarse nunca.
-    #
-    # El acierto es del 40 %: se gana menos veces y más cuando se gana.
-    reparto_tp: tuple = (0.5, 0.5)        # mitad en el primero, mitad en el segundo.
-    r_objetivos: tuple = (2.0, 3.0)       # en múltiplos de R.
+    # No se usa cierre parcial (mitad a 2R, mitad a 3R, que mediría +0.0343)
+    # porque exige poder partir la posición: con el lote mínimo de 0.01 no se
+    # puede, y una instrucción que no se puede ejecutar es peor que una peor
+    # instrucción. Está medido por si algún día interesa.
+    reparto_tp: tuple = (1.0,)            # un único objetivo, toda la posición.
+    r_objetivos: tuple = (2.0,)           # en múltiplos de R.
+    # A dónde propone subir el objetivo el aviso de ampliación, y a qué altura se
+    # manda. Medido: estando ya en 1.5R, la esperanza es 1.574 R quedándose en el
+    # objetivo de 2R y 1.621 R ampliando a 3R, así que ampliar sale a cuenta pese
+    # a renunciar a la salida segura. El disparo va en 1.5R y no más arriba
+    # porque es cuestión de TIEMPO: desde 1.5R el precio llega a 2R en la misma
+    # vela el 54 % de las veces (desde 1.8R, el 78 %), y hace falta margen para
+    # leer el correo y mover la orden.
+    r_ampliacion_objetivo: float = 3.0
+    r_disparo_ampliacion: float = 1.5
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El

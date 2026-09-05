@@ -27,6 +27,10 @@ class Evento(str, Enum):
     NUEVA_SENAL = "nueva_senal"
     MOVER_STOP = "mover_stop"
     TP_ALCANZADO = "tp_alcanzado"
+    # El precio se acerca al objetivo sin haber llegado: se propone subirlo.
+    # Es una PROPUESTA, no una orden: si no da tiempo a moverla, el objetivo
+    # original se ejecuta igual y no se pierde nada.
+    AMPLIAR_OBJETIVO = "ampliar_objetivo"
     CIERRE = "cierre"
     CAMBIO_MERCADO = "cambio_mercado"
 
@@ -145,7 +149,10 @@ def pasos_operacion(signal: Signal) -> list[str]:
     trailing stop. Una lista de precios sueltos no dice qué hacer con ellos; esto
     sí, y en el mismo orden en que se teclea en el bróker.
     """
+    from ..config import cargar_configuracion
+
     compra = signal.direccion.value == "compra"
+    r_cfg = cargar_configuracion().riesgo
     dist, trailing = _trailing(signal)
     pasos = [
         f"Abre una {'COMPRA' if compra else 'VENTA'} de XAU/USD (oro) al precio de mercado.",
@@ -154,10 +161,18 @@ def pasos_operacion(signal: Signal) -> list[str]:
     ]
     if len(signal.take_profits) == 1:
         tp = signal.take_profits[0]
-        pasos.append(f"Pon el TAKE PROFIT en {tp.precio:.2f}. Si el precio llega, "
-                     f"la operación se cierra sola con beneficio. Ojo: se alcanza "
-                     f"en 1 de cada 3 operaciones ganadoras; las demás las cierra "
+        pasos.append(f"Pon el TAKE PROFIT en {tp.precio:.2f}. Si el precio llega "
+                     f"mientras no miras, se cierra sola con beneficio. Lo alcanza "
+                     f"1 de cada 3 operaciones ganadoras; las demás las cierra "
                      f"antes el stop.")
+        ampliacion = r_cfg.r_ampliacion_objetivo
+        if ampliacion > tp.r_multiple:
+            riesgo = abs(signal.entrada - signal.stop_loss)
+            destino = signal.entrada + signal.direccion.signo * riesgo * ampliacion
+            pasos.append(f"Si el precio se acerca a ese objetivo sin llegar, te "
+                         f"mando un aviso para subirlo a {destino:.2f} y darle más "
+                         f"recorrido. Es opcional: si no llegas a tiempo, se "
+                         f"ejecuta el de {tp.precio:.2f} y no pierdes nada.")
     elif signal.take_profits:
         primero, ultimo = signal.take_profits[0], signal.take_profits[-1]
         pasos.append(f"Pon el TAKE PROFIT en {primero.precio:.2f} para el "
@@ -165,8 +180,7 @@ def pasos_operacion(signal: Signal) -> list[str]:
                      f"del beneficio: lo alcanza 1 de cada 3 operaciones ganadoras.")
         pasos.append(f"El {ultimo.fraccion:.0%} restante va a por {ultimo.precio:.2f}. "
                      f"Cuando salte el primero te aviso para que muevas ahí el "
-                     f"objetivo del resto. De las que llegan al primero, 4 de "
-                     f"cada 10 llegan también al segundo.")
+                     f"objetivo del resto.")
     if trailing:
         pasos.append(f"Si tu bróker tiene TRAILING STOP, actívalo a {dist:.2f} $ de "
                      f"distancia y se encarga solo. Si no lo tiene, no pasa nada: "
@@ -176,9 +190,7 @@ def pasos_operacion(signal: Signal) -> list[str]:
     # antes de que cierre el mercado. Decir "no vigiles nada" contradiría el aviso
     # de cierre que se manda a esa hora, y dejaría la posición abierta de noche
     # creyendo lo contrario.
-    from ..config import cargar_configuracion
-
-    if cargar_configuracion().riesgo.cerrar_intradia:
+    if r_cfg.cerrar_intradia:
         pasos.append(f"Ya está. A partir de aquí me encargo yo: si la operación "
                      f"avanza te aviso para subir el stop y proteger lo ganado, y "
                      f"si a las {_cierre_local()} sigue abierta te aviso para "

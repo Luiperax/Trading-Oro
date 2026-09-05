@@ -27,10 +27,12 @@ Telegram o push. La gestión del riesgo es la prioridad número uno.
 - **Gestión de riesgo estricta**: stop y objetivos por ATR, tamaño de posición a
   un % fijo del capital, y guardas que prohíben operar en condiciones malas.
 - **Salida sin vigilar la pantalla**: la operación se especifica entera al
-  abrirla —entrada, stop, dos objetivos y la distancia del stop dinámico— y el
-  aviso trae los pasos numerados, en el orden en que se teclean en el bróker.
-  Después llegan correos de ajuste diciendo a qué precio mover el stop conforme
-  la operación avanza, por si tu bróker no tiene trailing stop.
+  abrirla —entrada, stop, objetivo y la distancia del stop dinámico— y el aviso
+  trae los pasos numerados, en el orden en que se teclean en el bróker.
+- **Avisos de ajuste**: conforme la operación avanza llegan correos diciendo a
+  qué precio mover el stop (por si tu bróker no tiene trailing stop) y, si el
+  precio se acerca al objetivo sin llegar, una propuesta para subirlo. Es
+  opcional: si no da tiempo a moverlo, el objetivo original se ejecuta igual.
 - **Aprende de sus propias señales**: guarda por qué mandó cada una y si se
   cumplió, y el diagnóstico compara el acierto CON cada motivo presente frente
   a SIN él, para saber cuáles ayudan de verdad.

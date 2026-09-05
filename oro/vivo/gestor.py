@@ -93,6 +93,8 @@ class GestorOperaciones:
         trailing_activo: bool = True,
         trailing_r: float = 1.0,
         trailing_desde_entrada: bool = True,
+        r_ampliacion_objetivo: float = 0.0,
+        r_disparo_ampliacion: float = 0.0,
     ) -> None:
         self.signal = signal
         self.direccion = signal.direccion
@@ -114,6 +116,10 @@ class GestorOperaciones:
         self._trailing_desde_entrada = bool(trailing_desde_entrada)
         # Último stop del que ya se avisó, para no repetir el mismo correo.
         self._stop_avisado = self.stop_actual
+        # Propuesta de ampliar el objetivo: a dónde y desde qué altura.
+        self._r_ampliacion = float(r_ampliacion_objetivo)
+        self._r_disparo = float(r_disparo_ampliacion)
+        self._ampliacion_avisada = False
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
         # Datos de la señal, para el registro histórico y el aprendizaje al cerrar.
         self.probabilidad = signal.probabilidad if signal else 0.0
@@ -191,6 +197,43 @@ class GestorOperaciones:
                 if objetivo is not None else "")
         return [EventoGestion(Evento.MOVER_STOP, momento, self.stop_actual,
                               cabeza + cola, self.r_acumulado)]
+
+    def _proponer_ampliacion(self, precio: float, momento: datetime) -> List[EventoGestion]:
+        """Avisa cuando el precio se acerca al objetivo, para subirlo si da tiempo.
+
+        No cambia nada por su cuenta: el objetivo del bróker sigue donde está, y
+        si el precio llega antes de que se lea el correo, se ejecuta y no se
+        pierde nada. Por eso el aviso no tiene contrapartida.
+
+        Medido sobre 4.410 operaciones: estando ya en el disparador de 1.5R, la
+        esperanza es 1.574 R quedándose en el objetivo de 2R y 1.621 R ampliando
+        a 3R. Ampliar sale a cuenta pese a renunciar a la salida segura, porque
+        el stop dinámico ya protege buena parte de lo ganado.
+        """
+        if (self._ampliacion_avisada or self._r_ampliacion <= 0
+                or self._r_disparo <= 0 or not self.niveles or self.restante <= 0):
+            return []
+        objetivo = self.niveles[0]
+        if objetivo.alcanzado or self._r_ampliacion <= objetivo.r_multiple:
+            return []
+        avance = self._r_en(precio)
+        # Tiene que estar CERCA pero SIN llegar. Si el precio salta directo al
+        # objetivo —o lo rebasa entre dos comprobaciones—, esta propuesta se
+        # emitía igual y llegaban dos correos a la vez: "sube el objetivo" y
+        # "objetivo alcanzado". Proponer mover una orden que acaba de ejecutarse
+        # no tiene sentido y hace tocar el bróker sin motivo.
+        if not (self._r_disparo <= avance < objetivo.r_multiple):
+            return []
+        self._ampliacion_avisada = True
+        signo = self.direccion.signo
+        nuevo = self.entrada + signo * self._riesgo * self._r_ampliacion
+        return [EventoGestion(
+            Evento.AMPLIAR_OBJETIVO, momento, nuevo,
+            f"El precio se acerca al objetivo de {objetivo.precio:.2f} sin haber "
+            f"llegado. Si puedes, sube el TAKE PROFIT a {nuevo:.2f} "
+            f"({self._r_ampliacion:.1f}R) para dar más recorrido. Si no llegas a "
+            f"tiempo no pasa nada: el objetivo de ahora se ejecuta igual.",
+            self.r_acumulado)]
 
     def _r_en(self, precio: float) -> float:
         if self._riesgo <= 0:
@@ -276,6 +319,9 @@ class GestorOperaciones:
             eventos.append(EventoGestion(tipo, momento, self.stop_actual, msg,
                                          self.r_acumulado, cierra_operacion=True))
             return eventos
+
+        # 1.5) ¿El precio se ACERCA al objetivo? Se propone ampliarlo.
+        eventos += self._proponer_ampliacion(precio, momento)
 
         # 2) ¿Se alcanzan objetivos? (en orden).
         for i, nivel in enumerate(self.niveles, start=1):
@@ -372,6 +418,9 @@ class GestorOperaciones:
             "trailing_r": self._trailing_r,
             "trailing_desde_entrada": self._trailing_desde_entrada,
             "stop_avisado": self._stop_avisado,
+            "r_ampliacion": self._r_ampliacion,
+            "r_disparo": self._r_disparo,
+            "ampliacion_avisada": self._ampliacion_avisada,
             "peak": self._peak,
             "probabilidad": self.probabilidad,
             "confianza": self.confianza,
@@ -414,6 +463,11 @@ class GestorOperaciones:
         # Sin esto, al reiniciar el proceso se repetiría el último aviso de
         # ajuste: GitHub Actions arranca de cero en cada ejecución.
         g._stop_avisado = float(d.get("stop_avisado", d["stop_actual"]))
+        g._r_ampliacion = float(d.get("r_ampliacion", 0.0))
+        g._r_disparo = float(d.get("r_disparo", 0.0))
+        # Sin esto se repetiría la propuesta en cada ejecución: GitHub
+        # Actions arranca el proceso de cero cada vez.
+        g._ampliacion_avisada = bool(d.get("ampliacion_avisada", False))
         g._peak = d.get("peak", d["entrada"])
         g.probabilidad = d.get("probabilidad", 0.0)
         g.confianza = d.get("confianza", 0.0)

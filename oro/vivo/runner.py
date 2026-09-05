@@ -177,6 +177,8 @@ class RunnerVivo:
                     trailing_activo=r_cfg.trailing_activo,
                     trailing_r=r_cfg.trailing_r,
                     trailing_desde_entrada=r_cfg.trailing_desde_entrada,
+                    r_ampliacion_objetivo=r_cfg.r_ampliacion_objetivo,
+                    r_disparo_ampliacion=r_cfg.r_disparo_ampliacion,
                 )
                 # La operación SOLO existe si el aviso llegó. Si no se pudo
                 # enviar, el usuario no habría entrado: darla por abierta crearía
@@ -382,6 +384,7 @@ class RunnerVivo:
             # (reduciendo la pérdida) y cuando ya asegura beneficio.
             Evento.MOVER_STOP: "🛡 AJUSTA EL STOP — la operación avanza (XAU/USD)",
             Evento.CIERRE: "🚪 SAL DE LA OPERACIÓN — cierre (XAU/USD)",
+            Evento.AMPLIAR_OBJETIVO: "📈 SUBE EL OBJETIVO — va camino de él (XAU/USD)",
         }
         titulo = titulos.get(ev.tipo, "Actualización — XAU/USD")
         from ..tiempo import etiqueta_zona, hora_local
@@ -406,7 +409,7 @@ class RunnerVivo:
         #
         # El motivo se corta por ". " (punto y ESPACIO), no por ".", porque los
         # precios llevan decimales y se quedaba en "STOP alcanzado a 4508".
-        motivo = str(ev.mensaje).split(". ")[0].strip().lstrip("🚪🎯🛡 ").strip()
+        motivo = str(ev.mensaje).split(". ")[0].strip().lstrip("🚪🎯🛡📈 ").strip()
         datos = {
             "accion": self._instruccion(ev.tipo),
             "motivo": motivo,
@@ -434,6 +437,20 @@ class RunnerVivo:
             datos["izq"] = ("Entrada", gestor.entrada)
             datos["der"] = ("Cierre parcial", ev.precio)
             datos["restante"] = f"{gestor.restante:.0%}"
+        elif ev.tipo is Evento.AMPLIAR_OBJETIVO:
+            # Aquí NO se sale de nada ni se ha realizado nada: la cifra grande es
+            # a cuánto llegaría el objetivo propuesto. Con `r_acumulado` saldría
+            # 0.00R, y con las cajas del cierre parecería que hay que vender.
+            riesgo = abs(gestor.entrada - gestor.stop_inicial)
+            datos["r"] = round(gestor.direccion.signo * (ev.precio - gestor.entrada)
+                               / riesgo, 2) if riesgo > 0 else 0.0
+            datos["etiqueta_r"] = "Si llega al nuevo objetivo"
+            objetivo_actual = next((n.precio for n in gestor.niveles if not n.alcanzado),
+                                   gestor.entrada)
+            datos["izq"] = ("Objetivo ahora", objetivo_actual)
+            datos["der"] = ("Súbelo a", ev.precio)
+            datos["color_der"] = "#2ECC71"      # verde: es una oportunidad, no un riesgo
+            datos["restante"] = f"{gestor.restante:.0%}"
         else:
             datos["etiqueta_r"] = "Resultado total"
             datos["izq"] = ("Entrada", gestor.entrada)
@@ -454,5 +471,6 @@ class RunnerVivo:
             # a cuál. Repetir "break-even" haría que el mismo correo pidiera dos
             # cosas contradictorias.
             Evento.MOVER_STOP: "Cambia el Stop Loss en tu bróker al precio indicado.",
+            Evento.AMPLIAR_OBJETIVO: ("Sube el Take Profit al precio indicado. Si no llegas a tiempo, no pasa nada."),
             Evento.CIERRE: "Cierra la operación completa AHORA.",
         }.get(tipo, "Revisa la operación.")
