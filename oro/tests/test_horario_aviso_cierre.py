@@ -87,3 +87,55 @@ def test_las_citas_de_la_tarde_no_cierran_una_operacion_sana():
         else:
             assert not toca, (
                 f"a las {local:%H:%M} cerraría una operación sana de hoy: {motivo}")
+
+
+def test_el_aviso_anuncia_la_hora_real_en_las_semanas_de_desfase():
+    """Europa y EE. UU. no cambian la hora el mismo fin de semana.
+
+    Una semana en octubre y tres en marzo, el cierre de Nueva York (16:00 ET)
+    cae a las 21:00 en Madrid en vez de a las 22:00, o sea ANTES del aviso de las
+    21:50. Anunciar "21:50" esas cuatro semanas al año sería decir una hora que no
+    es, y quien lo lea esperará un correo que ya le llegó.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import _cierre_local
+
+    normales = [dt.datetime(2026, 7, 15, 12, tzinfo=dt.timezone.utc),
+                dt.datetime(2026, 12, 15, 12, tzinfo=dt.timezone.utc)]
+    desfasadas = [dt.datetime(2026, 10, 28, 12, tzinfo=dt.timezone.utc),
+                  dt.datetime(2026, 3, 12, 12, tzinfo=dt.timezone.utc)]
+
+    for f in normales:
+        assert _cierre_local(f) == "21:50", f"{f:%d-%b}: debería anunciar 21:50"
+    for f in desfasadas:
+        assert _cierre_local(f) == "21:00", (
+            f"{f:%d-%b}: semana de desfase, el cierre real es a las 21:00")
+
+
+def test_la_hora_anunciada_nunca_es_posterior_al_cierre_real():
+    """Anunciar una hora POSTERIOR al cierre efectivo es el fallo peligroso.
+
+    Quien lo lea creería que aún le queda margen sobre una posición que el
+    sistema ya cerró.
+    """
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    from oro.config import cargar_configuracion
+    from oro.dominio.mercado import ZONA_MERCADO
+    from oro.notificaciones.base import _cierre_local
+    from oro.tiempo import a_local
+
+    cfg = cargar_configuracion()
+    dia = dt.datetime(2026, 1, 1, 12, tzinfo=dt.timezone.utc)
+    for _ in range(365):
+        anunciada = _cierre_local(dia)
+        en_ny = dia.astimezone(ZoneInfo(ZONA_MERCADO)).replace(
+            hour=cfg.riesgo.hora_cierre_et, minute=0, second=0, microsecond=0)
+        real = a_local(en_ny.astimezone(dt.timezone.utc))
+        h, m = (int(x) for x in anunciada.split(":"))
+        assert (h, m) <= (real.hour, real.minute), (
+            f"{dia:%d-%b}: se anuncia {anunciada} pero el cierre real es "
+            f"{real:%H:%M}")
+        dia += dt.timedelta(days=1)

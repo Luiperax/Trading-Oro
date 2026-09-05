@@ -243,8 +243,11 @@ class GestorOperaciones:
                 f"Cerrar {nivel.fraccion:.0%} de la posición.",
                 self.r_acumulado,
             ))
-            # Tras el primer objetivo: proteger a break-even.
-            if not self._en_breakeven:
+            # Tras el primer objetivo: proteger a break-even. Solo tiene sentido si
+            # queda posición viva: con un único objetivo que cierra el 100%, mandar
+            # "mueve el stop" sobre una operación ya cerrada confunde a quien lo
+            # recibe y le hace tocar el bróker sin motivo.
+            if not self._en_breakeven and self.restante > 1e-9:
                 self._en_breakeven = True
                 self.stop_actual = self.entrada
                 eventos.append(EventoGestion(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional
@@ -29,15 +31,46 @@ class Evento(str, Enum):
     CAMBIO_MERCADO = "cambio_mercado"
 
 
-def _cierre_local() -> str:
-    """Hora a la que llegará el AVISO de cierre, en la hora del usuario.
+def _cierre_local(momento: datetime | None = None) -> str:
+    """Hora a la que se cerrará la operación, en la hora del usuario.
 
     Es el dato accionable: no sirve decir "21:00 UTC" ni la hora a la que cierra
-    el mercado, sino a qué hora recibirá el aviso para cerrar en el bróker.
-    Coincide con la franja del trabajo de cierre (oro.cierre).
+    el mercado, sino a qué hora tiene que estar cerrada la posición.
+
+    Hay DOS cosas que pueden cerrarla y no siempre van en el mismo orden:
+
+      * el aviso de cierre, a una hora local fija (``HORA_AVISO_LOCAL``:50);
+      * la red de seguridad del gestor, definida en hora de NUEVA YORK
+        (``hora_cierre_et``), que normalmente cae después.
+
+    Normalmente el aviso llega primero y son las 21:50. Pero Europa y Estados
+    Unidos NO cambian la hora el mismo fin de semana (1 semana desfasada en
+    octubre y 3 en marzo), y esas semanas el cierre de Nueva York cae a las 21:00
+    en Madrid: ANTES del aviso. Anunciar "21:50" esas cuatro semanas al año sería
+    decir una hora que no es, y quien lo lea esperará un correo que ya llegó.
     """
+    import datetime as _dt
+
     from ..cierre import HORA_AVISO_LOCAL
-    return f"{HORA_AVISO_LOCAL}:50"
+    from ..config import cargar_configuracion
+    from ..tiempo import a_local
+
+    ahora = momento or _dt.datetime.now(_dt.timezone.utc)
+    cfg = cargar_configuracion()
+    if not cfg.riesgo.cerrar_intradia:
+        return f"{HORA_AVISO_LOCAL}:50"
+    try:
+        from zoneinfo import ZoneInfo
+
+        from ..dominio.mercado import ZONA_MERCADO
+
+        en_ny = ahora.astimezone(ZoneInfo(ZONA_MERCADO)).replace(
+            hour=cfg.riesgo.hora_cierre_et, minute=0, second=0, microsecond=0)
+        red_seguridad = a_local(en_ny.astimezone(_dt.timezone.utc))
+    except Exception:  # noqa: BLE001 — sin zoneinfo, el aviso sigue siendo válido.
+        return f"{HORA_AVISO_LOCAL}:50"
+    aviso = red_seguridad.replace(hour=HORA_AVISO_LOCAL, minute=50)
+    return f"{min(aviso, red_seguridad):%H:%M}"
 
 
 LOTE_MINIMO = 0.01          # el lote más pequeño que acepta un bróker (= 1 oz).

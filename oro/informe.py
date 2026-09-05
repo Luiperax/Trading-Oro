@@ -17,6 +17,18 @@ from pathlib import Path
 from .config import cargar_configuracion
 
 
+def es_operacion_cerrada(r: dict) -> bool:
+    """¿Es una operación CERRADA, con resultado, o solo una señal emitida?
+
+    El fichero histórico llegó a mezclar las dos formas. Una señal sin cerrar no
+    tiene `resultado_r`: leída como 0.0 contaba como perdedora e inflaba el
+    total, hundiendo el porcentaje de acierto con operaciones que nunca
+    existieron. Además `deduplicar` las colapsaba todas en una sola, porque
+    ninguna tiene `apertura`.
+    """
+    return r.get("resultado_r") is not None and bool(r.get("apertura"))
+
+
 def deduplicar(registros: list) -> list:
     """Quita señales repetidas: una sola por vela de apertura y dirección.
 
@@ -48,7 +60,7 @@ def _cargar(ruta: Path) -> list:
                 registros.append(json.loads(linea))
             except json.JSONDecodeError:
                 continue
-    return deduplicar(registros)
+    return deduplicar([r for r in registros if es_operacion_cerrada(r)])
 
 
 def _filtrar_mes(ops: list, aaaa_mm: str | None) -> list:

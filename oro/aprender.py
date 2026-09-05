@@ -84,8 +84,8 @@ def _cargar_operaciones(ruta: Path) -> list:
     # Sin deduplicar, la MISMA operación podría caer en entrenamiento y en
     # prueba a la vez (fuga de datos): el AUC saldría inflado y se promocionaría
     # un modelo que en realidad no predice nada.
-    from .informe import deduplicar
-    return deduplicar(filas)
+    from .informe import deduplicar, es_operacion_cerrada
+    return deduplicar([f for f in filas if es_operacion_cerrada(f)])
 
 
 def main(argv=None) -> int:

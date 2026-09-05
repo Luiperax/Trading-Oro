@@ -59,8 +59,10 @@ class ConfiguracionRiesgo:
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El
     # aviso de salida lo manda antes el trabajo de cierre, a las 21:50 del
     # usuario. Se define en la hora del mercado —no en UTC— para que el cambio
-    # de horario de octubre no lo desajuste: 16:00 en Nueva York son las 22:00
-    # en Madrid todo el año, una hora antes de que cierre el mercado.
+    # de horario no lo desajuste. 16:00 en Nueva York son las 22:00 en Madrid
+    # CASI todo el año: Europa y EE. UU. no cambian la hora el mismo fin de
+    # semana (1 semana desfasada en octubre y 3 en marzo) y esas semanas caen a
+    # las 21:00. El aviso lo tiene en cuenta y anuncia la hora real.
     # Medido sobre 872 días: adelantarlo una hora no cuesta nada (PF 1.00->1.01).
     hora_cierre_et: int = 16
     # Salida dinámica: el stop persigue al precio desde el máximo/mínimo favorable.
@@ -133,6 +135,10 @@ class ConfiguracionSistema:
     directorio_datos: str = "datos_oro"
     ruta_modelo: str = "modelo_oro.pkl"
     ruta_operaciones: str = "operaciones_oro.jsonl"
+    # Señales EMITIDAS (aún sin resultado). Fichero aparte a propósito: mezclarlas
+    # con las operaciones cerradas ensuciaba el marcador, porque una señal sin
+    # `resultado_r` se leía como 0.0 y contaba como perdedora.
+    ruta_senales: str = "senales_oro.jsonl"
 
     def validar(self) -> List[str]:
         """Devuelve una lista de problemas de configuración (vacía si todo OK)."""
@@ -197,6 +203,9 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )
+    cfg.ruta_operaciones = os.getenv("ORO_RUTA_OPERACIONES", cfg.ruta_operaciones)
+    cfg.ruta_senales = os.getenv("ORO_RUTA_SENALES", cfg.ruta_senales)
+    cfg.ruta_modelo = os.getenv("ORO_RUTA_MODELO", cfg.ruta_modelo)
     cfg.riesgo.trailing_r = _num("ORO_TRAILING_R", cfg.riesgo.trailing_r)
     cfg.riesgo.coste_operacion = _num("ORO_COSTE_OPERACION", cfg.riesgo.coste_operacion)
     cfg.riesgo.operaciones_max_dia = int(

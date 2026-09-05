@@ -59,8 +59,13 @@ class ServicioOro:
         return resultado
 
     def _registrar_senal(self, signal) -> None:
-        """Persiste la señal para el aprendizaje continuo (append-only JSONL)."""
-        ruta = Path(self.cfg.ruta_operaciones)
+        """Persiste la señal EMITIDA (append-only JSONL).
+
+        Va a un fichero distinto del de operaciones cerradas. Compartirlo
+        ensuciaba el marcador: estos registros no tienen `resultado_r`, se leían
+        como 0.0 y contaban como operaciones perdedoras que nunca existieron.
+        """
+        ruta = Path(self.cfg.ruta_senales)
         ruta.parent.mkdir(parents=True, exist_ok=True)
         registro = {
             "momento": signal.momento.isoformat(),
