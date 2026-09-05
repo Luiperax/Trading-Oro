@@ -194,3 +194,107 @@ def test_los_motivos_se_entienden_sin_saber_de_mercado():
               "lado correcto del VWAP", "Barrido de liquidez a favor.")
     for m in motivos:
         assert m not in crudos, f"motivo en jerga sin traducir: {m!r}"
+
+
+def test_la_ventaja_medida_no_depende_del_supuesto_de_salida_intradia():
+    """La cifra que justifica la gestión actual no puede colgar de un supuesto.
+
+    El backtest cierra el intradía en el PUNTO MEDIO de la vela ("salida
+    imparcial"), pero en la realidad se cierra al precio que haya cuando llega el
+    aviso. Si la ventaja solo apareciese con ese supuesto, sería un artefacto del
+    modelo y no una propiedad de la estrategia.
+
+    Medido sobre las 4.410 entradas de 19,6 años, la ventaja de la gestión actual
+    frente a la escalera 1R/2R/3R es +0.0497 R/op con el punto medio, +0.0535 con
+    el PEOR precio de la vela y +0.0459 con el MEJOR: prácticamente la misma. Y en
+    el supuesto más adverso la gestión actual sigue siendo positiva en bruto
+    (+0.0112) mientras la escalera es negativa (-0.0424).
+
+    Esta prueba deja constancia de la comprobación; los datos de 19,6 años no
+    están en el repositorio, así que aquí solo se fija que el motor de backtest
+    sigue documentando y usando el punto medio, para que nadie lo cambie sin
+    rehacer la medición.
+    """
+    import inspect
+
+    from oro.backtesting import motor
+
+    fuente = inspect.getsource(motor.Backtester._simular)
+    assert "(hi + lo) / 2.0" in fuente, (
+        "cambió el supuesto de salida intradía: hay que rehacer la medición de "
+        "la ventaja de la gestión (ver ConfiguracionRiesgo.reparto_tp)")
+    assert "imparcial" in fuente, "se perdió la explicación del supuesto"
+
+
+def _gestor(**kw):
+    from oro.vivo.gestor import GestorOperaciones
+
+    return GestorOperaciones(_senal(), cerrar_intradia=False,
+                             trailing_desde_entrada=True, **kw)
+
+
+def test_un_solo_aviso_cuando_el_objetivo_cierra_toda_la_posicion():
+    """Dos correos por el mismo hecho confunden y hacen tocar el bróker de más.
+
+    Con un único objetivo que cierra el 100%, se emitía además un
+    TP_ALCANZADO diciendo "cierra parte... 100% de la posición", seguido del
+    aviso de cierre. Quien lo recibiera cerraría y acto seguido vería un segundo
+    correo pidiéndole cerrar lo que ya no tiene.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import Evento
+
+    sig = _senal()
+    g = _gestor()
+    eventos = g.actualizar(sig.take_profits[0].precio + 0.01,
+                           dt.datetime.now(dt.timezone.utc))
+    tipos = [e.tipo for e in eventos]
+    assert tipos.count(Evento.CIERRE) == 1
+    assert Evento.TP_ALCANZADO not in tipos, "avisa dos veces del mismo cierre"
+    assert g.r_acumulado == pytest.approx(sig.take_profits[0].r_multiple)
+
+
+def test_con_escalera_si_avisa_del_cierre_parcial():
+    """Contrapeso: si de verdad queda posición viva, el aviso hace falta."""
+    import copy
+    import datetime as dt
+
+    from oro.dominio import Direccion, Signal
+    from oro.notificaciones.base import Evento
+    from oro.vivo.gestor import GestorOperaciones
+
+    cfg = copy.deepcopy(cargar_configuracion())
+    cfg.riesgo.r_objetivos, cfg.riesgo.reparto_tp = (1.0, 2.0), (0.5, 0.5)
+    niveles = calcular_niveles(4451.90, Direccion.COMPRA, atr=8.4, cfg=cfg)
+    sig = Signal(momento=dt.datetime.now(dt.timezone.utc), direccion=Direccion.COMPRA,
+                 entrada=niveles.entrada, stop_loss=niveles.stop_loss,
+                 take_profits=niveles.take_profits, probabilidad=0.6, confianza=0.8,
+                 riesgo_recompensa=1.5, tamano_posicion=1.0, motivos_entrada=["x"],
+                 riesgos=[], contexto_tecnico="", puntuacion=0.7)
+    g = GestorOperaciones(sig, cerrar_intradia=False, trailing_activo=False,
+                          trailing_desde_entrada=False)
+    eventos = g.actualizar(sig.take_profits[0].precio + 0.01,
+                           dt.datetime.now(dt.timezone.utc))
+    assert Evento.TP_ALCANZADO in [e.tipo for e in eventos]
+    assert 0 < g.restante < 1
+
+
+def test_el_resultado_anunciado_coincide_con_el_real():
+    """Si el aviso dice un R distinto del que quedó registrado, el usuario no
+    puede fiarse de ninguno de los dos."""
+    import datetime as dt
+
+    sig = _senal()
+    riesgo = abs(sig.entrada - sig.stop_loss)
+    for precios in ([sig.stop_loss - 0.01],
+                    [sig.entrada + 3 * riesgo, sig.entrada + 2 * riesgo - 0.01],
+                    [sig.take_profits[0].precio + 0.01]):
+        g = _gestor()
+        eventos = []
+        for p in precios:
+            eventos += g.actualizar(p, dt.datetime.now(dt.timezone.utc))
+        assert eventos, f"ningún aviso para {precios}"
+        assert eventos[-1].r_acumulado == pytest.approx(g.r_acumulado)
+        assert any(e.cierra_operacion for e in eventos)
+        assert g.estado.value != "abierta"

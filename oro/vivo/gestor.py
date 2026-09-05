@@ -237,12 +237,20 @@ class GestorOperaciones:
             nivel.alcanzado = True
             self.r_acumulado += nivel.fraccion * nivel.r_multiple
             self.restante -= nivel.fraccion
-            eventos.append(EventoGestion(
-                Evento.TP_ALCANZADO, momento, nivel.precio,
-                f"TP{i} alcanzado a {nivel.precio:.2f} ({nivel.r_multiple:.1f}R). "
-                f"Cerrar {nivel.fraccion:.0%} de la posición.",
-                self.r_acumulado,
-            ))
+            # Si este objetivo cierra TODA la posición, el aviso de cierre que
+            # viene justo después ya lo cuenta. Emitir además un "cierra parte"
+            # mandaría DOS correos por el mismo hecho, y el primero diría "cierra
+            # parte" de algo que se cierra entero: quien lo reciba cerrará y luego
+            # verá un segundo aviso pidiéndole cerrar lo que ya no tiene.
+            if self.restante > 1e-9:
+                etiqueta = f"TP{i}" if len(self.niveles) > 1 else "Objetivo"
+                eventos.append(EventoGestion(
+                    Evento.TP_ALCANZADO, momento, nivel.precio,
+                    f"{etiqueta} alcanzado a {nivel.precio:.2f} "
+                    f"({nivel.r_multiple:.1f}R). Cerrar {nivel.fraccion:.0%} "
+                    f"de la posición.",
+                    self.r_acumulado,
+                ))
             # Tras el primer objetivo: proteger a break-even. Solo tiene sentido si
             # queda posición viva: con un único objetivo que cierra el 100%, mandar
             # "mueve el stop" sobre una operación ya cerrada confunde a quien lo
