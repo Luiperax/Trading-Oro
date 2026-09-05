@@ -59,7 +59,10 @@ def generar_etiquetas(
 
     r = cfg.riesgo
     dist_mult = r.atr_stop_mult
-    tp1_r = r.r_objetivos[0]
+    # El etiquetado pregunta "¿llegó a +1R antes que a -1R?", que es una propiedad
+    # del MERCADO y no de cómo se gestione la salida. Por eso usa 1R fijo y no
+    # depende de r_objetivos, que ahora puede venir vacío (sin objetivos fijos).
+    tp1_r = r.r_objetivos[0] if r.r_objetivos else 1.0
 
     etiquetas = np.full(n, np.nan)
     for i in range(n - 1):

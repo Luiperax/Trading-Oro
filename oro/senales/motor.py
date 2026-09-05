@@ -181,7 +181,16 @@ class MotorSenales:
             motivos_no.append(f"Confianza insuficiente ({confianza:.0%} < {c.confianza_minima:.0%}).")
 
         niveles = calcular_niveles(snapshot.precio, direccion, snapshot.atr, self.cfg)
-        if niveles.riesgo_recompensa < self.cfg.riesgo.r_recompensa_min:
+        # Con la posición gestionada por stop dinámico y sin objetivos fijos, el
+        # R:R no está definido: la ganancia no tiene techo y la cifra saldría 0.
+        # Comprobarla rechazaría todas las señales.
+        #
+        # Conviene saber además qué era esta guarda en realidad: riesgo_recompensa
+        # sale de multiplicar constantes de configuración (reparto x objetivos) y
+        # NO depende del precio, del ATR ni de nada del mercado, así que valía lo
+        # mismo en todas las señales. Nunca rechazó una aceptando otra: era una
+        # comprobación de la configuración disfrazada de filtro por señal.
+        if niveles.take_profits and niveles.riesgo_recompensa < self.cfg.riesgo.r_recompensa_min:
             motivos_no.append(
                 f"R:R insuficiente ({niveles.riesgo_recompensa:.2f} < {self.cfg.riesgo.r_recompensa_min})."
             )

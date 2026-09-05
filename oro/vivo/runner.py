@@ -176,6 +176,7 @@ class RunnerVivo:
                     hora_cierre_et=r_cfg.hora_cierre_et,
                     trailing_activo=r_cfg.trailing_activo,
                     trailing_r=r_cfg.trailing_r,
+                    trailing_desde_entrada=r_cfg.trailing_desde_entrada,
                 )
                 # La operación SOLO existe si el aviso llegó. Si no se pudo
                 # enviar, el usuario no habría entrado: darla por abierta crearía

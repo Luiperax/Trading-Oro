@@ -34,7 +34,7 @@ class Trade:
     direccion: Direccion
     entrada: float
     stop_loss: float
-    take_profit: float
+    take_profit: Optional[float]   # None si la salida la gestiona el stop dinámico.
     tamano: float
     riesgo_pct: float
 

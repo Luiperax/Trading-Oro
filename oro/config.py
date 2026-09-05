@@ -27,26 +27,24 @@ class ConfiguracionRiesgo:
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
     atr_stop_mult: float = 1.5            # stop = 1.5 x ATR desde la entrada.
-    # Reparto de la posición entre objetivos parciales.
+    # SIN objetivos fijos: la posición entera se deja correr y la cierra el stop
+    # dinámico (o el cierre intradía). Medido re-simulando LAS MISMAS 4.410
+    # entradas de 19,6 años con ocho gestiones distintas, para que el efecto sea
+    # de la salida y no de un cambio de señal:
     #
-    # Mitad fuera al primer objetivo y la otra mitad DEJADA CORRER con el stop
-    # dinámico, en vez de la escalera anterior 1R/2R/3R al 50/30/20. Medido sobre
-    # 4.410 operaciones de 19,6 años de XAU/USD, comparando las MISMAS entradas
-    # con distinta gestión (así el efecto es de la salida y no de un cambio de
-    # señal): +0.0143 R/op en la mitad de exploración y +0.0115 R/op en la mitad
-    # de validación, que no se miró hasta el final (t = 2.79, p = 0.005, mejora
-    # en 8 de 10 tandas). Además la peor racha baja de -175 R a -153 R y la peor
-    # operación no empeora: el 2R/3R estaba cortando las ganadoras grandes, no
-    # protegiendo de las pérdidas. La comparación es emparejada, así que el coste
-    # de transacción se cancela y el resultado no depende de suponer un spread.
+    #   escalera 1R/2R/3R (lo anterior)  bruto -0.0016 R/op, mejor operación +1.70 R
+    #   stop dinámico desde la entrada   bruto +0.0527 R/op, mejor operación +9.57 R
     #
-    # Cuidado al tocar esto: el 6.0 NO es un objetivo de verdad, es el precio
-    # que sostiene el R:R ponderado por encima de `r_recompensa_min` (0.5x1 +
-    # 0.5x6 = 3.5). Sin él, el R:R sería 0.5 y motor.py:184 rechazaría TODAS las
-    # señales. En las 4.410 operaciones medidas no se alcanzó ni una sola vez:
-    # el stop dinámico cierra siempre antes esa mitad.
-    reparto_tp: tuple = (0.5, 0.5)
-    r_objetivos: tuple = (1.0, 6.0)       # cada TP en múltiplos de R.
+    # La escalera no protegía de las pérdidas (la peor operación es -1.00 R en
+    # ambas): capaba las ganadoras. Gana a la escalera en 12 de 12 ventanas
+    # temporales, y un walk-forward que elige política con el pasado y cobra en
+    # la ventana siguiente da +0.0517 R/op (t = 4.33, 10/10 ventanas) eligiendo
+    # siempre trailing. Es además la gestión con MENOS parámetros: uno.
+    #
+    # El precio a pagar está medido y hay que saberlo: el acierto baja del 48%
+    # al 40%. Se gana menos veces y se gana más cuando se gana.
+    reparto_tp: tuple = ()
+    r_objetivos: tuple = ()               # sin objetivos parciales.
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El
@@ -56,14 +54,18 @@ class ConfiguracionRiesgo:
     # en Madrid todo el año, una hora antes de que cierre el mercado.
     # Medido sobre 872 días: adelantarlo una hora no cuesta nada (PF 1.00->1.01).
     hora_cierre_et: int = 16
-    # Salida dinámica: tras el primer objetivo, el stop persigue al precio (a 1R
-    # del máximo/mínimo favorable) para proteger beneficio y capturar el movimiento.
+    # Salida dinámica: el stop persigue al precio desde el máximo/mínimo favorable.
+    # Antes solo se activaba tras el primer objetivo; sin objetivos no arrancaría
+    # nunca, y es justamente la gestión que mide mejor (ver reparto_tp).
     trailing_activo: bool = True
     # Distancia del stop dinámico, en múltiplos de R desde el máximo favorable.
     # 1.0 aprieta mucho (protege beneficio pero corta las ganadoras pronto);
     # valores mayores dan más recorrido a la operación a cambio de devolver más
     # desde el pico. Ajustable por ORO_TRAILING_R.
     trailing_r: float = 1.0
+    # Si el stop dinámico empieza a trabajar desde la entrada (True) o solo
+    # tras alcanzar un objetivo parcial (False, comportamiento antiguo).
+    trailing_desde_entrada: bool = True
     # Coste real de operar, en $/oz por operación completa (abrir + cerrar).
     # Al comprar pagas el ask y al vender cobras el bid: cruzas el spread. Sin
     # esto el backtest da resultados optimistas, y el efecto crece con el número

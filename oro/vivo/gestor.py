@@ -82,6 +82,7 @@ class GestorOperaciones:
         hora_cierre_et: int = 16,
         trailing_activo: bool = True,
         trailing_r: float = 1.0,
+        trailing_desde_entrada: bool = True,
     ) -> None:
         self.signal = signal
         self.direccion = signal.direccion
@@ -100,6 +101,7 @@ class GestorOperaciones:
         self._hora_cierre = hora_cierre_et
         self._trailing = trailing_activo
         self._trailing_r = max(0.1, float(trailing_r))
+        self._trailing_desde_entrada = bool(trailing_desde_entrada)
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
         # Datos de la señal, para el registro histórico y el aprendizaje al cerrar.
         self.probabilidad = signal.probabilidad if signal else 0.0
@@ -114,7 +116,8 @@ class GestorOperaciones:
         apretar mucho protege beneficio pero corta las ganadoras pronto; aflojar
         da recorrido a cambio de devolver más desde el pico.
         """
-        if not (self._trailing and self._en_breakeven and self.restante > 0):
+        arrancado = self._en_breakeven or self._trailing_desde_entrada
+        if not (self._trailing and arrancado and self.restante > 0):
             return
         signo = self.direccion.signo
         self._peak = max(self._peak, precio) if signo > 0 else min(self._peak, precio)
@@ -124,6 +127,15 @@ class GestorOperaciones:
             self.stop_actual = max(self.stop_actual, nuevo)
         else:
             self.stop_actual = min(self.stop_actual, nuevo)
+        # `_en_breakeven` significa "el stop ya no puede perder dinero". Con el
+        # trailing corriendo desde la entrada hay que deducirlo del stop, no
+        # darlo por hecho: si no, un stop inicial se anunciaría como "cierre en
+        # break-even" cuando en realidad es una pérdida completa.
+        if not self._en_breakeven:
+            protegido = (self.stop_actual >= self.entrada if signo > 0
+                         else self.stop_actual <= self.entrada)
+            if protegido:
+                self._en_breakeven = True
 
     def _r_en(self, precio: float) -> float:
         if self._riesgo <= 0:
@@ -273,6 +285,7 @@ class GestorOperaciones:
             "hora_cierre": self._hora_cierre,
             "trailing": self._trailing,
             "trailing_r": self._trailing_r,
+            "trailing_desde_entrada": self._trailing_desde_entrada,
             "peak": self._peak,
             "probabilidad": self.probabilidad,
             "confianza": self.confianza,
@@ -310,6 +323,7 @@ class GestorOperaciones:
         g._hora_cierre = _hora_cierre_de(d)
         g._trailing = d.get("trailing", True)
         g._trailing_r = float(d.get("trailing_r", 1.0))
+        g._trailing_desde_entrada = bool(d.get("trailing_desde_entrada", True))
         g._peak = d.get("peak", d["entrada"])
         g.probabilidad = d.get("probabilidad", 0.0)
         g.confianza = d.get("confianza", 0.0)

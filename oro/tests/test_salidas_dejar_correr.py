@@ -1,94 +1,117 @@
-"""La mitad que se deja correr, y por qué el segundo objetivo está tan lejos.
+"""La posición se deja correr y la cierra el stop dinámico.
 
-Medido sobre 4.410 operaciones de 19,6 años, re-simulando LAS MISMAS entradas
-con distintas gestiones: cerrar la escalera en 2R/3R cortaba las ganadoras
-grandes. Mitad fuera a 1R y mitad dejada correr con el stop dinámico dio
-+0.0115 R/op fuera de muestra (t = 2.79, p = 0.005, mejor en 8 de 10 tandas) y
-bajó la peor racha de -175 R a -153 R sin empeorar la peor operación.
+Medido re-simulando LAS MISMAS 4.410 entradas de 19,6 años con ocho gestiones
+distintas (así el efecto es de la salida y no de un cambio de señal):
 
-El 6.0 no es un objetivo real: existe para que el R:R ponderado supere
-``r_recompensa_min``, porque si no el motor rechazaría todas las señales. Estas
-pruebas fijan las dos cosas para que nadie las rompa sin enterarse.
+    escalera 1R/2R/3R      bruto -0.0016 R/op, mejor operación +1.70 R
+    stop dinámico          bruto +0.0527 R/op, mejor operación +9.57 R  (t = 3.32)
+
+La escalera no protegía de las pérdidas —la peor operación es -1.00 R en las
+dos— sino que capaba las ganancias. Gana en 12 de 12 ventanas temporales, y un
+walk-forward que elige con el pasado y cobra en la ventana siguiente da
++0.0517 R/op (t = 4.33, 10/10). El precio medido: el acierto baja del 48% al 40%.
+
+Estas pruebas fijan lo que puede romperse en silencio: que no vuelva a aparecer
+un objetivo cercano, que el filtro de R:R no rechace todas las señales al quedarse
+sin objetivos, y que el correo no mande poner un take profit que no existe.
 """
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 
 from oro.config import cargar_configuracion
-from oro.dominio import Direccion
-from oro.riesgo import calcular_niveles
+from oro.dominio import Direccion, Signal
+from oro.riesgo import calcular_niveles, dimensionar_posicion
 
 
-def test_media_posicion_se_deja_correr():
-    r = cargar_configuracion().riesgo
-    assert len(r.reparto_tp) == len(r.r_objetivos)
-    assert sum(r.reparto_tp) == pytest.approx(1.0), "el reparto debe cubrir la posición"
-    assert r.reparto_tp[0] == pytest.approx(0.5), "la mitad sale al primer objetivo"
-    assert r.r_objetivos[0] == pytest.approx(1.0)
-    # La segunda mitad no debe tener un techo cercano: era lo que cortaba las
-    # ganadoras grandes. Con 2R o 3R el efecto medido desaparece.
-    assert r.r_objetivos[-1] >= 5.0, "el segundo objetivo no puede acercarse: cortaría las ganadoras"
-
-
-def test_el_objetivo_lejano_mantiene_vivo_el_filtro_de_calidad():
-    # motor.py:184 descarta la señal si el R:R ponderado no llega al mínimo. Sin
-    # un segundo objetivo lejano, el R:R sería 0.5 y no se emitiría NINGUNA señal.
-    cfg = cargar_configuracion()
-    n = calcular_niveles(2000.0, Direccion.COMPRA, atr=5.0, cfg=cfg)
-    assert n.riesgo_recompensa >= cfg.riesgo.r_recompensa_min, (
-        "el R:R ponderado cae por debajo del mínimo: el motor no emitiría señales")
-
-
-def test_los_objetivos_van_en_orden_y_al_lado_correcto():
-    cfg = cargar_configuracion()
-    for direccion, signo in ((Direccion.COMPRA, 1), (Direccion.VENTA, -1)):
-        n = calcular_niveles(2000.0, direccion, atr=5.0, cfg=cfg)
-        precios = [tp.precio for tp in n.take_profits]
-        assert all(signo * (p - 2000.0) > 0 for p in precios), "objetivo del lado equivocado"
-        assert precios == sorted(precios, reverse=signo < 0), "objetivos desordenados"
-        assert n.take_profits[0].r_multiple < n.take_profits[-1].r_multiple
-
-
-def _senal_de_ejemplo():
-    import datetime as dt
-    from oro.dominio import Signal
-    from oro.riesgo import dimensionar_posicion
-
+def _senal():
     cfg = cargar_configuracion()
     n = calcular_niveles(4451.90, Direccion.COMPRA, atr=8.4, cfg=cfg)
     return Signal(momento=dt.datetime.now(dt.timezone.utc), direccion=Direccion.COMPRA,
                   entrada=n.entrada, stop_loss=n.stop_loss, take_profits=n.take_profits,
-                  probabilidad=0.67, confianza=0.86,
-                  riesgo_recompensa=n.riesgo_recompensa,
+                  probabilidad=0.67, confianza=0.86, riesgo_recompensa=n.riesgo_recompensa,
                   tamano_posicion=dimensionar_posicion(n.riesgo_por_unidad, cfg),
                   motivos_entrada=["Estructura alcista"], riesgos=[],
                   contexto_tecnico="alcista", puntuacion=0.71)
 
 
-def test_el_aviso_no_presenta_el_tope_como_una_orden_a_poner():
-    # Si el correo anunciara el tope de 6R como un take profit normal, se pondría
-    # en el bróker una orden que el sistema no persigue y que en 4.410
-    # operaciones no se ejecutó nunca: la mitad quedaría sin gestionar.
+def test_no_hay_objetivos_que_capen_las_ganadoras():
+    r = cargar_configuracion().riesgo
+    assert r.r_objetivos == (), "un objetivo fijo vuelve a capar las ganadoras"
+    assert r.reparto_tp == ()
+
+
+def test_el_stop_dinamico_arranca_desde_la_entrada():
+    # Sin objetivos, el trailing antiguo (que solo despertaba al tocar un TP) no
+    # se activaría NUNCA y la posición quedaría sin gestión ninguna.
+    r = cargar_configuracion().riesgo
+    assert r.trailing_activo is True
+    assert r.trailing_desde_entrada is True
+
+
+def test_el_filtro_de_rr_no_rechaza_todas_las_senales():
+    # riesgo_recompensa vale 0 sin objetivos. Si la guarda siguiera aplicándose,
+    # el motor no emitiría ni una señal y el sistema quedaría mudo en silencio.
+    from oro.datos.sintetico import ProveedorSintetico
+    from oro.senales import MotorSenales
+
+    cfg = cargar_configuracion()
+    df = ProveedorSintetico(semilla=7).historico(900)
+    motor = MotorSenales(cfg)
+    rechazos = 0
+    for i in range(500, 900, 25):
+        from oro.dominio import MarketSnapshot, sesion_de
+        from oro.indicadores import atr as _atr
+        momento = df.index[i].to_pydatetime()
+        a = float(_atr(df.iloc[: i + 1], 14).iloc[-1])
+        if a <= 0:
+            continue
+        snap = MarketSnapshot(momento=momento, precio=float(df["close"].iloc[i]),
+                              spread=0.2, atr=a, sesion=sesion_de(momento))
+        res = motor.analizar(df.iloc[max(0, i - 400): i + 1], snap)
+        rechazos += any("R:R insuficiente" in m for m in res.motivos_no)
+    assert rechazos == 0, "la guarda de R:R está rechazando señales sin objetivos"
+
+
+def test_el_gestor_en_vivo_persigue_el_precio_desde_el_principio():
+    from oro.vivo.gestor import GestorOperaciones
+
+    sig = _senal()
+    g = GestorOperaciones(sig, trailing_activo=True, trailing_r=1.0,
+                        trailing_desde_entrada=True)
+    riesgo = abs(sig.entrada - sig.stop_loss)
+    inicial = g.stop_actual
+    g.actualizar(sig.entrada + riesgo * 2, dt.datetime.now(dt.timezone.utc))
+    assert g.stop_actual > inicial, "el stop no siguió al precio"
+    assert g.stop_actual >= sig.entrada, "a +2R el stop debería haber pasado la entrada"
+
+
+def test_un_stop_inicial_no_se_anuncia_como_break_even():
+    # `_en_breakeven` decide el texto del aviso. Si se diera por cierto solo
+    # porque el trailing está activo, una pérdida completa se anunciaría como
+    # "operación protegida", que es exactamente lo contrario de lo que pasó.
+    from oro.vivo.gestor import GestorOperaciones
+
+    sig = _senal()
+    g = GestorOperaciones(sig, trailing_activo=True, trailing_r=1.0,
+                        trailing_desde_entrada=True)
+    eventos = g.actualizar(sig.stop_loss - 1.0, dt.datetime.now(dt.timezone.utc))
+    texto = " ".join(e.mensaje for e in eventos)
+    assert "BREAK-EVEN" not in texto.upper(), texto
+    assert "STOP" in texto.upper()
+    assert g.r_acumulado < 0
+
+
+def test_el_aviso_explica_la_salida_y_no_manda_poner_un_take_profit():
     from oro.notificaciones.base import mensaje_de_senal, mensaje_html_de_senal
 
-    sig = _senal_de_ejemplo()
-    tope = max(tp.precio for tp in sig.take_profits)
+    sig = _senal()
     for texto in (mensaje_de_senal(sig), mensaje_html_de_senal(sig)):
-        assert "se deja correr" in texto or "DEJA CORRER" in texto
-        assert f"Take Profit 2" not in texto and "TP2" not in texto
-
-    # El precio del tope no debe aparecer en el HTML como un nivel más.
-    assert f"{tope:.2f}" not in mensaje_html_de_senal(sig)
-
-
-def test_el_aviso_no_promete_un_rr_que_el_sistema_no_persigue():
-    # riesgo_recompensa vale 3.5 por el tope, pero el sistema solo busca 1R en la
-    # mitad; el resto lo cierra el stop dinámico donde caiga. Anunciar "3.50"
-    # sería vender un premio que no se persigue.
-    from oro.notificaciones.base import mensaje_de_senal, mensaje_html_de_senal
-
-    sig = _senal_de_ejemplo()
-    for texto in (mensaje_de_senal(sig), mensaje_html_de_senal(sig)):
-        assert "3.50" not in texto, "el correo promete un R:R que el sistema no busca"
-        assert "resto" in texto.lower()
+        assert "TP1" not in texto and "Take Profit" not in texto
+        assert ("te aviso" in texto) or ("te avisaré" in texto) or ("aviso al salir" in texto)
+    assert "No pongas take profit" in mensaje_de_senal(sig)
+    # Y que no anuncie un R:R inventado a partir de una configuración vacía.
+    assert "0.00" not in mensaje_de_senal(sig)

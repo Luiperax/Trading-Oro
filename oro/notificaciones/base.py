@@ -83,12 +83,9 @@ def _texto_riesgo(signal: Signal) -> str:
             f"con esta cuenta no se puede bajar más")
 
 
-# La segunda mitad de la posición no tiene objetivo de verdad: se deja correr y
-# la cierra el stop dinámico. Su "objetivo" solo existe para que el R:R ponderado
-# supere el filtro de calidad (ver ConfiguracionRiesgo.r_objetivos), y en 4.410
-# operaciones medidas no se alcanzó ni una vez. Anunciarlo como un take profit
-# haría que se pusiera una orden que no se va a ejecutar, y que el R:R del correo
-# prometiera un premio que el sistema no persigue.
+# Un objetivo muy lejano no es un objetivo: existe para sostener el R:R ponderado
+# y el stop dinámico cierra antes. Anunciarlo como take profit haría poner en el
+# bróker una orden que no se ejecuta y dejaría la posición sin gestionar.
 R_TOPE_NO_ES_OBJETIVO = 5.0
 
 
@@ -96,14 +93,24 @@ def _es_tope(tp) -> bool:
     return tp.r_multiple >= R_TOPE_NO_ES_OBJETIVO
 
 
-def _rr_honesto(signal) -> str:
-    """R:R tal y como se opera: los objetivos reales, y el resto corriendo."""
-    reales = [tp for tp in signal.take_profits if not _es_tope(tp)]
+def _objetivos_reales(signal: Signal) -> list:
+    return [tp for tp in signal.take_profits if not _es_tope(tp)]
+
+
+def _rr_honesto(signal: Signal) -> str:
+    """R:R tal y como se opera, no como sale de multiplicar la configuración."""
+    reales = _objetivos_reales(signal)
+    if not reales:
+        return "sin techo"          # la salida la decide el stop, no un objetivo.
     if len(reales) == len(signal.take_profits):
         return f"{signal.riesgo_recompensa:.2f}"
-    if not reales:
-        return "todo corriendo"
     return f"{reales[-1].r_multiple:.0f}R + resto"
+
+
+# Frase única sobre cómo se sale, para que el correo de texto y el HTML no puedan
+# contarlo de dos maneras distintas.
+SALIDA_GESTIONADA = ("Sin objetivo fijo: el STOP persigue al precio y te aviso "
+                     "cuándo salir. No pongas take profit.")
 
 
 def mensaje_de_senal(signal: Signal) -> str:
@@ -115,12 +122,13 @@ def mensaje_de_senal(signal: Signal) -> str:
         f"Entrada:  {signal.entrada:.2f}",
         f"Stop:     {signal.stop_loss:.2f}",
     ]
-    for k, tp in enumerate(signal.take_profits, 1):
-        if _es_tope(tp):
-            lineas.append(f"Resto:    {tp.fraccion:.0%} se DEJA CORRER — te avisaré de la salida")
-            lineas.append(f"          (no pongas orden aquí; tope técnico {tp.precio:.2f})")
-        else:
-            lineas.append(f"TP{k}:      {tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
+    reales = _objetivos_reales(signal)
+    for k, tp in enumerate(reales, 1):
+        etiqueta = "TP" if len(reales) == 1 else f"TP{k}"
+        lineas.append(f"{etiqueta+':':<10}{tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
+    if len(reales) < len(signal.take_profits) or not signal.take_profits:
+        lineas.append("")
+        lineas.append(f"Salida:   {SALIDA_GESTIONADA}")
     lineas += [
         "",
         f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
@@ -184,15 +192,14 @@ def mensaje_html_de_senal(signal: Signal) -> str:
     dir_txt = signal.direccion.value.upper()
 
     niveles = _fila_nivel("Stop Loss", f"{signal.stop_loss:.2f}", _ROJO)
-    reales = [tp for tp in signal.take_profits if not _es_tope(tp)]
-    for k, tp in enumerate(signal.take_profits, 1):
-        if _es_tope(tp):
-            niveles += _fila_nivel("Resto", "se deja correr", _ORO,
-                                   f"· {tp.fraccion:.0%} · aviso al salir")
-        else:
-            etiqueta = "Take Profit" if len(reales) == 1 else f"Take Profit {k}"
-            niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE,
-                                   f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
+    reales = _objetivos_reales(signal)
+    for k, tp in enumerate(reales, 1):
+        etiqueta = "Take Profit" if len(reales) == 1 else f"Take Profit {k}"
+        niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE,
+                               f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
+    if len(reales) < len(signal.take_profits) or not signal.take_profits:
+        niveles += _fila_nivel("Salida", "sin take profit", _ORO,
+                               "· la gestiono yo · te aviso")
 
     motivos = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:13px;padding:3px 0;">'

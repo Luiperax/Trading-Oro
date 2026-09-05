@@ -145,7 +145,9 @@ class Backtester:
         pnl = 0.0
         stop_actual = stop
         tps_pendientes = list(tps)
-        en_be = False
+        # Con `trailing_desde_entrada`, el stop dinámico trabaja desde la primera
+        # vela. Sin esto y sin objetivos parciales no se activaría jamás.
+        en_be = bool(self.cfg.riesgo.trailing_desde_entrada)
         peak = entrada
         n = len(highs)
 
@@ -241,7 +243,7 @@ class Backtester:
             direccion=signal.direccion,
             entrada=entrada,
             stop_loss=stop,
-            take_profit=tps[-1][0],
+            take_profit=tps[-1][0] if tps else None,
             tamano=tamano_total,
             riesgo_pct=self.cfg.riesgo.riesgo_por_operacion,
             estado=estado,
