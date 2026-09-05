@@ -164,6 +164,27 @@ class ConfiguracionSistema:
             problemas.append("reparto_tp y r_objetivos deben tener la misma longitud.")
         if r.r_recompensa_min <= 0:
             problemas.append("r_recompensa_min debe ser positivo.")
+
+        # Guardas que NO PUEDEN dispararse. Dan sensación de protección sin
+        # protejer de nada, y eso es peor que no tenerlas: se confía en ellas.
+        # Encontradas revisando: eran tres de las cinco "filtros de calidad".
+        c = self.calidad
+        if r.r_objetivos and r.reparto_tp:
+            rr = sum(f * o for f, o in zip(r.reparto_tp, r.r_objetivos))
+            if rr < r.r_recompensa_min:
+                problemas.append(
+                    f"r_recompensa_min ({r.r_recompensa_min}) es mayor que el R:R "
+                    f"que produce la configuración ({rr:.2f}): se rechazarían TODAS "
+                    f"las señales.")
+        # El umbral de probabilidad, sin modelo, equivale a un umbral de puntuación
+        # (probabilidad = 0.40 + 0.35*puntuacion). Si ese equivalente queda por
+        # debajo de `puntuacion_minima`, nunca rechaza nada que el otro no rechace.
+        equiv = (c.prob_minima - 0.40) / 0.35
+        if equiv < c.puntuacion_minima:
+            problemas.append(
+                f"prob_minima ({c.prob_minima}) equivale a puntuación {equiv:.3f}, "
+                f"por debajo de puntuacion_minima ({c.puntuacion_minima}): sin "
+                f"modelo entrenado esa guarda no rechaza nada.")
         return problemas
 
 

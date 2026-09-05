@@ -220,7 +220,10 @@ def mensaje_de_senal(signal: Signal) -> str:
     lineas += [f"  {i}. {t}" for i, t in enumerate(pasos_operacion(signal), 1)]
     lineas += [
         "",
-        f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
+        (f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)"
+         if signal.probabilidad_de_modelo else
+         f"Calidad de la señal: {signal.puntuacion:.0%}  (confluencia de "
+         f"factores; aún no hay modelo entrenado)"),
         f"Confianza: {signal.confianza:.0%}   R:R: {_rr(signal)}",
         "",
         f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
@@ -319,7 +322,9 @@ def mensaje_html_de_senal(signal: Signal) -> str:
        </td></tr>
       </table>
       <table role="presentation" style="border-collapse:collapse;margin-bottom:16px;"><tr>
-        {_pill("Probabilidad", f"{signal.probabilidad:.0%}", _ORO)}
+        {_pill("Probabilidad" if signal.probabilidad_de_modelo else "Calidad",
+               f"{signal.probabilidad:.0%}" if signal.probabilidad_de_modelo
+               else f"{signal.puntuacion:.0%}", _ORO)}
         {_pill("Confianza", f"{signal.confianza:.0%}", _ORO)}
         {_pill("R : R", _rr(signal), _TEXTO)}
       </tr></table>

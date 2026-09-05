@@ -168,9 +168,14 @@ class MotorSenales:
         if self.modelo is not None:
             feats = construir_features(df).iloc[[-1]]
             probabilidad = float(self.modelo.predecir_proba(feats)[0])
+            de_modelo = True
         else:
-            # Sin modelo: probabilidad conservadora derivada de la confluencia.
+            # Sin modelo NO hay probabilidad: esto es la puntuación de confluencia
+            # reescalada a [0.40, 0.75]. Su correlación con `puntuacion` es 1.0000
+            # exacta, así que no aporta información nueva ni debe presentarse como
+            # una probabilidad. Se marca para que el aviso lo diga con su nombre.
             probabilidad = 0.40 + 0.35 * puntuacion
+            de_modelo = False
 
         confianza = 0.5 * puntuacion + 0.5 * min(1.0, len(motivos_entrada) / 5.0)
 

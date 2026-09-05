@@ -60,6 +60,12 @@ class Signal:
     riesgos: List[str] = field(default_factory=list)
     duracion_estimada: str = ""
     puntuacion: float = 0.0      # puntuación bruta de confluencia (auditoría).
+    # ¿`probabilidad` viene de un MODELO entrenado, o de reescalar `puntuacion`?
+    # Sin modelo vale 0.40 + 0.35*puntuacion: su correlación con la puntuación es
+    # 1.0000 EXACTA, o sea el mismo número con otra escala. Llamar a eso
+    # "probabilidad estimada del 67 %" promete una precisión que no existe. Hoy no
+    # hay modelo: hacen falta 50 operaciones reales y van 12.
+    probabilidad_de_modelo: bool = False
     # Condiciones del mercado en el momento de la señal (features del modelo).
     # Se guardan para que el sistema aprenda POR QUÉ salió bien o mal esta señal.
     features: dict = field(default_factory=dict)
