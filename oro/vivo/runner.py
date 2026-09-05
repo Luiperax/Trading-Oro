@@ -237,6 +237,7 @@ class RunnerVivo:
             # Condiciones de la señal + etiqueta real: esto es lo que el sistema
             # usa para APRENDER por qué salió bien o mal.
             "features": getattr(gestor, "features", {}),
+            "motivos": list(getattr(gestor, "motivos", [])),
             "label": 1 if gestor.r_acumulado > 0 else 0,
         }
         try:

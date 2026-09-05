@@ -108,6 +108,11 @@ class GestorOperaciones:
         self.confianza = signal.confianza if signal else 0.0
         self.stop_inicial = signal.stop_loss if signal else self.stop_actual
         self.features = dict(signal.features) if signal else {}
+        # Los MOTIVOS por los que se mandó la señal, en el mismo lenguaje que
+        # leyó el usuario. Sin guardarlos, al cerrarse la operación ya no se
+        # puede responder "¿por qué mandé esta señal?": quedan las features
+        # numéricas, que no se leen, y se pierde el porqué.
+        self.motivos = list(signal.motivos_entrada) if signal else []
 
     def _trailing_stop(self, precio: float) -> None:
         """Tras el break-even, el stop persigue al precio desde el máximo favorable.
@@ -291,6 +296,7 @@ class GestorOperaciones:
             "confianza": self.confianza,
             "stop_inicial": self.stop_inicial,
             "features": self.features,
+            "motivos": self.motivos,
             "niveles": [
                 [n.precio, n.fraccion, n.r_multiple, n.alcanzado] for n in self.niveles
             ],
@@ -329,6 +335,7 @@ class GestorOperaciones:
         g.confianza = d.get("confianza", 0.0)
         g.stop_inicial = d.get("stop_inicial", d["stop_actual"])
         g.features = d.get("features", {})
+        g.motivos = list(d.get("motivos", []))
         g.niveles = [_NivelTP(p, f, r, alc) for p, f, r, alc in d["niveles"]]
         return g
 
