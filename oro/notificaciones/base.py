@@ -152,11 +152,21 @@ def pasos_operacion(signal: Signal) -> list[str]:
         f"Pon el STOP LOSS en {signal.stop_loss:.2f}. Es obligatorio: es lo que "
         f"limita la pérdida si sale mal.",
     ]
-    if signal.take_profits:
-        pasos.append(f"Pon el TAKE PROFIT en {signal.take_profits[-1].precio:.2f}. "
-                     f"Si el precio llega, la operación se cierra sola con "
-                     f"beneficio. Ojo: se alcanza en 1 de cada 3 operaciones "
-                     f"ganadoras; las demás las cierra antes el stop.")
+    if len(signal.take_profits) == 1:
+        tp = signal.take_profits[0]
+        pasos.append(f"Pon el TAKE PROFIT en {tp.precio:.2f}. Si el precio llega, "
+                     f"la operación se cierra sola con beneficio. Ojo: se alcanza "
+                     f"en 1 de cada 3 operaciones ganadoras; las demás las cierra "
+                     f"antes el stop.")
+    elif signal.take_profits:
+        primero, ultimo = signal.take_profits[0], signal.take_profits[-1]
+        pasos.append(f"Pon el TAKE PROFIT en {primero.precio:.2f} para el "
+                     f"{primero.fraccion:.0%} de la posición. Ahí recoges parte "
+                     f"del beneficio: lo alcanza 1 de cada 3 operaciones ganadoras.")
+        pasos.append(f"El {ultimo.fraccion:.0%} restante va a por {ultimo.precio:.2f}. "
+                     f"Cuando salte el primero te aviso para que muevas ahí el "
+                     f"objetivo del resto. De las que llegan al primero, 4 de "
+                     f"cada 10 llegan también al segundo.")
     if trailing:
         pasos.append(f"Si tu bróker tiene TRAILING STOP, actívalo a {dist:.2f} $ de "
                      f"distancia y se encarga solo. Si no lo tiene, no pasa nada: "

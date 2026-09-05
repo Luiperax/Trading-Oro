@@ -27,37 +27,40 @@ class ConfiguracionRiesgo:
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
     atr_stop_mult: float = 1.5            # stop = 1.5 x ATR desde la entrada.
-    # UN solo objetivo, y a una distancia que el precio ALCANZA de verdad.
+    # DOS objetivos, los dos alcanzables, con cierre parcial en el primero.
     #
     # Medida la excursión favorable máxima de las 4.410 entradas de 19,6 años,
-    # respetando el stop y el cierre intradía —o sea, hasta dónde llega el precio
-    # mientras aún estás dentro—, el porcentaje de operaciones que toca cada
-    # nivel es:
+    # respetando el stop dinámico y el cierre intradía —o sea, hasta dónde llega
+    # el precio mientras aún estás dentro—, el porcentaje de operaciones que toca
+    # cada nivel es:
     #
     #     1.0 R  31 %      2.5 R   8 %
     #     1.5 R  19 %      3.0 R   5 %
     #     2.0 R  12 %      4.0 R   2 %      5.0 R  1 %
     #
-    # La mediana es 0.56 R y el percentil 90, 2.22 R. Un objetivo a 5 R se tocaba
-    # el 0.9 % de las veces: no era un objetivo, era decoración, y anunciarlo
-    # como tal en el aviso era vender un premio inalcanzable.
+    # El PRIMER objetivo va a 2 R: se toca en el 12 % de todas las operaciones y
+    # en el 31 % de las ganadoras. El SEGUNDO va a 3 R, que es el nivel más lejos
+    # que sigue siendo alcanzable de verdad: de las operaciones que llegan a 2 R,
+    # el 39 % continúa hasta 3 R. Más lejos deja de serlo (4 R lo alcanza el 15 %
+    # de ellas y 5 R el 7 %), y un objetivo que no se toca no es un objetivo: es
+    # una orden en el bróker que nunca se ejecuta.
     #
-    # A 2 R se toca el 12 % de TODAS las operaciones y el 31 % de las GANADORAS:
-    # una de cada tres ganadoras cierra exactamente ahí. Bruto +0.0298 R/op
-    # (t = 2.18); frente a la escalera anterior, +0.0314 R/op con t = 3.98 y
-    # ganando en 10 de 12 ventanas temporales. Walk-forward: +0.0348 R/op
-    # (t = 4.05, 9/10 ventanas).
+    # Cerrar la mitad en el primero y dejar correr la otra mitad gana a un único
+    # objetivo entero: +0.0343 R/op frente a +0.0298 en el histórico completo, y
+    # en walk-forward (elegir con el pasado, cobrar en la ventana siguiente)
+    # +0.0395 R/op con t = 4.54 ganando 10 de 10 ventanas, frente a +0.0348 y
+    # 9 de 10 del objetivo único.
     #
-    # EL PRECIO DE QUE SEA ALCANZABLE, medido y asumido a conciencia: sin ningún
-    # techo la ventaja sería +0.0527 R/op, así que poner el objetivo aquí cuesta
-    # el 43 % de la ventaja máxima. Se paga a cambio de que el objetivo exista.
-    # Aflojar el trailing para llegar más lejos no lo arregla: se probó de 1 R a
-    # 3 R y en todas las combinaciones el TP se toca más pero se pierde más.
+    # Sigue sin ser el techo: sin ningún objetivo la ventaja sería +0.0527 R/op.
+    # Ese 35 % restante es el precio de que los objetivos EXISTAN y se ejecuten.
+    # Se comprobó que no hay atajo: mover un objetivo único de 2 R a 3 R cuando el
+    # precio se acerca da EXACTAMENTE lo mismo que ponerlo en 3 R desde el
+    # principio (+0.0388 en ambos), porque no se llega a 2 R sin pasar por 1.5 R;
+    # ese objetivo de 2 R no llegaría a ejecutarse nunca.
     #
-    # El acierto es del 40 %: se gana menos veces y más cuando se gana
-    # (ganadora media +0.92 R, perdedora media -0.56 R).
-    reparto_tp: tuple = (1.0,)            # un único objetivo, toda la posición.
-    r_objetivos: tuple = (2.0,)           # en múltiplos de R.
+    # El acierto es del 40 %: se gana menos veces y más cuando se gana.
+    reparto_tp: tuple = (0.5, 0.5)        # mitad en el primero, mitad en el segundo.
+    r_objetivos: tuple = (2.0, 3.0)       # en múltiplos de R.
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El

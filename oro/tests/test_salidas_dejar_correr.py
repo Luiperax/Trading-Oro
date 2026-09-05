@@ -51,12 +51,16 @@ def test_el_objetivo_es_alcanzable_de_verdad():
     peor que la escalera antigua).
     """
     r = cargar_configuracion().riesgo
-    assert len(r.r_objetivos) == 1, "una sola orden de TP, para no exigir cierres parciales"
-    assert r.reparto_tp == (1.0,), "el TP debe cubrir toda la posición"
+    assert len(r.r_objetivos) == len(r.reparto_tp)
+    assert sum(r.reparto_tp) == pytest.approx(1.0), "el reparto debe cubrir la posición"
+    assert list(r.r_objetivos) == sorted(r.r_objetivos), "los objetivos van de menor a mayor"
     assert 1.5 <= r.r_objetivos[0] <= 3.0, (
-        f"objetivo en {r.r_objetivos[0]}R: por encima de 3R casi no se toca "
-        f"(5R -> 0.9%) y por debajo de 1.5R capa las ganadoras hasta anular la "
-        f"ventaja")
+        f"primer objetivo en {r.r_objetivos[0]}R: por encima de 3R casi no se "
+        f"toca y por debajo de 1.5R capa las ganadoras hasta anular la ventaja")
+    assert r.r_objetivos[-1] <= 3.5, (
+        f"último objetivo en {r.r_objetivos[-1]}R: de las operaciones que llegan "
+        f"al primero, solo el 15% alcanza 4R y el 7% alcanza 5R. Un objetivo que "
+        f"no se toca es una orden que nunca se ejecuta")
 
 
 def test_el_stop_dinamico_arranca_desde_la_entrada():
@@ -249,6 +253,8 @@ def _gestor(**kw):
                              trailing_desde_entrada=True, **kw)
 
 
+@pytest.mark.skipif(len(cargar_configuracion().riesgo.r_objetivos) > 1,
+                    reason="con varios objetivos el primero NO cierra toda la posición")
 def test_un_solo_aviso_cuando_el_objetivo_cierra_toda_la_posicion():
     """Dos correos por el mismo hecho confunden y hacen tocar el bróker de más.
 
@@ -312,8 +318,13 @@ def test_el_resultado_anunciado_coincide_con_el_real():
             eventos += g.actualizar(p, dt.datetime.now(dt.timezone.utc))
         assert eventos, f"ningún aviso para {precios}"
         assert eventos[-1].r_acumulado == pytest.approx(g.r_acumulado)
-        assert any(e.cierra_operacion for e in eventos)
-        assert g.estado.value != "abierta"
+        # Un objetivo intermedio NO cierra la operación: con varios niveles solo
+        # cierra el último. Lo que sí debe cumplirse siempre es que el aviso que
+        # anuncia un cierre coincida con que la operación quede cerrada.
+        anuncia_cierre = any(e.cierra_operacion for e in eventos)
+        assert anuncia_cierre == (g.estado.value != "abierta"), (
+            f"el aviso dice cierre={anuncia_cierre} pero el estado es "
+            f"{g.estado.value}")
 
 
 def test_avisa_de_los_ajustes_del_stop_sin_convertirse_en_spam():
@@ -345,7 +356,7 @@ def test_avisa_de_los_ajustes_del_stop_sin_convertirse_en_spam():
             break
 
     assert avisos, "el stop se movió sin avisar ni una vez"
-    assert len(avisos) <= 4, f"demasiados avisos ({len(avisos)}): es spam"
+    assert len(avisos) <= 6, f"demasiados avisos ({len(avisos)}): es spam"
     # Cada aviso debe traer un precio nuevo y mejor que el anterior.
     precios = [ev.precio for ev in avisos]
     assert precios == sorted(precios), "los avisos no van en orden de mejora"
@@ -403,3 +414,70 @@ def test_los_pasos_explican_qué_pasa_sin_trailing_en_el_broker():
     texto = " ".join(pasos_operacion(_senal())).lower()
     assert "trailing" in texto
     assert "aviso" in texto, "no explica que se avisará de los ajustes"
+
+
+def test_el_primer_objetivo_no_cierra_toda_la_operacion():
+    """Con dos objetivos, el primero recoge parte y el resto sigue vivo.
+
+    Es lo que hace que el objetivo de 2R se EJECUTE de verdad (12% de las
+    operaciones, 31% de las ganadoras) sin renunciar al recorrido: de las que
+    llegan a 2R, el 39% continúa hasta 3R.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import Evento
+
+    cfg = cargar_configuracion()
+    if len(cfg.riesgo.r_objetivos) < 2:
+        pytest.skip("configurado con un solo objetivo")
+    sig = _senal()
+    g = _gestor()
+    eventos = g.actualizar(sig.take_profits[0].precio + 0.01,
+                           dt.datetime.now(dt.timezone.utc))
+    assert g.estado.value == "abierta", "el primer objetivo no debe cerrar la operación"
+    assert g.restante == pytest.approx(sig.take_profits[-1].fraccion)
+    tp = [e for e in eventos if e.tipo is Evento.TP_ALCANZADO]
+    assert len(tp) == 1
+    # El aviso tiene que decir dónde queda el objetivo del resto: sin eso, quien
+    # cierre la mitad no sabe qué hacer con la otra.
+    assert f"{sig.take_profits[-1].precio:.2f}" in tp[0].mensaje
+
+
+def test_no_llegan_dos_avisos_de_stop_con_precios_distintos():
+    """Al tocar el primer objetivo salían DOS correos: "mueve el stop a la
+    entrada" y, en el mismo instante, "mueve el stop a un precio mejor".
+
+    Quien los recibiera movería el stop dos veces, y la primera vez a un precio
+    peor. El stop dinámico, corriendo desde la entrada, ya deja el stop por
+    encima de la entrada al tocar un objetivo de 2R.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import Evento
+
+    sig = _senal()
+    g = _gestor()
+    eventos = g.actualizar(sig.take_profits[0].precio + 0.01,
+                           dt.datetime.now(dt.timezone.utc))
+    movidas = [e for e in eventos if e.tipo is Evento.MOVER_STOP]
+    assert len(movidas) <= 1, (
+        f"{len(movidas)} avisos de stop a la vez: "
+        f"{[f'{e.precio:.2f}' for e in movidas]}")
+    if movidas:
+        assert movidas[0].precio >= sig.entrada, "el stop anunciado empeora la protección"
+        assert movidas[0].precio == pytest.approx(g.stop_actual)
+
+
+def test_los_pasos_explican_el_cierre_parcial():
+    # Sin esto, quien reciba el aviso pondrá un solo take profit por toda la
+    # posición y el segundo objetivo no existirá nunca.
+    from oro.notificaciones.base import pasos_operacion
+
+    cfg = cargar_configuracion()
+    if len(cfg.riesgo.r_objetivos) < 2:
+        pytest.skip("configurado con un solo objetivo")
+    sig = _senal()
+    texto = " ".join(pasos_operacion(sig))
+    assert f"{sig.take_profits[0].precio:.2f}" in texto
+    assert f"{sig.take_profits[-1].precio:.2f}" in texto
+    assert f"{sig.take_profits[0].fraccion:.0%}" in texto, "no dice qué parte se cierra"

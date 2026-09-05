@@ -75,8 +75,11 @@ def _hora_cierre_de(d: dict) -> int:
 
 
 # Cuánto tiene que moverse el stop para que merezca la pena mandar un correo de
-# ajuste, en múltiplos de R. Medido sobre 4.410 operaciones: con 0.5R salen 0.68
-# correos por operación y como mucho 3 en una misma; con 0.2R serían 1.29 y hasta 6.
+# ajuste, en múltiplos de R. Medido sobre 4.410 operaciones con los objetivos
+# actuales (2R y 3R): con 0.5R salen 0.78 correos por operación, el 53% de las
+# operaciones recibe al menos uno, el 99% recibe 3 o menos y el máximo visto son
+# 5. Con 0.4R subiría a 0.93 por operación; con 1.0R bajaría a 0.35, pero
+# entonces el stop se movería mucho sin avisar.
 UMBRAL_AVISO_STOP_R = 0.5
 
 
@@ -290,27 +293,46 @@ class GestorOperaciones:
             # parte" de algo que se cierra entero: quien lo reciba cerrará y luego
             # verá un segundo aviso pidiéndole cerrar lo que ya no tiene.
             if self.restante > 1e-9:
-                etiqueta = f"TP{i}" if len(self.niveles) > 1 else "Objetivo"
+                etiqueta = f"OBJETIVO {i}" if len(self.niveles) > 1 else "OBJETIVO"
+                pendientes = [n for n in self.niveles if not n.alcanzado]
+                resto = (f" El {self.restante:.0%} que queda sigue a por "
+                         f"{pendientes[0].precio:.2f}: deja ahí el take profit."
+                         if pendientes else "")
                 eventos.append(EventoGestion(
                     Evento.TP_ALCANZADO, momento, nivel.precio,
                     f"{etiqueta} alcanzado a {nivel.precio:.2f} "
-                    f"({nivel.r_multiple:.1f}R). Cerrar {nivel.fraccion:.0%} "
-                    f"de la posición.",
+                    f"({nivel.r_multiple:.1f}R). Cierra el {nivel.fraccion:.0%} "
+                    f"de la posición y recoge el beneficio.{resto}",
                     self.r_acumulado,
                 ))
-            # Tras el primer objetivo: proteger a break-even. Solo tiene sentido si
-            # queda posición viva: con un único objetivo que cierra el 100%, mandar
-            # "mueve el stop" sobre una operación ya cerrada confunde a quien lo
-            # recibe y le hace tocar el bróker sin motivo.
-            if not self._en_breakeven and self.restante > 1e-9:
+            # Tras el primer objetivo: proteger a break-even. Tres condiciones:
+            #
+            # * que quede posición viva (con un objetivo que cierra el 100%,
+            #   mandar "mueve el stop" sobre una operación ya cerrada confunde y
+            #   hace tocar el bróker sin motivo);
+            # * que no se estuviera ya protegido;
+            # * y que el stop dinámico NO vaya a hacerlo mejor por su cuenta. Si
+            #   corre desde la entrada, al tocar un objetivo de 2R el precio ya
+            #   pasó por ahí, así que el trailing deja el stop en 1R como mínimo:
+            #   por encima de la entrada. Mandar además "mueve el stop a la
+            #   entrada" daba DOS correos con precios distintos en el mismo
+            #   instante, y el de break-even era el peor de los dos.
+            trailing_lo_hace = self._trailing and self._trailing_desde_entrada
+            if not self._en_breakeven and self.restante > 1e-9 and not trailing_lo_hace:
                 self._en_breakeven = True
                 self.stop_actual = self.entrada
-                eventos.append(EventoGestion(
-                    Evento.MOVER_STOP, momento, self.entrada,
-                    f"Mover STOP a break-even ({self.entrada:.2f}). "
-                    f"Operación sin riesgo a partir de ahora.",
-                    self.r_acumulado,
-                ))
+                # Solo se anuncia aquí si el stop dinámico no va a anunciarlo
+                # después con un precio MEJOR: dos correos seguidos pidiendo
+                # mover el stop a sitios distintos es peor que uno solo.
+                if not self._trailing:
+                    eventos.append(EventoGestion(
+                        Evento.MOVER_STOP, momento, self.entrada,
+                        f"Mover STOP a break-even ({self.entrada:.2f}). "
+                        f"Operación sin riesgo a partir de ahora.",
+                        self.r_acumulado,
+                    ))
+                else:
+                    self._stop_avisado = self.entrada
 
         # 3) Salida dinámica: el stop persigue al precio (y avisa si se movió).
         eventos += self._trailing_stop(precio, momento)
