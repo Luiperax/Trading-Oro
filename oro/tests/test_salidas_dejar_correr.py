@@ -99,8 +99,11 @@ def test_el_gestor_en_vivo_persigue_el_precio_desde_el_principio():
     from oro.vivo.gestor import GestorOperaciones
 
     sig = _senal()
-    g = GestorOperaciones(sig, trailing_activo=True, trailing_r=1.0,
-                        trailing_desde_entrada=True)
+    # cerrar_intradia=False a propósito: con él activo y la señal fechada "ahora",
+    # lanzar la prueba pasadas las 16:00 de Nueva York la cerraba por intradía
+    # antes de comprobar nada. La prueba medía el reloj, no el trailing.
+    g = GestorOperaciones(sig, cerrar_intradia=False, trailing_activo=True,
+                          trailing_r=1.0, trailing_desde_entrada=True)
     riesgo = abs(sig.entrada - sig.stop_loss)
     inicial = g.stop_actual
     # Justo por DEBAJO del objetivo: si se toca, la operación se cierra ahí y el
@@ -121,8 +124,8 @@ def test_un_stop_inicial_no_se_anuncia_como_break_even():
     from oro.vivo.gestor import GestorOperaciones
 
     sig = _senal()
-    g = GestorOperaciones(sig, trailing_activo=True, trailing_r=1.0,
-                        trailing_desde_entrada=True)
+    g = GestorOperaciones(sig, cerrar_intradia=False, trailing_activo=True,
+                          trailing_r=1.0, trailing_desde_entrada=True)
     eventos = g.actualizar(sig.stop_loss - 1.0, dt.datetime.now(dt.timezone.utc))
     texto = " ".join(e.mensaje for e in eventos)
     assert "BREAK-EVEN" not in texto.upper(), texto
@@ -481,3 +484,27 @@ def test_los_pasos_explican_el_cierre_parcial():
     assert f"{sig.take_profits[0].precio:.2f}" in texto
     assert f"{sig.take_profits[-1].precio:.2f}" in texto
     assert f"{sig.take_profits[0].fraccion:.0%}" in texto, "no dice qué parte se cierra"
+
+
+@pytest.mark.parametrize("hora_utc", list(range(24)))
+def test_ninguna_prueba_del_gestor_depende_de_la_hora(hora_utc):
+    """Una prueba que pasa por la mañana y falla por la tarde no vale nada.
+
+    Ya pasó dos veces: el cierre intradía cierra la operación en cuanto la hora
+    de mercado entra en la ventana de cierre, así que cualquier prueba que feche
+    la señal con `datetime.now()` y deje `cerrar_intradia` activo mide el reloj.
+    Esta prueba recorre las 24 horas para que salte al escribirla, no en verde.
+    """
+    import datetime as dt
+
+    from oro.vivo.gestor import GestorOperaciones
+
+    sig = _senal()
+    momento = dt.datetime(2026, 6, 10, hora_utc, tzinfo=dt.timezone.utc)
+    g = GestorOperaciones(sig, cerrar_intradia=False, trailing_activo=True,
+                          trailing_r=1.0, trailing_desde_entrada=True)
+    riesgo = abs(sig.entrada - sig.stop_loss)
+    g.actualizar(sig.entrada + riesgo * 0.5, momento)
+    assert g.estado.value == "abierta", (
+        f"a las {hora_utc}h UTC la operación se cerró sola: la prueba depende "
+        f"del reloj")
