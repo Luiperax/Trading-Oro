@@ -77,10 +77,33 @@ def _texto_riesgo(signal: Signal) -> str:
     """Frase honesta sobre lo que se arriesga de verdad con el lote mínimo."""
     perdida, pct, excede = _riesgo_real(signal)
     if not excede:
-        return f"Pérdida máxima si salta el stop: ≈{perdida:.0f} ({pct:.2%} del capital)"
-    return (f"Pérdida máxima si salta el stop: ≈{perdida:.0f} = {pct:.2%} del capital. "
+        return f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € ({pct:.2%} del capital)"
+    return (f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € = {pct:.2%} del capital. "
             f"⚠️ Es el LOTE MÍNIMO (0.01) y arriesga MÁS del objetivo configurado; "
             f"con esta cuenta no se puede bajar más")
+
+
+# La segunda mitad de la posición no tiene objetivo de verdad: se deja correr y
+# la cierra el stop dinámico. Su "objetivo" solo existe para que el R:R ponderado
+# supere el filtro de calidad (ver ConfiguracionRiesgo.r_objetivos), y en 4.410
+# operaciones medidas no se alcanzó ni una vez. Anunciarlo como un take profit
+# haría que se pusiera una orden que no se va a ejecutar, y que el R:R del correo
+# prometiera un premio que el sistema no persigue.
+R_TOPE_NO_ES_OBJETIVO = 5.0
+
+
+def _es_tope(tp) -> bool:
+    return tp.r_multiple >= R_TOPE_NO_ES_OBJETIVO
+
+
+def _rr_honesto(signal) -> str:
+    """R:R tal y como se opera: los objetivos reales, y el resto corriendo."""
+    reales = [tp for tp in signal.take_profits if not _es_tope(tp)]
+    if len(reales) == len(signal.take_profits):
+        return f"{signal.riesgo_recompensa:.2f}"
+    if not reales:
+        return "todo corriendo"
+    return f"{reales[-1].r_multiple:.0f}R + resto"
 
 
 def mensaje_de_senal(signal: Signal) -> str:
@@ -93,11 +116,15 @@ def mensaje_de_senal(signal: Signal) -> str:
         f"Stop:     {signal.stop_loss:.2f}",
     ]
     for k, tp in enumerate(signal.take_profits, 1):
-        lineas.append(f"TP{k}:      {tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
+        if _es_tope(tp):
+            lineas.append(f"Resto:    {tp.fraccion:.0%} se DEJA CORRER — te avisaré de la salida")
+            lineas.append(f"          (no pongas orden aquí; tope técnico {tp.precio:.2f})")
+        else:
+            lineas.append(f"TP{k}:      {tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
     lineas += [
         "",
         f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
-        f"Confianza: {signal.confianza:.0%}   R:R: {signal.riesgo_recompensa:.2f}",
+        f"Confianza: {signal.confianza:.0%}   R:R: {_rr_honesto(signal)}",
         "",
         f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
         f"   {_texto_riesgo(signal)}",
@@ -157,9 +184,15 @@ def mensaje_html_de_senal(signal: Signal) -> str:
     dir_txt = signal.direccion.value.upper()
 
     niveles = _fila_nivel("Stop Loss", f"{signal.stop_loss:.2f}", _ROJO)
+    reales = [tp for tp in signal.take_profits if not _es_tope(tp)]
     for k, tp in enumerate(signal.take_profits, 1):
-        niveles += _fila_nivel(f"Take Profit {k}", f"{tp.precio:.2f}", _VERDE,
-                               f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
+        if _es_tope(tp):
+            niveles += _fila_nivel("Resto", "se deja correr", _ORO,
+                                   f"· {tp.fraccion:.0%} · aviso al salir")
+        else:
+            etiqueta = "Take Profit" if len(reales) == 1 else f"Take Profit {k}"
+            niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE,
+                                   f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
 
     motivos = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:13px;padding:3px 0;">'
@@ -183,7 +216,7 @@ def mensaje_html_de_senal(signal: Signal) -> str:
       <table role="presentation" style="border-collapse:collapse;margin-bottom:16px;"><tr>
         {_pill("Probabilidad", f"{signal.probabilidad:.0%}", _ORO)}
         {_pill("Confianza", f"{signal.confianza:.0%}", _ORO)}
-        {_pill("R : R", f"{signal.riesgo_recompensa:.2f}", _TEXTO)}
+        {_pill("R : R", _rr_honesto(signal), _TEXTO)}
       </tr></table>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
        <tr><td style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:14px 16px;">
