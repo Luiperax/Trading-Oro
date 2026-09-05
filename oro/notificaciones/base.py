@@ -154,7 +154,9 @@ def pasos_operacion(signal: Signal) -> list[str]:
     ]
     if signal.take_profits:
         pasos.append(f"Pon el TAKE PROFIT en {signal.take_profits[-1].precio:.2f}. "
-                     f"Si el precio llega, la operación se cierra sola con beneficio.")
+                     f"Si el precio llega, la operación se cierra sola con "
+                     f"beneficio. Ojo: se alcanza en 1 de cada 3 operaciones "
+                     f"ganadoras; las demás las cierra antes el stop.")
     if trailing:
         pasos.append(f"Activa el TRAILING STOP a {dist:.2f} $ de distancia. Hace que "
                      f"el stop suba solo cuando el precio va a favor, para no "

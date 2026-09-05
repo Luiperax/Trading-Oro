@@ -27,33 +27,37 @@ class ConfiguracionRiesgo:
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
     atr_stop_mult: float = 1.5            # stop = 1.5 x ATR desde la entrada.
-    # UN solo objetivo, lejano, y el stop dinámico haciendo el trabajo. Toda la
-    # operación se especifica al abrirla —entrada, stop con trailing y TP— y no
-    # hay que volver a tocarla: quien la recibe no gestiona la salida.
+    # UN solo objetivo, y a una distancia que el precio ALCANZA de verdad.
     #
-    # Medido re-simulando LAS MISMAS 4.410 entradas de 19,6 años con distintas
-    # gestiones, para que el efecto sea de la salida y no de un cambio de señal
-    # (bruto, sin coste, que no depende de suponer ningún spread):
+    # Medida la excursión favorable máxima de las 4.410 entradas de 19,6 años,
+    # respetando el stop y el cierre intradía —o sea, hasta dónde llega el precio
+    # mientras aún estás dentro—, el porcentaje de operaciones que toca cada
+    # nivel es:
     #
-    #   escalera 1R/2R/3R (lo anterior)   -0.0016 R/op, mejor operación +1.70 R
-    #   stop dinámico + TP a 5R           +0.0481 R/op (t = 3.12), gana 12/12 ventanas
-    #   stop dinámico sin ningún techo    +0.0527 R/op (t = 3.32)
+    #     1.0 R  31 %      2.5 R   8 %
+    #     1.5 R  19 %      3.0 R   5 %
+    #     2.0 R  12 %      4.0 R   2 %      5.0 R  1 %
     #
-    # La escalera no protegía de nada —la peor operación es -1.00 R con las dos—
-    # sino que capaba las ganadoras: topaba en +1.70 R lo que el mercado dio a
-    # +9.57 R. Un walk-forward que elige mirando solo el pasado y cobra en la
-    # ventana siguiente da +0.0569 R/op (t = 5.22, gana 10/10 ventanas).
+    # La mediana es 0.56 R y el percentil 90, 2.22 R. Un objetivo a 5 R se tocaba
+    # el 0.9 % de las veces: no era un objetivo, era decoración, y anunciarlo
+    # como tal en el aviso era vender un premio inalcanzable.
     #
-    # El TP a 5 R sale caro solo en apariencia: cuesta 0.0045 R frente a no poner
-    # ninguno, porque solo corta el 0.9 % de las operaciones. Más cerca sí duele
-    # (a 2 R cuesta 0.0228 R y corta el 12 %). Se eligió 5 R y no 6 R porque
-    # entre ambos la diferencia es ruido y 5 R da un objetivo alcanzable de
-    # verdad; lo que cierra la operación casi siempre es el stop dinámico.
+    # A 2 R se toca el 12 % de TODAS las operaciones y el 31 % de las GANADORAS:
+    # una de cada tres ganadoras cierra exactamente ahí. Bruto +0.0298 R/op
+    # (t = 2.18); frente a la escalera anterior, +0.0314 R/op con t = 3.98 y
+    # ganando en 10 de 12 ventanas temporales. Walk-forward: +0.0348 R/op
+    # (t = 4.05, 9/10 ventanas).
     #
-    # El precio está medido y hay que saberlo: el acierto baja del 48% al 40%.
-    # Se gana menos veces y se gana más cuando se gana.
+    # EL PRECIO DE QUE SEA ALCANZABLE, medido y asumido a conciencia: sin ningún
+    # techo la ventaja sería +0.0527 R/op, así que poner el objetivo aquí cuesta
+    # el 43 % de la ventaja máxima. Se paga a cambio de que el objetivo exista.
+    # Aflojar el trailing para llegar más lejos no lo arregla: se probó de 1 R a
+    # 3 R y en todas las combinaciones el TP se toca más pero se pierde más.
+    #
+    # El acierto es del 40 %: se gana menos veces y más cuando se gana
+    # (ganadora media +0.92 R, perdedora media -0.56 R).
     reparto_tp: tuple = (1.0,)            # un único objetivo, toda la posición.
-    r_objetivos: tuple = (5.0,)           # en múltiplos de R.
+    r_objetivos: tuple = (2.0,)           # en múltiplos de R.
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El

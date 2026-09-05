@@ -38,15 +38,25 @@ def _senal():
                   contexto_tecnico="alcista", puntuacion=0.71)
 
 
-def test_hay_un_unico_objetivo_y_esta_lejos():
-    # Quien recibe el aviso no gestiona la salida: necesita un TP que poner. Pero
-    # cerca vuelve a capar las ganadoras, que es lo que hundía a la escalera:
-    # a 2R cuesta 0.0228 R y corta el 12% de las operaciones; a 5R cuesta
-    # 0.0045 R y corta el 0.9%.
+def test_el_objetivo_es_alcanzable_de_verdad():
+    """Un objetivo que no se toca no es un objetivo.
+
+    Medida la excursión favorable máxima de las 4.410 entradas de 19,6 años,
+    respetando el stop y el cierre intradía, el precio alcanza 2 R en el 12 % de
+    las operaciones y en el 31 % de las ganadoras. A 5 R llegaba el 0.9 %: era
+    decoración, y anunciarlo prometía un premio inalcanzable.
+
+    Por abajo tampoco vale acercarlo sin límite: a 1 R el objetivo se toca el
+    31 %, pero capa tanto las ganadoras que la ventaja se va a cero (-0.0012 R/op,
+    peor que la escalera antigua).
+    """
     r = cargar_configuracion().riesgo
     assert len(r.r_objetivos) == 1, "una sola orden de TP, para no exigir cierres parciales"
     assert r.reparto_tp == (1.0,), "el TP debe cubrir toda la posición"
-    assert r.r_objetivos[0] >= 4.0, "un objetivo cercano vuelve a capar las ganadoras"
+    assert 1.5 <= r.r_objetivos[0] <= 3.0, (
+        f"objetivo en {r.r_objetivos[0]}R: por encima de 3R casi no se toca "
+        f"(5R -> 0.9%) y por debajo de 1.5R capa las ganadoras hasta anular la "
+        f"ventaja")
 
 
 def test_el_stop_dinamico_arranca_desde_la_entrada():
@@ -89,9 +99,15 @@ def test_el_gestor_en_vivo_persigue_el_precio_desde_el_principio():
                         trailing_desde_entrada=True)
     riesgo = abs(sig.entrada - sig.stop_loss)
     inicial = g.stop_actual
-    g.actualizar(sig.entrada + riesgo * 2, dt.datetime.now(dt.timezone.utc))
+    # Justo por DEBAJO del objetivo: si se toca, la operación se cierra ahí y el
+    # trailing no llega a moverse, que es lo que se quiere comprobar.
+    tope = sig.take_profits[-1].r_multiple
+    avance = riesgo * (tope - 0.2)
+    g.actualizar(sig.entrada + avance, dt.datetime.now(dt.timezone.utc))
+    assert g.estado.value == "abierta", "no debería haberse cerrado antes del objetivo"
     assert g.stop_actual > inicial, "el stop no siguió al precio"
-    assert g.stop_actual >= sig.entrada, "a +2R el stop debería haber pasado la entrada"
+    assert g.stop_actual == pytest.approx(sig.entrada + avance - riesgo), (
+        "el stop no quedó a la distancia del trailing configurada")
 
 
 def test_un_stop_inicial_no_se_anuncia_como_break_even():
