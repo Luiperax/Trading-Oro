@@ -88,9 +88,33 @@ class ConfiguracionRiesgo:
     # tras alcanzar un objetivo parcial (False, comportamiento antiguo).
     trailing_desde_entrada: bool = True
     # Coste real de operar, en $/oz por operación completa (abrir + cerrar).
-    # Al comprar pagas el ask y al vender cobras el bid: cruzas el spread. Sin
-    # esto el backtest da resultados optimistas, y el efecto crece con el número
-    # de operaciones. Ajustable por ORO_COSTE_OPERACION según tu bróker.
+    # Al comprar pagas el ask y al vender cobras el bid: cruzas el spread.
+    #
+    # ESTE ES EL NÚMERO DEL QUE DEPENDE QUE EL SISTEMA GANE O PIERDA, y por eso
+    # merece la pena entenderlo antes de tocar cualquier otra cosa.
+    #
+    # El coste en R es `spread / (1.5 x ATR)`, así que el mismo spread pesa muy
+    # distinto según cuánto se mueva el oro. Medido sobre las 4.410 operaciones
+    # de 19,6 años, el SPREAD DE EQUILIBRIO —aquel al que el sistema queda
+    # exactamente en cero— es:
+    #
+    #     2007-2026 (todo)   0.15 $     (0.08 $ descontando un error típico)
+    #     2020-2026          0.31 $     (0.12 $)
+    #     2024-2026          1.16 $     (0.69 $)
+    #
+    # Por debajo de esa cifra el sistema gana; por encima, pierde. La diferencia
+    # entre épocas no es que la estrategia mejorase: es que 1R pasó de valer 7 $
+    # a valer 18 $ porque el oro subió, y un coste fijo en dólares pesa menos.
+    #
+    # NO HAY AJUSTE QUE COMPENSE UN SPREAD ALTO. Está medido: ensanchar el stop
+    # baja el coste en R de 0.058 a 0.022, pero hunde la ventaja bruta de
+    # +0.0298 R a +0.0015 R; subir de H1 a H4 baja el coste de 0.195 R a 0.099 R
+    # y la ventaja de +0.0277 R a +0.0062 R. Las dos fuerzas se cancelan. Con un
+    # spread de 1.45 $, el coste (0.195 R) es SEIS VECES la ventaja bruta
+    # (0.0298 R), y ningún cambio de parámetros cierra un factor de seis.
+    #
+    # Ajustable por ORO_COSTE_OPERACION. Mídelo en tu plataforma en horario
+    # normal (no en la reapertura, que es el peor momento del día).
     coste_operacion: float = 0.30
 
 
