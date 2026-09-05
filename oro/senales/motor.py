@@ -68,13 +68,15 @@ class MotorSenales:
             or (direccion is Direccion.VENTA and estructura.tendencia is Tendencia.BAJISTA)
         )
         factores.append(("tendencia", 1.0 if alineado else 0.0,
-                         "A favor de la tendencia estructural." if alineado
-                         else "Contra o sin tendencia clara."))
+                         "El oro viene subiendo y compramos a favor de ese movimiento."
+                         if alineado and direccion is Direccion.COMPRA else
+                         ("El oro viene bajando y vendemos a favor de ese movimiento."
+                          if alineado else "Sin una tendencia clara a favor.")))
 
         # 2) Fuerza de tendencia (ADX). Penaliza mercado lateral.
         adx = float(ind["adx"]) if pd.notna(ind["adx"]) else 0.0
         fuerza = max(0.0, min(1.0, (adx - self.cfg.calidad.adx_lateral) / 15.0))
-        factores.append(("adx", fuerza, f"ADX {adx:.0f} (fuerza de tendencia)."))
+        factores.append(("adx", fuerza, f"El movimiento tiene fuerza, no es un mercado parado (ADX {adx:.0f})."))
 
         # 3) Momentum de la dirección (MACD histograma y DI).
         macd_h = float(ind["macd_hist"]) if pd.notna(ind["macd_hist"]) else 0.0
@@ -84,8 +86,8 @@ class MotorSenales:
             mom += 0.5
         if di_ok:
             mom += 0.5
-        factores.append(("momentum", mom, "Momentum (MACD/DI) a favor." if mom >= 0.5
-                         else "Momentum débil o en contra."))
+        factores.append(("momentum", mom, "El impulso reciente empuja en nuestra dirección (MACD y DI)."
+                         if mom >= 0.5 else "El impulso reciente no acompaña."))
 
         # 4) RSI no en extremo contrario (evita comprar sobrecomprado, etc.).
         rsi = float(ind["rsi_14"]) if pd.notna(ind["rsi_14"]) else 50.0
@@ -93,8 +95,9 @@ class MotorSenales:
             rsi_ok = 1.0 if 45 <= rsi <= 68 else (0.5 if rsi < 45 else 0.0)
         else:
             rsi_ok = 1.0 if 32 <= rsi <= 55 else (0.5 if rsi > 55 else 0.0)
-        factores.append(("rsi", rsi_ok, f"RSI {rsi:.0f} en zona favorable."
-                         if rsi_ok >= 0.5 else f"RSI {rsi:.0f} en extremo contrario."))
+        factores.append(("rsi", rsi_ok, f"No llegamos tarde: el precio aún no está agotado (RSI {rsi:.0f})."
+                         if rsi_ok >= 0.5 else
+                         f"El precio ya viene muy estirado y llegamos tarde (RSI {rsi:.0f})."))
 
         # 5) Localización: cerca de un order block/FVG a favor (entrada con ventaja).
         loc = 0.0
@@ -107,8 +110,8 @@ class MotorSenales:
             if fvg.alcista == (direccion is Direccion.COMPRA):
                 if fvg.inferior <= precio <= fvg.superior:
                     loc = max(loc, 0.7)
-        factores.append(("localizacion", loc, "Precio en zona institucional (OB/FVG)."
-                         if loc > 0 else "Sin zona de valor cercana."))
+        factores.append(("localizacion", loc, "Entramos en una zona donde antes hubo compras/ventas grandes (order block)."
+                         if loc > 0 else "No estamos en ninguna zona de referencia."))
 
         # 6) Barrido de liquidez a favor del giro (trampa de liquidez).
         barrido = 0.0
@@ -116,14 +119,14 @@ class MotorSenales:
             barrido = 1.0
         elif estructura.barrido_liquidez == "bajo" and direccion is Direccion.COMPRA:
             barrido = 1.0
-        factores.append(("liquidez", barrido, "Barrido de liquidez a favor."
-                         if barrido > 0 else "Sin barrido relevante."))
+        factores.append(("liquidez", barrido, "El precio acaba de barrer stops y girar: suele preceder al movimiento."
+                         if barrido > 0 else "Sin barrido de stops relevante."))
 
         # 7) Lado correcto del VWAP.
         vwap = float(ind["vwap"]) if pd.notna(ind["vwap"]) else precio
         vwap_ok = 1.0 if signo * (precio - vwap) > 0 else 0.0
-        factores.append(("vwap", vwap_ok, "Precio en el lado correcto del VWAP."
-                         if vwap_ok else "Precio en el lado contrario del VWAP."))
+        factores.append(("vwap", vwap_ok, "El precio está del lado bueno del precio medio del día (VWAP)."
+                         if vwap_ok else "El precio está del lado malo del precio medio del día."))
 
         # Pesos (la estructura pesa más que los indicadores de confirmación).
         pesos = {"tendencia": 0.22, "adx": 0.12, "momentum": 0.16, "rsi": 0.10,

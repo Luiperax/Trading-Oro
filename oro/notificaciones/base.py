@@ -83,34 +83,64 @@ def _texto_riesgo(signal: Signal) -> str:
             f"con esta cuenta no se puede bajar más")
 
 
-# Un objetivo muy lejano no es un objetivo: existe para sostener el R:R ponderado
-# y el stop dinámico cierra antes. Anunciarlo como take profit haría poner en el
-# bróker una orden que no se ejecuta y dejaría la posición sin gestionar.
-R_TOPE_NO_ES_OBJETIVO = 5.0
+def _trailing(signal: Signal):
+    """(distancia del stop dinámico en $, ¿está activo?).
+
+    Es el dato que de verdad cierra la operación: el TP a 5R solo corta el 0.9 %
+    de las veces. Sin decirlo, quien recibe el aviso no puede configurarlo en el
+    bróker y se queda con un stop fijo, que es la gestión peor medida.
+    """
+    from ..config import cargar_configuracion
+
+    r = cargar_configuracion().riesgo
+    if not (r.trailing_activo and r.trailing_desde_entrada):
+        return 0.0, False
+    return abs(signal.entrada - signal.stop_loss) * r.trailing_r, True
 
 
-def _es_tope(tp) -> bool:
-    return tp.r_multiple >= R_TOPE_NO_ES_OBJETIVO
+def _rr(signal: Signal) -> str:
+    """R:R real, o 'sin techo' cuando no hay objetivo fijo."""
+    if not signal.take_profits:
+        return "sin techo"
+    return f"{signal.riesgo_recompensa:.2f}"
 
 
-def _objetivos_reales(signal: Signal) -> list:
-    return [tp for tp in signal.take_profits if not _es_tope(tp)]
+def pasos_operacion(signal: Signal) -> list[str]:
+    """Los pasos exactos a ejecutar, en lenguaje de alguien que nunca ha operado.
 
+    Existe porque el sistema tiene que servir a quien no sabe qué es un ATR ni un
+    trailing stop. Una lista de precios sueltos no dice qué hacer con ellos; esto
+    sí, y en el mismo orden en que se teclea en el bróker.
+    """
+    compra = signal.direccion.value == "compra"
+    dist, trailing = _trailing(signal)
+    pasos = [
+        f"Abre una {'COMPRA' if compra else 'VENTA'} de XAU/USD (oro) al precio de mercado.",
+        f"Pon el STOP LOSS en {signal.stop_loss:.2f}. Es obligatorio: es lo que "
+        f"limita la pérdida si sale mal.",
+    ]
+    if signal.take_profits:
+        pasos.append(f"Pon el TAKE PROFIT en {signal.take_profits[-1].precio:.2f}. "
+                     f"Si el precio llega, la operación se cierra sola con beneficio.")
+    if trailing:
+        pasos.append(f"Activa el TRAILING STOP a {dist:.2f} $ de distancia. Hace que "
+                     f"el stop suba solo cuando el precio va a favor, para no "
+                     f"devolver lo ganado. Si tu bróker no lo tiene, deja el stop "
+                     f"fijo del paso 2 y no pasa nada grave.")
+    # La operación es INTRADÍA: si no salta ni el stop ni el TP, hay que cerrarla
+    # antes de que cierre el mercado. Decir "no vigiles nada" contradiría el aviso
+    # de cierre que se manda a esa hora, y dejaría la posición abierta de noche
+    # creyendo lo contrario.
+    from ..config import cargar_configuracion
 
-def _rr_honesto(signal: Signal) -> str:
-    """R:R tal y como se opera, no como sale de multiplicar la configuración."""
-    reales = _objetivos_reales(signal)
-    if not reales:
-        return "sin techo"          # la salida la decide el stop, no un objetivo.
-    if len(reales) == len(signal.take_profits):
-        return f"{signal.riesgo_recompensa:.2f}"
-    return f"{reales[-1].r_multiple:.0f}R + resto"
-
-
-# Frase única sobre cómo se sale, para que el correo de texto y el HTML no puedan
-# contarlo de dos maneras distintas.
-SALIDA_GESTIONADA = ("Sin objetivo fijo: el STOP persigue al precio y te aviso "
-                     "cuándo salir. No pongas take profit.")
+    if cargar_configuracion().riesgo.cerrar_intradia:
+        pasos.append(f"Ya está: si salta el stop o llega al objetivo se cierra sola. "
+                     f"Y si a las {_cierre_local()} sigue abierta, te mando un aviso "
+                     f"para cerrarla a mano (esta operación no se queda de un día "
+                     f"para otro).")
+    else:
+        pasos.append("Y ya está. No hay que vigilar nada más: la operación se cierra sola.")
+    return pasos
 
 
 def mensaje_de_senal(signal: Signal) -> str:
@@ -122,17 +152,18 @@ def mensaje_de_senal(signal: Signal) -> str:
         f"Entrada:  {signal.entrada:.2f}",
         f"Stop:     {signal.stop_loss:.2f}",
     ]
-    reales = _objetivos_reales(signal)
-    for k, tp in enumerate(reales, 1):
-        etiqueta = "TP" if len(reales) == 1 else f"TP{k}"
-        lineas.append(f"{etiqueta+':':<10}{tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
-    if len(reales) < len(signal.take_profits) or not signal.take_profits:
-        lineas.append("")
-        lineas.append(f"Salida:   {SALIDA_GESTIONADA}")
+    for k, tp in enumerate(signal.take_profits, 1):
+        etiqueta = "TP" if len(signal.take_profits) == 1 else f"TP{k}"
+        lineas.append(f"{etiqueta+':':<10}{tp.precio:.2f}  ({tp.r_multiple:.1f}R)")
+    dist, activo = _trailing(signal)
+    if activo:
+        lineas.append(f"Trailing: {dist:.2f} $   (stop dinámico: ponlo en el bróker)")
+    lineas += ["", "QUÉ HACER, paso a paso:"]
+    lineas += [f"  {i}. {t}" for i, t in enumerate(pasos_operacion(signal), 1)]
     lineas += [
         "",
         f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
-        f"Confianza: {signal.confianza:.0%}   R:R: {_rr_honesto(signal)}",
+        f"Confianza: {signal.confianza:.0%}   R:R: {_rr(signal)}",
         "",
         f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
         f"   {_texto_riesgo(signal)}",
@@ -192,14 +223,17 @@ def mensaje_html_de_senal(signal: Signal) -> str:
     dir_txt = signal.direccion.value.upper()
 
     niveles = _fila_nivel("Stop Loss", f"{signal.stop_loss:.2f}", _ROJO)
-    reales = _objetivos_reales(signal)
-    for k, tp in enumerate(reales, 1):
-        etiqueta = "Take Profit" if len(reales) == 1 else f"Take Profit {k}"
-        niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE,
-                               f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
-    if len(reales) < len(signal.take_profits) or not signal.take_profits:
-        niveles += _fila_nivel("Salida", "sin take profit", _ORO,
-                               "· la gestiono yo · te aviso")
+    for k, tp in enumerate(signal.take_profits, 1):
+        etiqueta = "Take Profit" if len(signal.take_profits) == 1 else f"Take Profit {k}"
+        niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE, f"· {tp.r_multiple:.1f}R")
+    dist, activo = _trailing(signal)
+    if activo:
+        niveles += _fila_nivel("Trailing stop", f"{dist:.2f} $", _ORO, "· ponlo en el bróker")
+
+    pasos = "".join(
+        f'<div style="color:{_TEXTO};font-size:13px;line-height:1.5;margin-bottom:6px;">'
+        f'<span style="color:{_ORO};font-weight:700;">{i}.</span> {_esc(t)}</div>'
+        for i, t in enumerate(pasos_operacion(signal), 1))
 
     motivos = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:13px;padding:3px 0;">'
@@ -220,10 +254,16 @@ def mensaje_html_de_senal(signal: Signal) -> str:
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;">Precio de entrada</div>
       <div style="color:{_TEXTO};font-size:36px;font-weight:800;margin:2px 0 18px;">${signal.entrada:.2f}</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">{niveles}</table>
+      <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
+       <tr><td style="background:#0e131c;border-radius:12px;padding:14px 16px;">
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Qué hacer, paso a paso</div>
+         {pasos}
+       </td></tr>
+      </table>
       <table role="presentation" style="border-collapse:collapse;margin-bottom:16px;"><tr>
         {_pill("Probabilidad", f"{signal.probabilidad:.0%}", _ORO)}
         {_pill("Confianza", f"{signal.confianza:.0%}", _ORO)}
-        {_pill("R : R", _rr_honesto(signal), _TEXTO)}
+        {_pill("R : R", _rr(signal), _TEXTO)}
       </tr></table>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
        <tr><td style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:14px 16px;">

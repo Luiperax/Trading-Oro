@@ -27,24 +27,33 @@ class ConfiguracionRiesgo:
     operaciones_min_dia: int = 0          # nunca se fuerza: puede ser 0.
     r_recompensa_min: float = 1.5         # R:R medio ponderado mínimo aceptable.
     atr_stop_mult: float = 1.5            # stop = 1.5 x ATR desde la entrada.
-    # SIN objetivos fijos: la posición entera se deja correr y la cierra el stop
-    # dinámico (o el cierre intradía). Medido re-simulando LAS MISMAS 4.410
-    # entradas de 19,6 años con ocho gestiones distintas, para que el efecto sea
-    # de la salida y no de un cambio de señal:
+    # UN solo objetivo, lejano, y el stop dinámico haciendo el trabajo. Toda la
+    # operación se especifica al abrirla —entrada, stop con trailing y TP— y no
+    # hay que volver a tocarla: quien la recibe no gestiona la salida.
     #
-    #   escalera 1R/2R/3R (lo anterior)  bruto -0.0016 R/op, mejor operación +1.70 R
-    #   stop dinámico desde la entrada   bruto +0.0527 R/op, mejor operación +9.57 R
+    # Medido re-simulando LAS MISMAS 4.410 entradas de 19,6 años con distintas
+    # gestiones, para que el efecto sea de la salida y no de un cambio de señal
+    # (bruto, sin coste, que no depende de suponer ningún spread):
     #
-    # La escalera no protegía de las pérdidas (la peor operación es -1.00 R en
-    # ambas): capaba las ganadoras. Gana a la escalera en 12 de 12 ventanas
-    # temporales, y un walk-forward que elige política con el pasado y cobra en
-    # la ventana siguiente da +0.0517 R/op (t = 4.33, 10/10 ventanas) eligiendo
-    # siempre trailing. Es además la gestión con MENOS parámetros: uno.
+    #   escalera 1R/2R/3R (lo anterior)   -0.0016 R/op, mejor operación +1.70 R
+    #   stop dinámico + TP a 5R           +0.0481 R/op (t = 3.12), gana 12/12 ventanas
+    #   stop dinámico sin ningún techo    +0.0527 R/op (t = 3.32)
     #
-    # El precio a pagar está medido y hay que saberlo: el acierto baja del 48%
-    # al 40%. Se gana menos veces y se gana más cuando se gana.
-    reparto_tp: tuple = ()
-    r_objetivos: tuple = ()               # sin objetivos parciales.
+    # La escalera no protegía de nada —la peor operación es -1.00 R con las dos—
+    # sino que capaba las ganadoras: topaba en +1.70 R lo que el mercado dio a
+    # +9.57 R. Un walk-forward que elige mirando solo el pasado y cobra en la
+    # ventana siguiente da +0.0569 R/op (t = 5.22, gana 10/10 ventanas).
+    #
+    # El TP a 5 R sale caro solo en apariencia: cuesta 0.0045 R frente a no poner
+    # ninguno, porque solo corta el 0.9 % de las operaciones. Más cerca sí duele
+    # (a 2 R cuesta 0.0228 R y corta el 12 %). Se eligió 5 R y no 6 R porque
+    # entre ambos la diferencia es ruido y 5 R da un objetivo alcanzable de
+    # verdad; lo que cierra la operación casi siempre es el stop dinámico.
+    #
+    # El precio está medido y hay que saberlo: el acierto baja del 48% al 40%.
+    # Se gana menos veces y se gana más cuando se gana.
+    reparto_tp: tuple = (1.0,)            # un único objetivo, toda la posición.
+    r_objetivos: tuple = (5.0,)           # en múltiplos de R.
     # Intradía: la operación se abre y se cierra el MISMO día (sin riesgo overnight).
     cerrar_intradia: bool = True
     # Cierre operativo, en hora de NUEVA YORK (red de seguridad del gestor). El
