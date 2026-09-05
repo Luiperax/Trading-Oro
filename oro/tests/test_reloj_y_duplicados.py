@@ -23,8 +23,15 @@ from oro.sentimiento import AnalizadorSentimiento
 from oro.vivo import GestorOperaciones, RunnerVivo
 
 
+# Hora fija en la que el mercado admite abrir intradía (10:00 en Nueva York).
+# Sin fijarla, estas pruebas fallan o pasan según la hora a la que se lancen:
+# a partir de las 15:00 de Nueva York el runner contesta "demasiado tarde para
+# abrir una operación intradía" y la prueba se cae sin que nada esté roto.
+_FIN_FIJO = datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc)   # 10:00 en Nueva York
+
+
 def _runner(en_vivo: bool):
-    prov = ProveedorSintetico(velas=1200, semilla=7)
+    prov = ProveedorSintetico(velas=1200, semilla=7, fin=_FIN_FIJO)
     prov.en_vivo = en_vivo
     return RunnerVivo(
         cargar_configuracion(), proveedor=prov,
@@ -152,3 +159,29 @@ def test_si_el_aviso_falla_no_se_abre_la_operacion(monkeypatch):
     assert "no se pudo enviar" in res.motivo_sin_entrada
     # No se marca la vela: así se reintenta el mismo aviso en el próximo ciclo.
     assert r._ultima_vela_senal is None
+
+
+def test_las_pruebas_no_dependen_de_la_hora_a_la_que_se_lancen():
+    """Una prueba que pasa por la mañana y falla por la tarde no vale nada.
+
+    El proveedor sintético termina la serie AHORA, así que la última vela cae a
+    la hora del reloj. A partir de las 15:00 de Nueva York el runner contesta
+    "demasiado tarde para abrir una operación intradía" y varias pruebas se
+    caían sin que nada estuviera roto. Se comprueba en las 24 horas del día.
+    """
+    from oro.dominio.mercado import hora_mercado
+
+    horas_ok = []
+    for h in range(24):
+        fin = datetime(2026, 6, 10, h, 0, tzinfo=timezone.utc)
+        prov = ProveedorSintetico(velas=300, semilla=7, fin=fin)
+        ultima = prov.historico(1).index[-1].to_pydatetime()
+        assert ultima.hour == h, f"el final fijado no se respeta: {ultima} != {h}h"
+        horas_ok.append(hora_mercado(ultima))
+    assert len(set(horas_ok)) == 24, "el final fijado no recorre todas las horas"
+
+    # Y la hora elegida para las pruebas del reloj debe permitir abrir.
+    cfg = cargar_configuracion()
+    h_mercado = hora_mercado(_FIN_FIJO)
+    assert not (cfg.riesgo.hora_cierre_et - 1 <= h_mercado < 18), (
+        f"_FIN_FIJO cae en la ventana de no-abrir ({h_mercado}h en Nueva York)")

@@ -109,12 +109,32 @@ def construir_resumen(ops: list, titulo: str = "REGISTRO REAL DE SEÑALES — XA
         "Profit Factor        : ∞" if pf == float("inf") else f"Profit Factor        : {pf:.2f}",
         f"Expectancy (R media) : {expectancy:+.3f}R",
         f"Resultado total      : {sum(erres):+.2f}R  (antes de costes)",
-        f"Coste de operar      : -{coste_r:.2f}R  ({coste:.2f} $/op de spread)",
+        f"Coste de operar      : -{coste_r:.2f}R  ({coste:.2f} $/op de spread ASUMIDO)",
         f"RESULTADO NETO       : {neto:+.2f}R   (expectativa {exp_neta:+.3f}R/op)",
         f"Racha ganadora máx   : {max_g}   | perdedora máx: {max_p}",
-        "-" * 52,
-        "Últimas operaciones:",
     ]
+
+    # El resultado neto cuelga ENTERO del spread asumido, que hoy es una
+    # suposición: ni Yahoo ni Dukascopy dan el spread real, así que los
+    # adaptadores escriben 0.2 fijo y `coste_operacion` vale 0.30 por defecto.
+    # Medido sobre 19,6 años, pasar de 0.30 a 1.45 $/op mueve la expectativa de
+    # -0.028 R a -0.250 R por operación: no es un detalle, es el resultado.
+    # Quien lo lee tiene que poder ver cuánto depende de ese número.
+    riesgos_op = [abs(float(o.get("entrada", 0)) - float(o.get("stop_inicial", 0)))
+                  for o in ops]
+    riesgos_op = [r for r in riesgos_op if r > 0]
+    if riesgos_op:
+        lineas.append("-" * 52)
+        lineas.append("Si tu spread real fuese otro (ajústalo con ORO_COSTE_OPERACION):")
+        for alt in (0.20, 0.30, 0.60, 1.00, 1.50):
+            c_alt = sum(alt / r for r in riesgos_op)
+            neto_alt = sum(erres) - c_alt
+            marca = "  <- el asumido ahora" if abs(alt - coste) < 1e-9 else ""
+            lineas.append(f"  {alt:.2f} $/op -> {neto_alt:+.2f}R total "
+                          f"({neto_alt/n:+.3f}R por operación){marca}")
+
+    lineas += ["-" * 52, "Últimas operaciones:"]
+
     for o in ops[-8:]:
         marca = "✓ CUMPLIDA" if o.get("ganada") else "✗ fallida"
         lineas.append(f"  {str(o.get('apertura',''))[:16]}  {o.get('direccion','').upper():6} "
