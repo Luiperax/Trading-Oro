@@ -9,6 +9,11 @@ Se incluyen dos implementaciones que funcionan **sin conexión**:
 
 Los adaptadores a fuentes reales (MetaTrader 5, brokers, APIs) se implementan
 sobre la misma interfaz en :mod:`oro.datos.adaptadores`.
+
+Para **investigación** hay además :class:`ProveedorDukascopy`, que da XAU/USD
+spot en H1 desde 2007 y quita el tope de 730 días de Yahoo. No se usa en vivo
+(no ofrece el precio del último tick), pero multiplica por ocho la muestra de
+cualquier medición histórica.
 """
 
 from __future__ import annotations
@@ -17,5 +22,6 @@ from .base import ProveedorDatos
 from .sintetico import ProveedorSintetico
 from .csv import ProveedorCSV
 from .adaptadores import ProveedorYahoo
+from .dukascopy import ProveedorDukascopy
 
-__all__ = ["ProveedorDatos", "ProveedorSintetico", "ProveedorCSV", "ProveedorYahoo"]
+__all__ = ["ProveedorDatos", "ProveedorSintetico", "ProveedorCSV", "ProveedorYahoo", "ProveedorDukascopy"]
