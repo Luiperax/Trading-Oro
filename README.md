@@ -26,8 +26,13 @@ Telegram o push. La gestión del riesgo es la prioridad número uno.
   existen operaciones con suficiente ventaja estadística.»*
 - **Gestión de riesgo estricta**: stop y objetivos por ATR, tamaño de posición a
   un % fijo del capital, y guardas que prohíben operar en condiciones malas.
-- **Entradas y salidas en vivo**: mueve el stop a break-even tras el primer
-  objetivo y avisa de cada objetivo y del cierre.
+- **Salida sin vigilar la pantalla**: la operación se especifica entera al
+  abrirla —entrada, stop, un único objetivo lejano y la distancia del stop
+  dinámico— y no hay que volver a tocarla. El aviso trae los pasos numerados,
+  en el orden en que se teclean en el bróker.
+- **Aprende de sus propias señales**: guarda por qué mandó cada una y si se
+  cumplió, y el diagnóstico compara el acierto CON cada motivo presente frente
+  a SIN él, para saber cuáles ayudan de verdad.
 - **Backtesting** con métricas (Profit Factor, Drawdown, Sharpe, Expectancy…) y
   **modelo ML con validación walk-forward anti-sobreajuste**.
 - **Avisos al móvil**: email (SMTP), Telegram, webhook/push.
