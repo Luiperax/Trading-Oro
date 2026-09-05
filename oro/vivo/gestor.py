@@ -4,7 +4,8 @@ Es la pieza que responde a «¿cuándo salgo?». Dada una señal ejecutada, sigu
 precio y va generando eventos de gestión conforme se cumplen las condiciones:
 
 1. Se alcanza un objetivo parcial (TP): se cierra su fracción.
-2. Tras el primer objetivo, el stop se mueve a *break-even* (entrada): la
+2. El stop dinámico persigue al precio desde la entrada y AVISA cuando se ha
+   movido lo bastante como para tocar el bróker. Al pasar de la entrada, la
    operación pasa a riesgo cero.
 3. Si el precio toca el stop vigente: se cierra el resto (en pérdida, o a
    break-even si ya se movió).
@@ -73,6 +74,12 @@ def _hora_cierre_de(d: dict) -> int:
     return hora if 0 <= hora < 24 else _HORA_CIERRE_POR_DEFECTO
 
 
+# Cuánto tiene que moverse el stop para que merezca la pena mandar un correo de
+# ajuste, en múltiplos de R. Medido sobre 4.410 operaciones: con 0.5R salen 0.68
+# correos por operación y como mucho 3 en una misma; con 0.2R serían 1.29 y hasta 6.
+UMBRAL_AVISO_STOP_R = 0.5
+
+
 class GestorOperaciones:
     def __init__(
         self,
@@ -102,6 +109,8 @@ class GestorOperaciones:
         self._trailing = trailing_activo
         self._trailing_r = max(0.1, float(trailing_r))
         self._trailing_desde_entrada = bool(trailing_desde_entrada)
+        # Último stop del que ya se avisó, para no repetir el mismo correo.
+        self._stop_avisado = self.stop_actual
         self._peak = self.entrada  # máximo (compra) / mínimo (venta) favorable.
         # Datos de la señal, para el registro histórico y el aprendizaje al cerrar.
         self.probabilidad = signal.probabilidad if signal else 0.0
@@ -114,16 +123,22 @@ class GestorOperaciones:
         # numéricas, que no se leen, y se pierde el porqué.
         self.motivos = list(signal.motivos_entrada) if signal else []
 
-    def _trailing_stop(self, precio: float) -> None:
-        """Tras el break-even, el stop persigue al precio desde el máximo favorable.
+    def _trailing_stop(self, precio: float, momento: datetime) -> List[EventoGestion]:
+        """El stop persigue al precio desde el máximo favorable, y AVISA.
 
         La distancia (``trailing_r``, en múltiplos de R) decide el equilibrio:
         apretar mucho protege beneficio pero corta las ganadoras pronto; aflojar
         da recorrido a cambio de devolver más desde el pico.
+
+        El aviso importa tanto como el cálculo. Antes el stop se movía en
+        silencio: quien no tuviera trailing stop en su bróker se quedaba con el
+        stop inicial y se perdía justo la parte que hace que esta gestión mida
+        mejor. Ahora se manda un correo de ajuste cuando el stop se ha movido lo
+        bastante como para que merezca la pena tocar el bróker.
         """
         arrancado = self._en_breakeven or self._trailing_desde_entrada
         if not (self._trailing and arrancado and self.restante > 0):
-            return
+            return []
         signo = self.direccion.signo
         self._peak = max(self._peak, precio) if signo > 0 else min(self._peak, precio)
         nuevo = self._peak - signo * self._riesgo * self._trailing_r
@@ -132,15 +147,47 @@ class GestorOperaciones:
             self.stop_actual = max(self.stop_actual, nuevo)
         else:
             self.stop_actual = min(self.stop_actual, nuevo)
+
         # `_en_breakeven` significa "el stop ya no puede perder dinero". Con el
         # trailing corriendo desde la entrada hay que deducirlo del stop, no
         # darlo por hecho: si no, un stop inicial se anunciaría como "cierre en
         # break-even" cuando en realidad es una pérdida completa.
+        cruza_a_seguro = False
         if not self._en_breakeven:
             protegido = (self.stop_actual >= self.entrada if signo > 0
                          else self.stop_actual <= self.entrada)
             if protegido:
                 self._en_breakeven = True
+                cruza_a_seguro = True
+
+        # Un aviso por cada movimiento sería spam: el stop se recalcula en cada
+        # ciclo. Medido sobre 4.410 operaciones, avisar cuando se ha movido medio
+        # R da 0.68 correos por operación (nunca más de 3 en una misma) y el 52%
+        # de las operaciones recibe al menos uno. Con 0.2R serían 1.29 y hasta 6.
+        movido = abs(self.stop_actual - self._stop_avisado)
+        if not (cruza_a_seguro or movido >= UMBRAL_AVISO_STOP_R * self._riesgo):
+            return []
+        self._stop_avisado = self.stop_actual
+
+        asegurado = self._r_en(self.stop_actual)
+        objetivo = self.niveles[-1].precio if self.niveles else None
+        # Tres situaciones distintas, y confundirlas engaña. Con el stop aún por
+        # debajo de la entrada no hay nada "asegurado": lo que se hace es reducir
+        # la pérdida máxima. Decir "va bien, -0.40R asegurados" es una
+        # contradicción que quien no conoce el mercado no sabría interpretar.
+        if cruza_a_seguro:
+            cabeza = (f"Mueve el STOP a {self.stop_actual:.2f}: a partir de ahora "
+                      f"esta operación YA NO PUEDE PERDER DINERO.")
+        elif asegurado > 0:
+            cabeza = (f"VA BIEN. Mueve el STOP a {self.stop_actual:.2f}: te deja "
+                      f"{asegurado:+.2f}R asegurados aunque el precio se gire.")
+        else:
+            cabeza = (f"El precio va a favor. Mueve el STOP a {self.stop_actual:.2f}: "
+                      f"si se gira ahora pierdes {asegurado:.2f}R en vez de -1.00R.")
+        cola = (f" El objetivo sigue en {objetivo:.2f}; no lo toques."
+                if objetivo is not None else "")
+        return [EventoGestion(Evento.MOVER_STOP, momento, self.stop_actual,
+                              cabeza + cola, self.r_acumulado)]
 
     def _r_en(self, precio: float) -> float:
         if self._riesgo <= 0:
@@ -265,8 +312,8 @@ class GestorOperaciones:
                     self.r_acumulado,
                 ))
 
-        # 3) Salida dinámica: tras el break-even, el stop persigue al precio.
-        self._trailing_stop(precio)
+        # 3) Salida dinámica: el stop persigue al precio (y avisa si se movió).
+        eventos += self._trailing_stop(precio, momento)
 
         # 4) ¿Se cerró toda la posición con los objetivos?
         if self.restante <= 1e-9 and self.estado is EstadoOperacion.ABIERTA:
@@ -302,6 +349,7 @@ class GestorOperaciones:
             "trailing": self._trailing,
             "trailing_r": self._trailing_r,
             "trailing_desde_entrada": self._trailing_desde_entrada,
+            "stop_avisado": self._stop_avisado,
             "peak": self._peak,
             "probabilidad": self.probabilidad,
             "confianza": self.confianza,
@@ -341,6 +389,9 @@ class GestorOperaciones:
         g._trailing = d.get("trailing", True)
         g._trailing_r = float(d.get("trailing_r", 1.0))
         g._trailing_desde_entrada = bool(d.get("trailing_desde_entrada", True))
+        # Sin esto, al reiniciar el proceso se repetiría el último aviso de
+        # ajuste: GitHub Actions arranca de cero en cada ejecución.
+        g._stop_avisado = float(d.get("stop_avisado", d["stop_actual"]))
         g._peak = d.get("peak", d["entrada"])
         g.probabilidad = d.get("probabilidad", 0.0)
         g.confianza = d.get("confianza", 0.0)

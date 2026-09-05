@@ -158,10 +158,10 @@ def pasos_operacion(signal: Signal) -> list[str]:
                      f"beneficio. Ojo: se alcanza en 1 de cada 3 operaciones "
                      f"ganadoras; las demás las cierra antes el stop.")
     if trailing:
-        pasos.append(f"Activa el TRAILING STOP a {dist:.2f} $ de distancia. Hace que "
-                     f"el stop suba solo cuando el precio va a favor, para no "
-                     f"devolver lo ganado. Si tu bróker no lo tiene, deja el stop "
-                     f"fijo del paso 2 y no pasa nada grave.")
+        pasos.append(f"Si tu bróker tiene TRAILING STOP, actívalo a {dist:.2f} $ de "
+                     f"distancia y se encarga solo. Si no lo tiene, no pasa nada: "
+                     f"te iré mandando avisos de ajuste diciéndote a qué precio "
+                     f"mover el stop.")
     # La operación es INTRADÍA: si no salta ni el stop ni el TP, hay que cerrarla
     # antes de que cierre el mercado. Decir "no vigiles nada" contradiría el aviso
     # de cierre que se manda a esa hora, y dejaría la posición abierta de noche
@@ -169,10 +169,11 @@ def pasos_operacion(signal: Signal) -> list[str]:
     from ..config import cargar_configuracion
 
     if cargar_configuracion().riesgo.cerrar_intradia:
-        pasos.append(f"Ya está: si salta el stop o llega al objetivo se cierra sola. "
-                     f"Y si a las {_cierre_local()} sigue abierta, te mando un aviso "
-                     f"para cerrarla a mano (esta operación no se queda de un día "
-                     f"para otro).")
+        pasos.append(f"Ya está. A partir de aquí me encargo yo: si la operación "
+                     f"avanza te aviso para subir el stop y proteger lo ganado, y "
+                     f"si a las {_cierre_local()} sigue abierta te aviso para "
+                     f"cerrarla (no se queda de un día para otro). Si salta el stop "
+                     f"o llega al objetivo, se cierra sola sin que hagas nada.")
     else:
         pasos.append("Y ya está. No hay que vigilar nada más: la operación se cierra sola.")
     return pasos

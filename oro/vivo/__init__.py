@@ -2,7 +2,7 @@
 
 Convierte el motor de análisis en un servicio que vigila el mercado en un bucle,
 genera entre 2 y 4 señales A+ al día y **gestiona cada operación hasta su
-salida**, avisando en cada evento: entrada, mover el stop a break-even, objetivos
+salida**, avisando en cada evento: entrada, ajustes del stop dinámico, objetivo
 alcanzados y cierre.
 
 * :class:`GestorOperaciones` — máquina de estados de una operación abierta.

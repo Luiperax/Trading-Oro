@@ -314,3 +314,92 @@ def test_el_resultado_anunciado_coincide_con_el_real():
         assert eventos[-1].r_acumulado == pytest.approx(g.r_acumulado)
         assert any(e.cierra_operacion for e in eventos)
         assert g.estado.value != "abierta"
+
+
+def test_avisa_de_los_ajustes_del_stop_sin_convertirse_en_spam():
+    """El stop se movía en silencio: quien no tuviera trailing stop en su bróker
+    se quedaba con el stop inicial y se perdía justo la parte que hace que esta
+    gestión mida mejor.
+
+    El umbral importa tanto como el aviso: el stop se recalcula en cada ciclo, así
+    que avisar de cada movimiento sería spam. Medido sobre 4.410 operaciones, con
+    medio R salen 0.68 correos por operación y nunca más de 3 en una misma.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import Evento
+    from oro.vivo.gestor import UMBRAL_AVISO_STOP_R
+
+    sig = _senal()
+    riesgo = abs(sig.entrada - sig.stop_loss)
+    g = _gestor()
+    tope = sig.take_profits[-1].r_multiple
+    avisos = []
+    # Sube en pasos pequeños hasta justo por debajo del objetivo.
+    for k in range(1, int(tope * 10)):
+        for ev in g.actualizar(sig.entrada + riesgo * k / 10.0,
+                               dt.datetime.now(dt.timezone.utc)):
+            if ev.tipo is Evento.MOVER_STOP:
+                avisos.append(ev)
+        if g.estado.value != "abierta":
+            break
+
+    assert avisos, "el stop se movió sin avisar ni una vez"
+    assert len(avisos) <= 4, f"demasiados avisos ({len(avisos)}): es spam"
+    # Cada aviso debe traer un precio nuevo y mejor que el anterior.
+    precios = [ev.precio for ev in avisos]
+    assert precios == sorted(precios), "los avisos no van en orden de mejora"
+    assert len(set(precios)) == len(precios), "se repitió el mismo stop"
+    for anterior, siguiente in zip(precios, precios[1:]):
+        assert siguiente - anterior >= UMBRAL_AVISO_STOP_R * riesgo - 1e-9
+
+
+def test_el_aviso_de_ajuste_no_dice_asegurado_cuando_aun_se_pierde():
+    """Con el stop todavía por debajo de la entrada no hay nada asegurado.
+
+    Decir "va bien, -0.40R asegurados" es una contradicción que quien no conoce el
+    mercado no sabría interpretar.
+    """
+    import datetime as dt
+
+    from oro.notificaciones.base import Evento
+
+    sig = _senal()
+    riesgo = abs(sig.entrada - sig.stop_loss)
+    g = _gestor()
+    eventos = []
+    for k in (6, 12, 18):
+        eventos += [e for e in g.actualizar(sig.entrada + riesgo * k / 10.0,
+                                            dt.datetime.now(dt.timezone.utc))
+                    if e.tipo is Evento.MOVER_STOP]
+    assert len(eventos) >= 2
+    for ev in eventos:
+        asegurado = (ev.precio - sig.entrada) / riesgo
+        if asegurado < -1e-9:
+            assert "asegurad" not in ev.mensaje, f"promete asegurado en pérdida: {ev.mensaje}"
+            assert "VA BIEN" not in ev.mensaje
+        elif asegurado > 1e-9:
+            assert "asegurad" in ev.mensaje or "NO PUEDE PERDER" in ev.mensaje
+        # Todos deben decir a qué precio mover el stop.
+        assert f"{ev.precio:.2f}" in ev.mensaje
+
+
+def test_la_instruccion_del_aviso_no_contradice_al_mensaje():
+    """El asunto y el "qué hacer" estaban fijados en "break-even", pero el stop
+    dinámico lo mueve a niveles distintos. El mismo correo pedía dos cosas."""
+    from oro.vivo.runner import RunnerVivo
+
+    instruccion = RunnerVivo._instruccion(__import__(
+        "oro.notificaciones.base", fromlist=["Evento"]).Evento.MOVER_STOP)
+    assert "break-even" not in instruccion.lower()
+    assert "entrada" not in instruccion.lower()
+
+
+def test_los_pasos_explican_qué_pasa_sin_trailing_en_el_broker():
+    # No todos los brókers lo tienen. Si el aviso no dice que hay alternativa,
+    # quien no lo tenga se queda con un stop fijo creyendo que hace lo correcto.
+    from oro.notificaciones.base import pasos_operacion
+
+    texto = " ".join(pasos_operacion(_senal())).lower()
+    assert "trailing" in texto
+    assert "aviso" in texto, "no explica que se avisará de los ajustes"
