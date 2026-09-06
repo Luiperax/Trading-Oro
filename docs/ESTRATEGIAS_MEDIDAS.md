@@ -170,3 +170,98 @@ interesante no es la estadística sino la operativa:
 A 9 operaciones al año hacen falta muchos años para validarla en vivo. Si se
 adopta, que sea con tamaño pequeño y sabiendo que es una apuesta razonable, no un
 resultado demostrado.
+
+---
+
+## Continuación: por qué esa versión se descartó y cuál la sustituye
+
+*(medición posterior, con las mismas 118.452 velas horarias de Dukascopy)*
+
+La conclusión de arriba —«9 operaciones al año, prometedora pero no probada»—
+tenía dos problemas que la medición siguiente destapó.
+
+**Primero: la frecuencia era un artefacto del filtro malo.** El embudo era
+5.087 días → 679 que rompen en la *segunda* vela → 170 que además tienen rango
+ancho. Ese primer filtro descarta el 87 % de los días, y es exactamente el que
+ya había fallado la prueba de robustez. Sin él hay ruptura casi todos los días.
+
+**Segundo: el rango asiático roto en Londres no aguanta las mitades bloqueadas.**
+Partiendo el histórico en 2006-2016 y 2016-2026 —mitades elegidas antes de mirar
+y no tocadas después— pierde dinero en la segunda. Una regla que solo funciona en
+la mitad que le conviene no es una regla.
+
+### Las tres candidatas, netas de 0,60 $ de spread
+
+| Regla | Ops/año | R/op | t | 1ª mitad | 2ª mitad |
+|---|---|---|---|---|---|
+| Rango de Londres (3-8 ET) roto durante NY | 234 | +0,0552 | 3,01 | +0,0596 | +0,0515 |
+| Apertura de NY (1ª hora) rota después | 223 | +0,0480 | 2,45 | +0,0241 | +0,0691 |
+| Rango asiático (0-3 ET) roto en Londres | 247 | +0,0079 | 0,32 | +0,0275 | −0,0088 |
+
+Solo la primera es positiva en las dos mitades. La de Nueva York solo funciona en
+la segunda: es la misma enfermedad que la asiática, con el signo cambiado.
+
+### Filtros pre-declarados sobre la superviviente
+
+Cinco hipótesis declaradas antes de medir, con Bonferroni (α = 0,05/5 → t > 2,81)
+**y** las dos mitades positivas como requisito adicional:
+
+| Filtro | Ops/año | R/op | t | 1ª mitad | 2ª mitad | |
+|---|---|---|---|---|---|---|
+| sin filtro | 234 | +0,0552 | 3,01 | +0,0596 | +0,0515 | pasa |
+| rango estrecho (< mediana) | 117 | +0,0908 | 2,99 | +0,1129 | +0,0778 | pasa |
+| rango ancho (≥ mediana) | 117 | +0,0197 | 0,96 | +0,0242 | +0,0139 | no |
+| a favor de la media de 20 días | 129 | +0,0749 | 3,02 | +0,0922 | +0,0599 | pasa |
+| **ruptura en las 2 primeras horas** | **207** | **+0,0687** | **3,38** | **+0,0816** | **+0,0575** | **pasa** |
+| cierre de Londres cerca del borde | 148 | +0,0526 | 2,37 | +0,0227 | +0,0783 | no |
+
+Se elige **el de las dos primeras horas** y no los otros, aunque su ventaja *por
+operación* sea menor: en R al año rinde más (207 × 0,0687 = **+14,2 R**) que
+combinar los tres (61 × 0,1512 = +9,2 R), y con tres veces más muestra.
+
+Perturbando las horas (2-8, 3-7, 4-8, cerrar a las 15, 8-10, 9-10…), las **10
+variantes probadas dan resultado positivo**: no depende de acertar la hora
+exacta. El walk-forward —elegir filtro con los 5 años anteriores y operar el
+sexto— da +0,1350 R/op con 10 de 15 años positivos (t = 2,74) y converge por su
+cuenta en la misma combinación, sin haber visto el futuro.
+
+### La salida
+
+| Salida | Acierto | 0,30 $ | 0,60 $ | R/año a 0,60 $ |
+|---|---|---|---|---|
+| dejar correr al cierre de NY | 47,5 % | +0,1137 | +0,0687 | +14,2 |
+| stop a break-even en 1R, sin objetivo | 42,4 % | +0,1220 | +0,0770 | +16,0 |
+| objetivo 4R + stop a BE | 42,4 % | +0,1053 | +0,0602 | +12,5 |
+| **objetivo 3R + stop a BE** | 42,7 % | +0,1026 | +0,0575 | +11,9 |
+| **objetivo 3R, sin tocar nada** | 47,8 % | +0,0954 | +0,0503 | +10,4 |
+| objetivo 2R | 48,7 % | +0,0858 | +0,0407 | +8,4 |
+
+Se implementa **objetivo 3R sin gestión**: conserva el 73 % de la ventaja de
+dejar correr y se puede poner en el bróker y olvidar, que era el requisito.
+
+### Y el coste, que sigue mandando
+
+| Spread | R/op | t | R/año |
+|---|---|---|---|
+| 0,30 $ | +0,1137 | 5,60 | +23,6 |
+| 0,60 $ | +0,0687 | 3,38 | +14,2 |
+| **1,45 $** | **−0,0590** | **−2,90** | **−12,2** |
+
+Filtrar por «que el spread no se lleve más de X R» **no lo rescata**: a 1,45 $
+deja 33 operaciones al año con t = 0,63, indistinguible de cero. Por eso el
+sistema no emite el plan por encima de 0,60 $ (`ConfiguracionRuptura.coste_max`).
+
+Lo que sí cambia respecto al sistema intradía es el tamaño de 1R: aquí es el
+rango entero de la mañana (10,3 $ de media histórica, **24-30 $ hoy**) frente a
+1,5 × ATR (7,4 $ de media, 27 $ hoy). El mismo spread pesa la mitad.
+
+### Veredicto
+
+**Se implementa** (`oro/sesiones.py`, workflow `oro-plan.yml`), con estas
+reservas dichas en voz alta y repetidas en el propio correo:
+
+* 14 años positivos de 20, no 20. **De 2016 a 2021 perdió cinco años seguidos**
+  incluso con spread de 0,60 $.
+* Acierta el 42,7 %. La mayoría de los días la operación pierde.
+* Con el spread actual del usuario (1,45-2 $) **no se enviará ningún plan**, y
+  eso es correcto: la ventaja medida a ese coste es negativa.

@@ -63,10 +63,25 @@ secretos de tu correo (`ORO_SMTP_HOST`, `ORO_SMTP_USUARIO`, `ORO_SMTP_CLAVE`,
 `ORO_SMTP_DESTINO`) y pruébalo en **Actions → «Alertas XAU/USD» → Run workflow →
 modo_prueba**.
 
+## El plan del día (segunda estrategia)
+
+Además de las señales intradía, el sistema manda cada mañana un **plan de
+ruptura**: a las 14:00 de Madrid mide el rango que ha dejado la mañana de
+Londres y te da **dos órdenes pendientes** —una por encima y otra por debajo—
+para dejar puestas y olvidarte. La que salte es la operación del día.
+
+👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
+
+Aviso honesto: acierta el 42,7 % de las veces y entre 2016 y 2021 perdió cinco
+años seguidos. Y con un spread por encima de 0,60 $/onza **no se envía**, porque
+a ese coste la ventaja medida es negativa.
+
 ## Documentación
 
 - Guía del paquete y todos los comandos: [`oro/README.md`](oro/README.md)
 - Arquitectura y decisiones técnicas: [`docs/ARQUITECTURA_ORO.md`](docs/ARQUITECTURA_ORO.md)
+- El plan del día (ruptura de sesión): [`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)
+- Qué se ha medido y qué se ha descartado: [`docs/ESTRATEGIAS_MEDIDAS.md`](docs/ESTRATEGIAS_MEDIDAS.md)
 - Uso desde el móvil / despliegue: [`oro/DESPLIEGUE_MOVIL.md`](oro/DESPLIEGUE_MOVIL.md)
 
 ## Estructura
@@ -74,7 +89,8 @@ modo_prueba**.
 ```
 oro/                     Paquete del sistema (dominio, datos, indicadores,
                          estructura, riesgo, señales, ML, backtesting, vivo, API).
-oro/tests/               54 pruebas.
-.github/workflows/       Vigilante en la nube (alertas cada ~15 min).
-docs/                    Arquitectura.
+oro/sesiones.py          Ruptura del rango de sesión (el plan del día).
+oro/tests/               Pruebas.
+.github/workflows/       Vigilante en la nube (alertas cada ~15 min) y plan diario.
+docs/                    Arquitectura, estrategias medidas y guía del plan.
 ```

@@ -33,6 +33,10 @@ class Evento(str, Enum):
     AMPLIAR_OBJETIVO = "ampliar_objetivo"
     CIERRE = "cierre"
     CAMBIO_MERCADO = "cambio_mercado"
+    # Plan de ruptura de sesión: DOS órdenes pendientes que se dejan puestas por
+    # la mañana. No es una señal de entrada inmediata, y por eso es un evento
+    # aparte: el correo dice qué teclear, no «entra ahora».
+    PLAN_RUPTURA = "plan_ruptura"
 
 
 def _cierre_local(momento: datetime | None = None) -> str:
@@ -499,6 +503,19 @@ class Notificador(ABC):
         titulo = f"{emoji} XAU/USD {signal.direccion.value.upper()} @ {signal.entrada:.2f} — señal"
         return self.enviar(titulo, mensaje_de_senal(signal), Evento.NUEVA_SENAL,
                            html=mensaje_html_de_senal(signal))
+
+    def notificar_plan(self, plan) -> bool:
+        """Envía el plan de ruptura del día (dos órdenes pendientes).
+
+        La importación va DENTRO a propósito: `oro.notificaciones.plan` importa
+        de este módulo, y hacerlo arriba crearía un ciclo de importación.
+        """
+        from .plan import mensaje_de_plan, mensaje_html_de_plan
+
+        titulo = (f"⚡ PLAN XAU/USD — deja 2 órdenes: compra {plan.compra.entrada:.2f} "
+                  f"/ venta {plan.venta.entrada:.2f}")
+        return self.enviar(titulo, mensaje_de_plan(plan), Evento.PLAN_RUPTURA,
+                           html=mensaje_html_de_plan(plan))
 
 
 class NotificadorMultiple(Notificador):
