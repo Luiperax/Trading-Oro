@@ -110,3 +110,63 @@ No es un sistema de señales intradía. Cambia de posición unas 2-3 veces al a�
 hay que mantenerla abierta durante meses. Y una caída del 37,5 % fuera de muestra
 sobre 3.000 € son 1.125 € de pérdida flotante en el peor momento: hay que poder
 aguantarla sin cerrar.
+
+## Sesión de Londres: ruptura del rango asiático
+
+La única familia medida que encaja con las dos restricciones a la vez (operar
+despierto y un spread alto), porque **el precio de entrada se conoce de
+antemano**: es el borde del rango asiático, así que la orden se deja puesta y no
+hay que mirar la pantalla.
+
+### La estadística cruda (5.087 días)
+
+* Londres rompe el rango asiático el **96,5 %** de los días: no es un filtro.
+* Cierra a favor de la ruptura el **51,2 %** de las veces (50,8 % / 51,6 % por
+  mitades). Casi una moneda.
+* Recorrido a favor 1,08× el rango, en contra 1,02×: casi simétrico.
+
+Es decir: la ruptura por sí sola no vale. Lo que sí aparece es una cola derecha
+(media +0,99 $ frente a mediana +0,25 $).
+
+### Lo que sí filtra
+
+Entrando solo cuando la ruptura ocurre en la **segunda** vela de Londres —no en
+la primera, que suele ser ruido— y con stop al otro lado del rango asiático:
+
+| Filtro de anchura | Ops/año | 0,30 $ | | 1,45 $ | |
+|---|---|---|---|---|---|
+| | | $/op | t | $/op | t |
+| ninguno | 35 | +1,39 | 2,50 | +0,24 | 0,43 |
+| ≥ p50 | 17 | +2,75 | **2,72** | +1,60 | 1,59 |
+| ≥ p75 | 9 | +4,27 | 2,31 | **+3,12** | **1,69** |
+| ≥ p85 | 5 | +4,47 | 1,71 | +3,32 | 1,27 |
+
+Con spread bajo conviene filtrar poco (más muestra); con spread alto hay que
+filtrar mucho (menos operaciones, más grandes). Con 1,45 $ lo mejor es el
+cuartil superior de anchura: **9 operaciones al año, +0,137 R cada una**.
+
+### Robustez: lo que aguanta y lo que no
+
+* **El filtro de anchura aguanta**: de p0 a p85 todas dan resultado positivo
+  (t entre 1,83 y 3,04). No es una celda con suerte.
+* **La vela de ruptura NO aguanta**: vela 0 → t=2,13; vela 1 → 2,47;
+  vela 2 → **0,37**; vela 3 → 1,60. Sin estructura: parámetro ajustado.
+* **El fin de la sesión asiática NO aguanta**: hace pico exactamente en las 8:00
+  de Londres, que fue la elección inicial (6h→1,71; 7h→1,98; 8h→2,47; 9h→1,22).
+
+Por periodos de 5 años el resultado es positivo en los cuatro, pero en R dos de
+ellos son prácticamente cero (+0,238 / +0,044 / +0,005 / +0,267).
+
+### Veredicto
+
+**Prometedora y bien encajada, pero NO probada.** t=1,69 al spread actual no es
+significativo, y dos de los tres parámetros son ajustados. Lo que la hace
+interesante no es la estadística sino la operativa:
+
+* entrada a precio conocido → **orden pendiente puesta a las 10:00 de Madrid**;
+* 9 operaciones al año → el spread casi no importa;
+* toda la actividad en horario de Londres → despierto y con el mejor spread.
+
+A 9 operaciones al año hacen falta muchos años para validarla en vivo. Si se
+adopta, que sea con tamaño pequeño y sabiendo que es una apuesta razonable, no un
+resultado demostrado.
