@@ -102,3 +102,42 @@ def test_con_lote_por_debajo_del_minimo_se_avisa():
         assert "LOTE MÍNIMO" in texto
         assert "200 €" in texto
         assert "7 €" not in texto
+
+
+def _plan_con_asia(sube: bool = True):
+    from oro.tests.test_ruptura_sesion import ASIA_BAJA, ASIA_SUBE, JULIO, LONDRES
+    cfg = ConfiguracionSistema()
+    cfg.riesgo.coste_operacion = 0.30
+    velas = {**(ASIA_SUBE if sube else ASIA_BAJA), **LONDRES}
+    return construir_plan(_marco("2026-07-15", velas), cfg, ahora=JULIO).plan
+
+
+@pytest.mark.parametrize("sube,esperada,otra", [(True, "COMPRA", "VENTA"),
+                                                (False, "VENTA", "COMPRA")])
+def test_el_correo_dice_cual_de_las_dos_tiene_mas_respaldo(sube, esperada, otra):
+    plan = _plan_con_asia(sube)
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "MÁS RESPALDO" in texto
+        assert f"La {esperada} tiene más respaldo" in texto
+        # Y las dos cifras que lo justifican, para no pedir fe.
+        assert "+0,088" in texto and "+0,013" in texto
+        # La otra no se descarta: sigue habiendo que ponerla.
+        assert f"La {otra} no pierde dinero" in texto
+
+
+def test_el_correo_no_vende_la_confianza_como_certeza():
+    """La diferencia entre lados da t = 2,07 y no pasa la corrección. Decirlo es
+    la diferencia entre una indicación y una promesa."""
+    plan = _plan_con_asia()
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "INDICACIÓN" in texto and "no un hecho probado" in texto
+        assert "2,07" in texto
+        assert "las DOS órdenes puestas" in texto
+
+
+def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
+    """El `plan` de la fixture no tiene velas asiáticas: no hay favorita."""
+    assert plan.favorita is None
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "NINGUNA de las dos destaca" in texto
+        assert "MÁS RESPALDO" not in texto

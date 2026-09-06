@@ -255,6 +255,37 @@ Lo que sí cambia respecto al sistema intradía es el tamaño de 1R: aquí es el
 rango entero de la mañana (10,3 $ de media histórica, **24-30 $ hoy**) frente a
 1,5 × ATR (7,4 $ de media, 27 $ hoy). El mismo spread pesa la mitad.
 
+### ¿Se puede saber cuál de las dos órdenes es la buena?
+
+Cinco discriminadores pre-declarados, todos calculables a las 8:00 ET sin mirar
+el futuro. Se compara la ruptura *a favor* del indicador contra la *en contra*:
+
+| Discriminador | A favor | En contra | Diferencia | t |
+|---|---|---|---|---|
+| **dirección de la sesión asiática** | **+0,0883** | **+0,0133** | **+0,0750** | **2,07** |
+| tendencia de 20 días | +0,0663 | +0,0352 | +0,0311 | 0,85 |
+| tendencia de 5 días | +0,0539 | +0,0450 | +0,0089 | 0,24 |
+| rango sobre/bajo el cierre de ayer | +0,0518 | +0,0493 | +0,0025 | 0,07 |
+| dónde cierra Londres en el rango | +0,0380 | +0,0370 | +0,0009 | 0,02 |
+
+**Ninguno pasa Bonferroni** (t > 2,81). Solo la sesión asiática tiene las dos
+mitades del mismo signo (+0,1165 / +0,0369) y una diferencia con tamaño. Se
+sometió a las comprobaciones que mataron a otras candidatas:
+
+* **5 variantes de la medida** (cierre−apertura, cierre vs punto medio, ventana
+  1-3 ET, ventana 0-4 ET, exigir cuerpo grande): las 5 dan diferencia positiva
+  (+0,033 a +0,087). No es la celda con suerte de una tabla.
+* **15 de 20 años** la diferencia va a favor.
+* **Control:** las compras dan +0,0486 y las ventas +0,0521 por separado. No es
+  un sesgo direccional disfrazado.
+* **Días planos** (cuerpo < 20 % del rango asiático): 885 días, −0,0162 R/op, y
+  los dos lados se parecen (−0,029 / −0,004). Ahí no se señala favorita.
+
+Se implementa **solo como etiqueta, no como filtro**: operar únicamente el lado
+bueno da +9,1 R al año frente a +10,4 R operando los dos. Y el correo dice el
+t = 2,07 en voz alta, porque una indicación presentada como certeza es peor que
+no darla.
+
 ### Veredicto
 
 **Se implementa** (`oro/sesiones.py`, workflow `oro-plan.yml`), con estas

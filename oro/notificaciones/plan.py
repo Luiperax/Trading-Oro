@@ -51,6 +51,41 @@ def lote_y_riesgo(plan: PlanRuptura) -> tuple[float, float, float, bool]:
     return lotes, perdida, pct, pct > cfg.riesgo.riesgo_por_operacion * 1.05
 
 
+# Cifras medidas sobre 4.064 rupturas de 19,6 años, neto de 0.60 $ y objetivo 3R.
+# Se citan literalmente en el correo para que nadie tenga que fiarse de mi palabra.
+_R_A_FAVOR = "+0,088"
+_R_EN_CONTRA = "+0,013"
+
+
+def texto_confianza(plan: PlanRuptura) -> str:
+    """Una frase que diga cuál de las dos órdenes tiene más respaldo, y cuánto.
+
+    Va con el número al lado a propósito. "Más confianza" a secas invita a
+    pensar que la otra no vale, y no es eso: la otra no pierde, simplemente no
+    gana casi nada. Y la diferencia, dicha en voz alta, no llega a demostrada.
+    """
+    if plan.favorita is None:
+        return ("Hoy NINGUNA de las dos destaca: la sesión asiática ha cerrado "
+                "casi donde abrió, y en esos días los dos lados se comportan "
+                "igual. Trátalas como iguales.")
+    lado = "COMPRA" if plan.favorita.value == "compra" else "VENTA"
+    otro = "VENTA" if lado == "COMPRA" else "COMPRA"
+    subio = "subido" if plan.sesgo.cuerpo > 0 else "bajado"
+    return (f"La {lado} tiene más respaldo: la sesión asiática ha {subio} "
+            f"{abs(plan.sesgo.cuerpo):.2f} $ y, en 19,6 años, la ruptura que "
+            f"acompaña a Asia ha dado {_R_A_FAVOR} R por operación frente a "
+            f"{_R_EN_CONTRA} R la contraria. La {otro} no pierde dinero, "
+            f"simplemente casi no gana.")
+
+
+def aviso_confianza() -> str:
+    """El límite de lo anterior, sin el cual la frase promete de más."""
+    return ("Es una INDICACIÓN, no un hecho probado: la diferencia entre lados "
+            "da t = 2,07 y no supera la corrección estadística que aplico "
+            "(haría falta 2,81). La respaldan 15 de 20 años y las 5 formas de "
+            "medirlo que probé. Deja las DOS órdenes puestas igualmente.")
+
+
 def pasos_plan(plan: PlanRuptura) -> list[str]:
     """Los pasos exactos, en el orden en que se teclean en el bróker."""
     lotes = lote_y_riesgo(plan)[0]
@@ -59,9 +94,11 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
         f"Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
         f"pendientes de {lotes:.2f} lotes cada una. No se abre nada todavía.",
         f"Orden 1 — COMPRA tipo «BUY STOP» en {c.entrada:.2f}, "
-        f"con stop loss en {c.stop:.2f} y take profit en {c.objetivo:.2f}.",
+        f"con stop loss en {c.stop:.2f} y take profit en {c.objetivo:.2f}."
+        + (" ← la de más respaldo hoy" if plan.es_favorita(c) else ""),
         f"Orden 2 — VENTA tipo «SELL STOP» en {v.entrada:.2f}, "
-        f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}.",
+        f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}."
+        + (" ← la de más respaldo hoy" if plan.es_favorita(v) else ""),
         "En cuanto una de las dos se abra, CANCELA la otra. Si tu bróker tiene "
         "órdenes «OCO» (una cancela la otra), úsalo y se encarga solo.",
         f"Si a las {hora_local(plan.valido_hasta)} no ha saltado ninguna, cancela "
@@ -83,11 +120,20 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         f"Rango de la mañana de Londres: {plan.rango.bajo:.2f} — {plan.rango.alto:.2f}",
         f"Amplitud: {plan.rango.amplitud:.2f} $ por onza  (esto es 1R, tu riesgo)",
         "",
+        f"Sesión asiática: {plan.sesgo.cuerpo:+.2f} $ sobre un rango de "
+        f"{plan.sesgo.rango:.2f} $",
+        "",
         "DOS ÓRDENES PENDIENTES (salta una, cancela la otra):",
         f"  COMPRA (buy stop)  en {plan.compra.entrada:.2f}   "
-        f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}",
+        f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}"
+        f"{'   ★ MÁS RESPALDO' if plan.es_favorita(plan.compra) else ''}",
         f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
-        f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}",
+        f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}"
+        f"{'   ★ MÁS RESPALDO' if plan.es_favorita(plan.venta) else ''}",
+        "",
+        "CUÁL DE LAS DOS ES LA DE FIAR:",
+        f"  {texto_confianza(plan)}",
+        f"  {aviso_confianza()}",
         "",
         f"Lote para cada orden: {lotes:.2f}",
         f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € ({pct:.2%} del capital)",
@@ -118,14 +164,26 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     return "\n".join(lineas)
 
 
-def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str, lotes: float) -> str:
+def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str, lotes: float,
+                favorita: bool = False) -> str:
+    """Una de las dos órdenes. La favorita lleva borde grueso y una chapa.
+
+    La distinción es visual además de textual porque el correo se lee en el
+    móvil y de un vistazo: si hay que buscar la frase para saber cuál es, el
+    dato no sirve de nada.
+    """
+    borde = f'2px solid {color}' if favorita else f'1px solid {color}'
+    chapa = (f'<span style="display:inline-block;background:{color};color:#0b0e14;'
+             f'border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;'
+             f'letter-spacing:1px;margin-left:6px;">★ MÁS RESPALDO</span>'
+             if favorita else '')
     return (
         f'<table role="presentation" width="100%" style="border-collapse:collapse;'
         f'margin-bottom:10px;">'
-        f'<tr><td style="background:#0e131c;border:1px solid {color};'
+        f'<tr><td style="background:#0e131c;border:{borde};'
         f'border-radius:14px;padding:14px 16px;">'
         f'<div style="color:{color};font-size:13px;font-weight:800;'
-        f'letter-spacing:1px;">{_esc(etiqueta)}</div>'
+        f'letter-spacing:1px;">{_esc(etiqueta)}{chapa}</div>'
         f'<div style="color:{_TEXTO};font-size:26px;font-weight:800;'
         f'margin:2px 0 8px;">{orden.entrada:.2f}</div>'
         f'<table role="presentation" width="100%" style="border-collapse:collapse;">'
@@ -192,8 +250,17 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       <div style="color:{_MUTED};font-size:12px;margin-bottom:18px;">Amplitud {plan.rango.amplitud:.2f} $ · eso es 1R, lo que arriesgas</div>
 
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Deja estas dos órdenes puestas</div>
-      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE, lotes)}
-      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO, lotes)}
+      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE, lotes,
+                   plan.es_favorita(plan.compra))}
+      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO, lotes,
+                   plan.es_favorita(plan.venta))}
+      <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
+       <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cuál de las dos es la de fiar</div>
+         <div style="color:{_TEXTO};font-size:13px;line-height:1.5;">{_esc(texto_confianza(plan))}</div>
+         <div style="color:{_MUTED};font-size:11px;line-height:1.5;margin-top:6px;">{_esc(aviso_confianza())}</div>
+       </td></tr>
+      </table>
       <div style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:12px 16px;margin-bottom:18px;">
         <div style="color:{_ORO};font-size:13px;font-weight:700;">Salta una → cancela la otra</div>
         {aviso_lote}
