@@ -39,7 +39,8 @@ class Evento(str, Enum):
     PLAN_RUPTURA = "plan_ruptura"
 
 
-def _cierre_local(momento: datetime | None = None) -> str:
+def _cierre_local(momento: datetime | None = None,
+                  hora_cierre_et: int | None = None) -> str:
     """Hora a la que se cerrará la operación, en la hora del usuario.
 
     Es el dato accionable: no sirve decir "21:00 UTC" ni la hora a la que cierra
@@ -65,7 +66,10 @@ def _cierre_local(momento: datetime | None = None) -> str:
 
     ahora = momento or _dt.datetime.now(_dt.timezone.utc)
     cfg = cargar_configuracion()
-    if not cfg.riesgo.cerrar_intradia:
+    # `hora_cierre_et` permite reutilizar esta función desde otra estrategia con
+    # su propio horario (la ruptura de sesión). Por defecto, la del intradía.
+    hora_et = cfg.riesgo.hora_cierre_et if hora_cierre_et is None else hora_cierre_et
+    if hora_cierre_et is None and not cfg.riesgo.cerrar_intradia:
         return f"{HORA_AVISO_LOCAL}:50"
     try:
         from zoneinfo import ZoneInfo
@@ -73,7 +77,7 @@ def _cierre_local(momento: datetime | None = None) -> str:
         from ..dominio.mercado import ZONA_MERCADO
 
         en_ny = ahora.astimezone(ZoneInfo(ZONA_MERCADO)).replace(
-            hour=cfg.riesgo.hora_cierre_et, minute=0, second=0, microsecond=0)
+            hour=hora_et, minute=0, second=0, microsecond=0)
         red_seguridad = a_local(en_ny.astimezone(_dt.timezone.utc))
     except Exception:  # noqa: BLE001 — sin zoneinfo, el aviso sigue siendo válido.
         return f"{HORA_AVISO_LOCAL}:50"

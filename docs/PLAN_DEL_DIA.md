@@ -29,11 +29,17 @@ deja preparada una orden a cada lado y decide el mercado.
   la orden se deja puesta y no hace falta vigilar nada.
 * **El stop** es el otro borde. Si el precio vuelve a cruzar la caja entera, la
   ruptura era falsa.
-* **El objetivo** está a 3 veces esa distancia.
+* **El objetivo** está a 10 veces esa distancia: es una red de seguridad para
+  el día extraordinario, no la salida. Se ejecuta 1 de cada 1.000 veces.
+* **La salida es cerrar a mano a las 21:50** (tu hora), gane o pierda. Medido:
+  +0,069 R por operación frente a +0,050 con un objetivo cercano, porque un
+  objetivo cerca corta las ganadoras grandes.
+* **Opcional:** cuando la operación te dé 1R de beneficio, mueve el stop al
+  precio de entrada. Sube la ventaja a +0,077 y desde ahí ya no puede perder.
 * **Caduca a las dos horas.** Si a las 16:00 de Madrid no ha saltado ninguna, se
   cancelan las dos: lo que se rompe por la tarde ya no es la ruptura de la
   mañana, y está medido que no compensa.
-* **Se cierra a las 22:00 de Madrid** si sigue abierta. Nunca de un día para otro.
+* **Nunca se queda de un día para otro.**
 
 ## Cuál de las dos órdenes es la de fiar
 
@@ -73,10 +79,10 @@ lo que sale — con un spread de 0,60 $ por operación:
 | | |
 |---|---|
 | Operaciones | ~207 al año, casi una por día de mercado |
-| Acierto | **42,7 %**: la mayoría de los días pierde |
-| Ventaja | +0,069 R por operación (≈ +14 R al año) |
+| Acierto | **44,7 %**: la mayoría de los días pierde |
+| Ventaja | +0,067 R por operación (≈ +14 R al año) |
 | Años positivos | **14 de 20** |
-| Peor racha | **de 2016 a 2021 perdió cinco años seguidos** |
+| Peor racha | **de 2017 a 2020 perdió cuatro años seguidos** |
 
 Gana porque las operaciones ganadoras son mucho mayores que las perdedoras, no
 porque acierte a menudo. Si perder cuatro días de cada siete te va a sacar del

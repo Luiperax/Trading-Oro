@@ -16,6 +16,7 @@ from ..sesiones import OrdenPendiente, PlanRuptura
 from ..tiempo import etiqueta_zona, hora_local
 from .base import (
     LOTE_MINIMO,
+    _cierre_local,
     _BORDE,
     _FONDO,
     _FUENTE,
@@ -55,6 +56,20 @@ def lote_y_riesgo(plan: PlanRuptura) -> tuple[float, float, float, bool]:
 # Se citan literalmente en el correo para que nadie tenga que fiarse de mi palabra.
 _R_A_FAVOR = "+0,088"
 _R_EN_CONTRA = "+0,013"
+
+
+def hora_cierre(plan: PlanRuptura) -> str:
+    """A qué hora hay que cerrar la operación, en la hora del usuario.
+
+    Son las 21:50 casi todo el año, pero Europa y EE. UU. no cambian la hora el
+    mismo fin de semana (1 semana desfasada en octubre y 3 en marzo) y esas
+    cuatro semanas el mercado ya ha cerrado a las 21:00. Decir "21:50" entonces
+    sería mandar a cerrar una posición que ya se cerró sola.
+    """
+    from ..config import cargar_configuracion
+
+    return _cierre_local(plan.cierre_forzoso,
+                         cargar_configuracion().ruptura.cierre_et)
 
 
 def texto_confianza(plan: PlanRuptura) -> str:
@@ -99,14 +114,22 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
         f"Orden 2 — VENTA tipo «SELL STOP» en {v.entrada:.2f}, "
         f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}."
         + (" ← la de más respaldo hoy" if plan.es_favorita(v) else ""),
+        "Ese take profit está MUY lejos a propósito: es una red de seguridad "
+        "para el día extraordinario, no la salida. Se ejecuta 1 de cada 1.000 "
+        "veces. La salida de verdad es cerrar a mano al final de la sesión.",
         "En cuanto una de las dos se abra, CANCELA la otra. Si tu bróker tiene "
         "órdenes «OCO» (una cancela la otra), úsalo y se encarga solo.",
         f"Si a las {hora_local(plan.valido_hasta)} no ha saltado ninguna, cancela "
         f"las dos. Hoy no hay operación: lo que se rompe más tarde ya no es la "
         f"ruptura de la mañana y está medido que no compensa.",
-        f"Si a las {hora_local(plan.cierre_forzoso)} sigue abierta sin haber "
-        f"tocado ni el stop ni el objetivo, ciérrala a mercado. No se queda de un "
-        f"día para otro.",
+        f"A las {hora_cierre(plan)} CIÉRRALA A MERCADO, gane o pierda. Esta es "
+        f"la salida: cerrar al final de la sesión rinde +0,069 R por operación "
+        f"frente a +0,050 con un objetivo cercano. Y no se queda de un día para "
+        f"otro.",
+        f"OPCIONAL, si puedes mirar el móvil una vez: cuando la operación te dé "
+        f"{plan.rango.amplitud:.2f} $ de beneficio (1R), mueve el stop al precio "
+        f"de entrada. Desde ahí ya no puede perder. Medido: sube la ventaja de "
+        f"+0,069 a +0,077 R por operación.",
     ]
 
 
@@ -145,7 +168,7 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         "",
         f"Válido hasta las {hora_local(plan.valido_hasta)} ({zona}). "
         f"Después, cancela las dos.",
-        f"Cierre: {hora_local(plan.cierre_forzoso)} ({zona}) si sigue abierta.",
+        f"Cierre a mano: {hora_cierre(plan)} ({zona}), gane o pierda.",
         "",
         "QUÉ HACER, paso a paso:",
     ]
@@ -153,10 +176,10 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     lineas += [
         "",
         "LO QUE HAY QUE SABER ANTES DE OPERARLA:",
-        "  • Acierta el 43 % de las veces. La mayoría de los días pierde; gana",
+        "  • Acierta el 45 % de las veces. La mayoría de los días pierde; gana",
         "    porque las ganadoras son mucho mayores que las perdedoras.",
         "  • Medido sobre 19,6 años: 14 años en positivo de 20, y una racha mala",
-        "    de 2016 a 2021 en la que perdió cinco años seguidos.",
+        "    de 2017 a 2020 en la que perdió cuatro años seguidos.",
         f"  • El spread se lleva hoy el {plan.coste_r:.1%} de lo que arriesgas.",
         "",
         "⚠️ Herramienta de análisis, no asesoramiento financiero.",
@@ -228,10 +251,10 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
         f'<tr><td style="color:{_TEXTO};font-size:12px;padding:3px 0;'
         f'line-height:1.5;">• {_esc(t)}</td></tr>'
         for t in (
-            "Acierta el 43 % de las veces: la mayoría de los días pierde. "
+            "Acierta el 45 % de las veces: la mayoría de los días pierde. "
             "Gana porque las ganadoras son mucho mayores.",
             "Medido sobre 19,6 años reales: 14 años en positivo de 20, con una "
-            "racha mala de 2016 a 2021 que perdió cinco años seguidos.",
+            "racha mala de 2017 a 2020 que perdió cuatro años seguidos.",
             f"El spread se lleva hoy el {plan.coste_r:.1%} de lo que arriesgas.",
         ))
 
@@ -285,7 +308,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
   </td></tr>
   <tr><td style="text-align:center;padding:12px 14px;color:#4a5568;font-size:11px;">
      ⏱ Las órdenes valen hasta las <b>{hora_local(plan.valido_hasta)}</b> ({_esc(zona)}).
-     Cierre a las <b>{hora_local(plan.cierre_forzoso)}</b> si sigue abierta.<br>
+     Ciérrala a mano a las <b>{hora_cierre(plan)}</b>, gane o pierda.<br>
      Sistema XAU/USD · plan generado automáticamente</td></tr>
  </table>
 </div>"""

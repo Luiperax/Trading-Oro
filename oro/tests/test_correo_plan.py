@@ -50,11 +50,11 @@ def test_el_texto_plano_lleva_los_cuatro_niveles(plan):
 
 
 def test_el_correo_no_promete_lo_que_no_hay(plan):
-    """La estrategia acierta el 43 % y tuvo cinco años malos seguidos. Si el
+    """La estrategia acierta el 45 % y tuvo cuatro años malos seguidos. Si el
     correo no lo dice, está vendiendo algo que no es."""
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
-        assert "43" in texto
-        assert "2016" in texto and "2021" in texto
+        assert "45 %" in texto
+        assert "2017" in texto and "2020" in texto
         assert "no asesoramiento financiero" in texto
 
 
@@ -141,3 +141,46 @@ def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "NINGUNA de las dos destaca" in texto
         assert "MÁS RESPALDO" not in texto
+
+
+def test_el_objetivo_es_una_red_de_seguridad_no_la_salida(plan):
+    """Cambió la salida: antes el objetivo a 3R era la salida, y cortaba las
+    ganadoras grandes (+0,050 R/op frente a +0,069 cerrando al final). Ahora el
+    objetivo está a 10R y solo cubre el día extraordinario. El correo tiene que
+    dejarlo claro o alguien se quedará esperando a que llegue."""
+    riesgo = plan.rango.amplitud
+    assert plan.compra.objetivo == pytest.approx(plan.compra.entrada + 10 * riesgo)
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "red de seguridad" in texto
+        assert "1 de cada 1.000" in texto
+
+
+def test_el_correo_manda_cerrar_a_mano_y_dice_a_que_hora(plan):
+    from oro.notificaciones.plan import hora_cierre
+    hora = hora_cierre(plan)
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "CIÉRRALA A MERCADO" in texto or "Ciérrala a mano" in texto
+        assert hora in texto
+
+
+def test_no_hay_dos_horas_de_cierre_distintas_en_el_mismo_correo(plan):
+    """Fallo real detectado al cambiar la salida: la cabecera decía 22:00 y el
+    paso a paso decía 21:50. Dos horas para lo mismo en el mismo correo es peor
+    que no dar ninguna."""
+    import re
+    from oro.notificaciones.plan import hora_cierre
+    from oro.tiempo import hora_local
+
+    cierre, caduca = hora_cierre(plan), hora_local(plan.valido_hasta)
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        horas = set(re.findall(r"\b([012]\d:[0-5]\d)\b", texto))
+        assert horas <= {cierre, caduca}, (
+            f"aparecen horas que no son ni el cierre ({cierre}) ni la caducidad "
+            f"({caduca}): {sorted(horas - {cierre, caduca})}")
+
+
+def test_el_paso_opcional_de_break_even_da_su_cifra(plan):
+    """Pedir una acción extra sin decir cuánto vale es pedir fe."""
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "OPCIONAL" in texto
+        assert "+0,077" in texto and "+0,069" in texto

@@ -11,7 +11,7 @@ Se pueden sobreescribir mediante variables de entorno con prefijo ``ORO_``
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from typing import List
 
 
@@ -191,19 +191,30 @@ class ConfiguracionRuptura:
     # demasiado cerca del precio.
     velas_minimas: int = 4
 
-    # Objetivo, en múltiplos del rango. Medido sobre 4.064 rupturas de 19,6
-    # años, neto de 0.60 $ de spread:
+    # Objetivo, en múltiplos del rango. YA NO ES LA SALIDA: es una red de
+    # seguridad. La salida es el cierre a mano al final de la sesión.
     #
-    #     dejar correr hasta el cierre   +0.0687 R/op   t 3.38
-    #     objetivo 4R (+ stop a BE)      +0.0602        t 3.34
-    #     objetivo 3R (+ stop a BE)      +0.0575        t 3.31
-    #     objetivo 3R                    +0.0503        t 2.78
-    #     objetivo 2R                    +0.0407        t 2.45
+    # Medido sobre 4.065 rupturas de 19,6 años, neto de 0.60 $, con la
+    # frecuencia con que cada objetivo llega a ejecutarse:
     #
-    # Dejar correr mide mejor, pero exige estar delante a las 22:00 para cerrar.
-    # El objetivo se pone en el bróker y se olvida, que es justo lo que se pidió.
-    # 3R conserva el 73 % de la ventaja de dejar correr sin vigilar nada.
-    r_objetivo: float = 3.0
+    #     salida                      R/op       t     lo toca
+    #     sin objetivo             +0.0685    3.37       0.0 %
+    #     objetivo 10R             +0.0673    3.34       0.1 %   <- actual
+    #     objetivo  8R             +0.0642    3.24       0.2 %
+    #     objetivo  6R             +0.0626    3.20       0.8 %
+    #     objetivo  4R             +0.0513    2.74       2.7 %
+    #     objetivo  3R             +0.0501    2.77       6.1 %   <- antes
+    #
+    # Y con el stop movido a la entrada al llegar a 1R:
+    #
+    #     sin objetivo + BE en 1R  +0.0768    3.91
+    #     objetivo 3R  + BE en 1R  +0.0574    3.30
+    #
+    # O sea: el objetivo a 3R cortaba las ganadoras grandes y costaba un tercio
+    # de la ventaja. A 10R no estorba (se ejecuta 1 de cada 1.000 veces) y sigue
+    # cubriendo el día extraordinario en que el precio se dispara y nadie está
+    # mirando. Cuesta 0.0012 R, el 1,7 % de la ventaja: un seguro casi gratis.
+    r_objetivo: float = 10.0
 
     # CUÁL DE LAS DOS ÓRDENES ES LA DE FIAR.
     #

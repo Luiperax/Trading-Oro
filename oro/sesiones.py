@@ -43,22 +43,38 @@ media histórica y unos 24-30 $ hoy. El mismo spread pesa la mitad o menos.
 
 Aun así, hay que decirlo claro: **con 1.45 $ esto tampoco gana.** Medido:
 
-    spread   R/op      t       R/año
-    0.30 $  +0.1137   5.60     +23.6
-    0.60 $  +0.0687   3.38     +14.2
-    1.45 $  -0.0590  -2.90     -12.2
+    spread   R/op      t       R/año   acierto   años+
+    0.30 $  +0.1123   5.58     +23.3    46.2 %   18/20
+    0.60 $  +0.0673   3.34     +14.0    44.7 %   14/20
+    1.45 $  -0.0604  -2.99     -12.5    40.8 %    7/20
 
 Y filtrar por "que el spread no se coma más de X R" no lo arregla: a 1.45 $ deja
 33 operaciones al año con t = 0.63, o sea indistinguible de cero. Por eso el
 plan NO se emite si ``coste_operacion`` supera ``coste_max`` (0.60 $ por
 defecto): es preferible no operar a operar sabiendo que se pierde por costes.
 
+LA SALIDA
+---------
+No hay objetivo cercano: la operación se CIERRA A MANO al final de la sesión
+(21:50 en la hora del usuario). Medido, neto de 0.60 $:
+
+    sin objetivo cercano              +0.0685 R/op   t 3.37
+    objetivo a 3R (versión anterior)  +0.0501        t 2.77
+
+El objetivo a 3R cortaba las ganadoras grandes y costaba un tercio de la
+ventaja. Queda un objetivo a 10R como red de seguridad: se ejecuta 1 de cada
+1.000 veces y cuesta 0.0012 R, así que no estorba y cubre el día en que el
+precio se dispara y nadie está mirando.
+
+Mover el stop a la entrada al llegar a 1R sube la ventaja a +0.0768 (t 3.91).
+Va como paso OPCIONAL en el correo, porque exige mirar el móvil una vez.
+
 LO QUE NO SE PUEDE OCULTAR
 --------------------------
-* 14 de 20 años en positivo, no 20. Hubo una racha mala larga: de 2016 a 2021 la
-  regla pierde (-0.0191 R/op) incluso con spread de 0.60 $. Eso son CINCO AÑOS
-  seguidos sin ganar. Quien no pueda aguantar eso, que no la use.
-* Acierta el 42.7 % de las veces. Gana porque las ganadoras son mayores, no
+* 14 de 20 años en positivo, no 20. Hubo una racha mala larga: de 2017 a 2020
+  pierde cuatro años seguidos incluso con spread de 0.60 $. Quien no pueda
+  aguantar eso, que no la use.
+* Acierta el 44.7 % de las veces. Gana porque las ganadoras son mayores, no
   porque acierte mucho. La mayoría de los días la operación pierde.
 * 1R son 24-30 $ por onza hoy. Con 0.01 lotes (1 onza), eso es 24-30 € de
   riesgo por operación, un 0.8-1 % de 3.000 €. Es el lote mínimo: no se puede

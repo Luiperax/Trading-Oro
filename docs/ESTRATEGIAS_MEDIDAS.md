@@ -236,8 +236,60 @@ cuenta en la misma combinación, sin haber visto el futuro.
 | **objetivo 3R, sin tocar nada** | 47,8 % | +0,0954 | +0,0503 | +10,4 |
 | objetivo 2R | 48,7 % | +0,0858 | +0,0407 | +8,4 |
 
-Se implementa **objetivo 3R sin gestión**: conserva el 73 % de la ventaja de
-dejar correr y se puede poner en el bróker y olvidar, que era el requisito.
+*(Actualización posterior: se cambió a **cerrar a mano al final de la sesión**,
+con un objetivo a 10R como red de seguridad. Ver abajo.)*
+
+### La salida, revisada
+
+El objetivo a 3R costaba un tercio de la ventaja porque cortaba las ganadoras
+grandes. Medido con la frecuencia con que cada objetivo llega a ejecutarse:
+
+| Salida | R/op | t | Lo toca |
+|---|---|---|---|
+| sin objetivo cercano | +0,0685 | 3,37 | 0,0 % |
+| **objetivo 10R** | **+0,0673** | **3,34** | **0,1 %** |
+| objetivo 8R | +0,0642 | 3,24 | 0,2 % |
+| objetivo 6R | +0,0626 | 3,20 | 0,8 % |
+| objetivo 4R | +0,0513 | 2,74 | 2,7 % |
+| objetivo 3R *(anterior)* | +0,0501 | 2,77 | 6,1 % |
+| **sin objetivo + stop a BE en 1R** | **+0,0768** | **3,91** | 0,0 % |
+
+Se implementa el objetivo a **10R como red de seguridad** (cuesta 0,0012 R, el
+1,7 % de la ventaja, y cubre el día extraordinario) más **cierre a mano a las
+21:50**. El movimiento del stop a break-even en 1R va como paso opcional en el
+correo, con su cifra al lado, porque exige mirar el móvil una vez.
+
+Adelantar el cierre no cuesta nada apreciable (22:00 → +0,0685; 21:00 → +0,0593;
+20:00 → +0,0620; 19:00 → +0,0611), así que los 10 minutos de margen sobran.
+
+### Efecto día de la semana: MEDIDO Y DESCARTADO
+
+Los primeros viernes de mes (nóminas de EE. UU.) dan **+0,5315 R/op, t = 4,47**,
+18 de 20 años positivos, mediana +0,32, y aguantan quitando las 10 mejores
+operaciones (+0,3677, t = 3,19). Tiene mecanismo: el dato sale a las 8:30 ET,
+dentro de la ventana de disparo, sobre un rango formado antes (3:00-8:00) que
+todavía no sabe nada. Predicción confirmada: en la regla de la apertura de NY
+—cuyo rango 8:00-9:00 contiene el dato— el efecto desaparece (t = 1,12).
+
+**Y aun así no se implementa.** La ventaja entera cabe dentro del deslizamiento
+del propio evento, que el backtest no puede ver:
+
+| Deslizamiento extra sobre 1,45 $ | R/op | t |
+|---|---|---|
+| 0 $ | +0,3821 | 3,15 |
+| 1 $ | +0,2063 | 1,62 |
+| **2 $** | **+0,0305** | **0,23** |
+| 3 $ | −0,1453 | −1,00 |
+
+Con 2 $ de deslizamiento —lo normal en unas nóminas, no lo malo— no queda nada.
+
+El resto del efecto día de la semana se disuelve al quitar las nóminas: los
+viernes normales dan +0,0681 con t = 1,46 y segunda mitad +0,0309. Quitar lunes
+y miércoles mide mejor (+0,0949, t = 4,00) pero esos días se eligieron mirando
+el histórico entero. El walk-forward honesto da +0,0972 frente a +0,0501, pero
+la ventaja depende de un solo año (2021, +0,40 de diferencia); sin él la media
+cae a +0,022 con 9 de 14 años. El conjunto de días que elige cambia cada año
+(MJV, MXJV, XJV, XV, V, LV, LJV, LMJV): es ruido. **No se implementa.**
 
 ### Y el coste, que sigue mandando
 
@@ -291,8 +343,8 @@ no darla.
 **Se implementa** (`oro/sesiones.py`, workflow `oro-plan.yml`), con estas
 reservas dichas en voz alta y repetidas en el propio correo:
 
-* 14 años positivos de 20, no 20. **De 2016 a 2021 perdió cinco años seguidos**
+* 14 años positivos de 20, no 20. **De 2017 a 2020 perdió cuatro años seguidos**
   incluso con spread de 0,60 $.
-* Acierta el 42,7 %. La mayoría de los días la operación pierde.
+* Acierta el 44,7 %. La mayoría de los días la operación pierde.
 * Con el spread actual del usuario (1,45-2 $) **no se enviará ningún plan**, y
   eso es correcto: la ventaja medida a ese coste es negativa.
