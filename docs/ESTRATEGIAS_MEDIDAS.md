@@ -420,3 +420,81 @@ El dólar explica el 13-14 % de la varianza del oro, y lo explica en tiempo real
 Para anticipar el oro por esa vía habría que anticipar el dólar, que es el
 mercado más líquido del planeta. Ninguna de las dos fuentes aporta un indicio
 anticipado utilizable.
+
+
+---
+
+## Intentos de rescatar el motor intradía de señales
+
+El motor de señales técnicas (`oro/senales`) tiene una ventaja **bruta** de
++0,025 a +0,030 R por operación sobre 4.410 entradas de 19,6 años, con 1R
+valiendo 7,4 $ de media. Su spread de equilibrio son 0,15 $. Estos son todos los
+intentos de hacerlo viable, con su resultado.
+
+### Lo probado antes
+
+| Intento | Resultado |
+|---|---|
+| Predecir la dirección (ML) | AUC 0,489-0,520: moneda al aire |
+| Filtrar por régimen de volatilidad | el efecto se evapora con más datos (p = 0,40) |
+| Filtrar por coste | trampa de minería: selecciona años recientes |
+| Ensanchar el stop (2-4 × ATR) | baja el coste en R y hunde la ventaja: se cancelan |
+| Subir de marco (H2, H4) | lo mismo: 0,195 R → 0,099 R de coste, +0,0277 → +0,0062 de ventaja |
+| Operar solo despierto | la ventaja vive de noche (35 % de las entradas, 00-07 Madrid) |
+
+### Contexto de sesión como filtro — descartado por LOOKAHEAD
+
+La idea: la ruptura del rango de Londres dice si el día es direccional y hacia
+dónde. Filtrar las señales técnicas para que vayan a favor.
+
+Medido en crudo parecía extraordinario:
+
+| Filtro | Bruto | Neto 0,60 $ | t |
+|---|---|---|---|
+| sin filtro | −0,0611 | −0,1771 | −12,08 |
+| **a favor de la ruptura** | **+0,1647** | **+0,0507** | **2,49** |
+| en contra de la ruptura | −0,3852 | −0,5063 | −19,67 |
+
+*(Estas cifras usan la política de salida antigua, por eso la referencia sale
+negativa en bruto; lo comparable entre sí es la diferencia, no el nivel.)*
+
+**Y es lookahead.** La dirección de la ruptura no se conoce hasta las 10:00 ET,
+pero el filtro se estaba aplicando también a señales de la madrugada. Separando
+por si la ruptura ya se conocía:
+
+| | Bruto | Neto | t |
+|---|---|---|---|
+| señales **posteriores** a la ruptura, a favor | −0,0486 | −0,1585 | −6,93 |
+| señales **posteriores**, en contra | −0,0434 | −0,1615 | −4,06 |
+| señales **anteriores**, «a favor» *(lookahead)* | **+0,6060** | +0,4836 | 13,66 |
+
+Una vez se conoce la ruptura, el filtro no distingue nada: a favor y en contra
+rinden igual. Todo el efecto vivía en señales de madrugada «alineadas» con una
+ruptura que aún no había ocurrido, que es una forma elegante de decir «las
+señales que acertaron acertaron».
+
+### Colocación estructural del stop — descartado
+
+El ancho del stop ya estaba medido, pero no *dónde* se pone. La ruptura funciona
+porque su stop está donde el mercado invalida la idea, no a una distancia
+arbitraria. Con la salida actual (objetivo 2R + stop dinámico 1R + cierre
+intradía):
+
+| Colocación | 1R en $ | Bruto | Neto 0,60 $ | t |
+|---|---|---|---|---|
+| 1,5 × ATR *(el actual)* | 7,4 | +0,0247 | −0,0912 | −7,22 |
+| mínimo/máximo de 6 velas | 7,1 | +0,0107 | −0,1565 | −10,69 |
+| mínimo/máximo de 12 velas | 12,2 | +0,0133 | −0,0796 | −7,10 |
+| mínimo/máximo de 24 velas | 19,5 | +0,0153 | **−0,0399** | −4,65 |
+| borde del rango de Londres | 10,1 | −0,0532 | −0,1920 | −14,36 |
+
+El stop de 24 velas hace que 1R valga 19,5 $ en vez de 7,4 $, con lo que el
+spread pesa menos de la mitad. Pero la ventaja bruta baja de +0,0247 a +0,0153 y
+el neto sigue claramente negativo. Es la misma cancelación de siempre.
+
+### Estado
+
+Con esto se han probado siete vías distintas. Ninguna deja al motor de señales
+en positivo a un coste alcanzable. La única estrategia intradía del proyecto con
+ventaja medida y sostenida sigue siendo la ruptura del rango de sesión, que
+también abre y cierra el mismo día.
