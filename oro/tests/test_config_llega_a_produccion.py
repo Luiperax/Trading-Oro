@@ -28,7 +28,7 @@ _CREDENCIALES = {
 # Opciones de ejecución local o del panel web, que no aplican a los workflows.
 _SOLO_LOCAL = {"ORO_ESTADO", "ORO_INTERVALO", "ORO_PANEL_CLAVE", "ORO_BUCLE_CADA_SEG",
                "ORO_BUCLE_MINUTOS", "ORO_RUTA_MODELO", "ORO_RUTA_OPERACIONES",
-               "ORO_RUTA_SENALES", "ORO_PLAN_ESTADO"}
+               "ORO_RUTA_SENALES", "ORO_PLAN_ESTADO", "ORO_RUTA_RUPTURAS"}
 # Parámetros que SOLO usa la ruptura de sesión (oro-plan.yml). No tienen sentido
 # en los trabajos del sistema intradía, que es una estrategia distinta, así que
 # exigírselos sería ruido; a cambio, se exigen en el suyo (ver más abajo).
@@ -37,7 +37,7 @@ _DE_LA_RUPTURA = {"ORO_RUPTURA_ACTIVA", "ORO_RUPTURA_R_OBJETIVO",
                   "ORO_RUPTURA_SESGO_CUERPO_MINIMO"}
 # Trabajos que ejecutan la lógica de operativa y necesitan la configuración.
 _OPERATIVOS = ("oro-alertas.yml", "oro-cierre.yml", "oro-latido.yml", "oro-aprender.yml")
-_TODOS = _OPERATIVOS + ("oro-plan.yml",)
+_TODOS = _OPERATIVOS + ("oro-plan.yml", "oro-seguimiento.yml")
 
 
 def _variables_que_lee_el_codigo() -> set[str]:
@@ -72,13 +72,15 @@ def test_los_workflows_pasan_toda_la_configuracion(workflow):
         f"repositorio y NO llegarán al proceso, sin ningún aviso")
 
 
-def test_el_plan_recibe_los_parametros_de_su_estrategia():
-    """La ruptura de sesión tiene sus propios ajustes y su propio trabajo. Si no
-    llegan, ORO_RUPTURA_ACTIVA=0 no la apagaría y nadie se enteraría."""
-    pasa = _variables_que_pasa("oro-plan.yml")
+@pytest.mark.parametrize("workflow", ["oro-plan.yml", "oro-seguimiento.yml"])
+def test_el_plan_recibe_los_parametros_de_su_estrategia(workflow):
+    """La ruptura de sesión tiene sus propios ajustes y sus dos trabajos: el que
+    manda el plan y el que sigue la operación. Si no llegan, ORO_RUPTURA_ACTIVA=0
+    no la apagaría y nadie se enteraría."""
+    pasa = _variables_que_pasa(workflow)
     faltan = (_DE_LA_RUPTURA | {"ORO_COSTE_OPERACION", "ORO_CAPITAL",
                                 "ORO_RIESGO_POR_OPERACION"}) - pasa
-    assert not faltan, f"oro-plan.yml no pasa {sorted(faltan)}"
+    assert not faltan, f"{workflow} no pasa {sorted(faltan)}"
 
 
 def test_el_coste_de_operar_llega_a_todos_los_trabajos_operativos():

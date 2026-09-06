@@ -1,0 +1,78 @@
+# Seguimiento de la operación del día de XAU/USD.
+#
+# El plan (oro-plan.yml) manda las dos órdenes por la mañana. Este trabajo es lo
+# que pasa después: cada 15 minutos durante la sesión de Nueva York mira si
+# alguna orden ha saltado y te avisa cuando toca.
+#
+#   · si el precio no sale del rango y se acaba la ventana -> cancela las órdenes
+#   · si la operación te da 1R de beneficio                -> mueve el stop a la entrada
+#   · al final de la sesión, si sigue abierta              -> ciérrala a mercado
+#
+# Y cuando el día termina guarda la ficha en oro_rupturas.jsonl: condiciones,
+# resultado neto de costes y si acompañaba o no al sesgo asiático. Eso es lo que
+# permitirá contestar «¿por qué salió bien o mal?» cuando haya operaciones.
+#
+# Sin este trabajo, el plan se enviaba y nadie sabía nunca si funcionó.
+
+name: Seguimiento XAU/USD
+
+on:
+  schedule:
+    # De 12:00 a 21:00 UTC cubre 8:00-16:00 de Nueva York en las dos mitades del
+    # año (verano UTC-4, invierno UTC-5). Fuera de la sesión el propio código
+    # sale sin hacer nada, así que sobrar horas no cuesta más que un arranque.
+    - cron: "*/15 12-21 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write              # para guardar el estado y el registro.
+
+concurrency:
+  group: oro-seguimiento
+  cancel-in-progress: false
+
+jobs:
+  seguir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r oro/requirements-web.txt
+
+      - name: Seguir la operación y avisar
+        env:
+          ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
+          ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+          ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
+          ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
+          ORO_SMTP_CLAVE: ${{ secrets.ORO_SMTP_CLAVE }}
+          ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
+          ORO_WEBHOOK_URL: ${{ secrets.ORO_WEBHOOK_URL }}
+          ORO_COSTE_OPERACION: ${{ vars.ORO_COSTE_OPERACION }}
+          ORO_CAPITAL: ${{ vars.ORO_CAPITAL }}
+          ORO_RIESGO_POR_OPERACION: ${{ vars.ORO_RIESGO_POR_OPERACION }}
+          ORO_TIMEFRAME: ${{ vars.ORO_TIMEFRAME }}
+          ORO_SIMBOLO: ${{ vars.ORO_SIMBOLO }}
+          ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
+          ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
+          ORO_RUPTURA_ACTIVA: ${{ vars.ORO_RUPTURA_ACTIVA }}
+          ORO_RUPTURA_R_OBJETIVO: ${{ vars.ORO_RUPTURA_R_OBJETIVO }}
+          ORO_RUPTURA_COSTE_MAX: ${{ vars.ORO_RUPTURA_COSTE_MAX }}
+          ORO_RUPTURA_HORAS_VALIDEZ: ${{ vars.ORO_RUPTURA_HORAS_VALIDEZ }}
+          ORO_RUPTURA_SESGO_CUERPO_MINIMO: ${{ vars.ORO_RUPTURA_SESGO_CUERPO_MINIMO }}
+        run: python -m oro.seguir_plan
+
+      - name: Guardar el estado y el registro de rupturas
+        run: |
+          python - <<'PY'
+          from oro.persistencia import guardar_ficheros
+          guardar_ficheros(["oro_plan.json", "oro_rupturas.jsonl"],
+                           "Seguimiento de la ruptura del día [skip ci]")
+          PY

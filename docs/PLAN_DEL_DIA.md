@@ -41,6 +41,35 @@ deja preparada una orden a cada lado y decide el mercado.
   mañana, y está medido que no compensa.
 * **Nunca se queda de un día para otro.**
 
+## Lo que pasa después: el seguimiento
+
+El plan se manda por la mañana, pero la operación dura toda la sesión. Un
+segundo trabajo (`oro-seguimiento.yml`) mira el mercado cada 15 minutos y te
+avisa cuando toca:
+
+| Cuándo | Qué te llega |
+|---|---|
+| Se acaba la ventana sin que salte ninguna | **Cancela las dos órdenes.** Hoy no hay operación. |
+| La operación te da 1R de beneficio | **Mueve el stop a la entrada.** Desde ahí ya no puede perder. |
+| Final de la sesión con la operación viva | **Ciérrala a mercado**, gane o pierda. |
+
+Y cuando el día termina guarda la ficha en `oro_rupturas.jsonl`: el rango, la
+dirección, el resultado **neto de costes**, hasta dónde llegó a favor, y si
+acompañaba o no al sesgo asiático. Eso es lo que permitirá contestar «¿por qué
+salió bien o mal?» cuando haya operaciones suficientes.
+
+Un detalle de diseño: en cada ejecución se **reproduce el día entero desde las
+velas**, no se acumula estado. Es más caro y es deliberado — si una ejecución
+falla (GitHub cancela tareas, la red se cae), la siguiente ve el día completo y
+llega a la misma conclusión. Lo único que se recuerda entre ejecuciones es qué
+avisos ya se mandaron.
+
+Lo que el seguimiento **no** puede saber, y lo asume por lo conservador: con
+velas de una hora, si dentro de la misma vela el precio toca el stop y el
+objetivo, se supone el stop. Y si en el primer tramo sale del rango por los dos
+lados, no se registra ninguna operación: inventarse la dirección envenenaría el
+aprendizaje.
+
 ## Cuál de las dos órdenes es la de fiar
 
 El correo lo dice, y con el número al lado. A las 8:00 de Nueva York ya se sabe

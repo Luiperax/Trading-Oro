@@ -102,5 +102,7 @@ jobs:
         run: |
           python - <<'PY'
           from oro.persistencia import guardar_ficheros
+          # El estado lleva ahora el PLAN entero, que es lo que el trabajo de
+          # seguimiento necesita para seguir la operación por la tarde.
           guardar_ficheros(["oro_plan.json"], "Plan de ruptura enviado [skip ci]")
           PY

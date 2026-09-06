@@ -56,13 +56,23 @@ def _ultimo_dia_enviado() -> date | None:
         return None
 
 
-def _anotar_dia(dia: date) -> None:
+def _anotar_dia(dia: date, plan=None) -> None:
+    """Guarda el día enviado y el PLAN entero.
+
+    El plan se guarda porque `oro.seguir_plan` lo necesita para seguir la
+    operación durante la tarde: sin él, el correo se manda y nadie sabe nunca si
+    la operación salió bien, que es justo lo que este sistema debe aprender.
+    """
+    from .seguir_plan import serializar
+
     p = _ruta_estado()
+    datos = {"ultimo_plan": dia.isoformat(), "avisados": []}
+    if plan is not None:
+        datos["plan"] = serializar(plan)
     try:
         if p.parent != Path(""):
             p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"ultimo_plan": dia.isoformat()}, ensure_ascii=False,
-                                indent=2), encoding="utf-8")
+        p.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError as e:  # noqa: BLE001 — no poder anotar no invalida el envío.
         print(f"⚠️  No se pudo guardar el estado del plan ({e}).")
 
@@ -129,7 +139,7 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
         print("⚠️  EL PLAN NO SE PUDO ENVIAR. No se marca como enviado: se "
               "reintentará. Revisa los secretos ORO_SMTP_* / ORO_TELEGRAM_*.")
         return 1
-    _anotar_dia(plan.dia)
+    _anotar_dia(plan.dia, plan)
     print("✔ Plan enviado.")
     return 0
 

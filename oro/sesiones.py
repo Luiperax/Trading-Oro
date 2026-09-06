@@ -154,6 +154,7 @@ class PlanRuptura:
     rango: RangoSesion
     compra: OrdenPendiente
     venta: OrdenPendiente
+    sesion_desde: datetime          # antes de esta hora no puede saltar ninguna orden.
     valido_hasta: datetime          # a esta hora se cancelan las que no hayan saltado.
     cierre_forzoso: datetime        # a esta hora se cierra lo que siga abierto.
     # Tamaño TEÓRICO en onzas: el que arriesgaría exactamente el % configurado.
@@ -330,6 +331,7 @@ def construir_plan(df, cfg: ConfiguracionSistema,
             stop=rango.alto,
             objetivo=rango.bajo - c.r_objetivo * riesgo,
         ),
+        sesion_desde=_a_las(dia, c.sesion_desde_et),
         valido_hasta=_a_las(dia, c.sesion_desde_et + c.horas_validez),
         cierre_forzoso=_a_las(dia, c.cierre_et),
         onzas=onzas,
