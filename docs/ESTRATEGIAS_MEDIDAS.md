@@ -348,3 +348,75 @@ reservas dichas en voz alta y repetidas en el propio correo:
 * Acierta el 44,7 %. La mayoría de los días la operación pierde.
 * Con el spread actual del usuario (1,45-2 $) **no se enviará ningún plan**, y
   eso es correcto: la ventaja medida a ese coste es negativa.
+
+
+---
+
+## Indicios anticipados: dos fuentes que NO son precio del oro
+
+La pregunta era la buena: *indicios reales de lo que va a hacer el precio antes
+de que lo haga*. Se probaron las dos únicas fuentes gratuitas alcanzables desde
+el entorno (Yahoo, FRED y Stooq están bloqueados).
+
+### 1. Posicionamiento COT de la CFTC — descartado
+
+870 semanas (2010-2026) del informe desagregado del oro: posiciones declaradas
+del dinero gestionado y de los comerciales. 5 hipótesis pre-declaradas × 3
+horizontes (1, 2 y 4 semanas) = 15 contrastes. Bonferroni: t > 2,93.
+
+| Hipótesis | Mejor \|t\| de los 3 horizontes |
+|---|---|
+| fondos muy largos → baja (contrario) | 0,77 |
+| aumenta posición larga → sigue subiendo | 1,66 |
+| z de fondos, exposición continua | 0,65 |
+| comerciales muy cortos → baja | 1,50 |
+| z de comerciales, exposición continua | 1,91 |
+
+**Los 15 fallan, y 13 de los 15 tienen media negativa.** El posicionamiento
+declarado no anticipa el precio del oro a ningún horizonte.
+
+*Trampa esquivada:* el informe es del martes pero se publica el viernes a las
+15:30 ET. Se usa desde el lunes siguiente. Con la fecha del martes se estaría
+mirando el futuro tres días, y con eso casi cualquier cosa parece funcionar.
+
+*Fallo propio:* la CFTC cambió de columna de fecha hacia 2013. La primera
+versión solo interpretaba hasta 2012 y medía tres años creyendo que medía
+diecisiete, sin dar ningún error. Se caza con un `assert` sobre las fechas.
+
+### 2. El dólar (EUR/USD horario de Dukascopy) — descartado, y es instructivo
+
+122.739 velas horarias, 2007-2026, la misma tubería y la misma hora que el oro.
+El diseño separa **anticipar** de **acompañar**:
+
+| Hipótesis | Diferencia a favor/en contra | t |
+|---|---|---|
+| H1 dólar en la mañana de Londres (3-8 ET), **antes** | +0,0004 | **0,01** |
+| H2 dólar en la sesión asiática (0-3 ET), **antes** | +0,0145 | 0,26 |
+| H4 dólar **durante** la sesión (8-16 ET) — control | +0,9956 | **18,06** |
+
+El control es abrumador y las dos anticipadas son exactamente cero. El dólar
+explica el movimiento del oro **a la vez que ocurre**, no antes.
+
+Con retrasos, la correlación horaria se desploma de golpe:
+
+| Retraso | Correlación |
+|---|---|
+| misma hora | **−0,355** |
+| 1 hora | +0,003 |
+| 2 horas | +0,003 |
+| 24 horas | +0,004 |
+
+Un matiz que parece una excepción y no lo es: el dólar de la mañana de Londres
+**sí acierta el lado por el que rompe el oro el 58,1 % de las veces** (z = 10,4).
+Pero eso es mecánico —si el dólar ha caído, el oro ha subido y está pegado al
+techo del rango, así que romperá por arriba— y **no dice nada del resultado**
+(H1: t = 0,01). Además el sistema deja las dos órdenes puestas, así que saber
+cuál saltará no vale nada. Acertar el lado y no acertar la continuación es
+justamente la diferencia entre parecer que predices y predecir.
+
+### Conclusión
+
+El dólar explica el 13-14 % de la varianza del oro, y lo explica en tiempo real.
+Para anticipar el oro por esa vía habría que anticipar el dólar, que es el
+mercado más líquido del planeta. Ninguna de las dos fuentes aporta un indicio
+anticipado utilizable.
