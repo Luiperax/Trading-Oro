@@ -141,15 +141,26 @@ def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
 
 
 def test_el_objetivo_es_una_red_de_seguridad_no_la_salida(plan):
-    """Cambió la salida: antes el objetivo a 3R era la salida, y cortaba las
-    ganadoras grandes (+0,050 R/op frente a +0,069 cerrando al final). Ahora el
-    objetivo está a 10R y solo cubre el día extraordinario. El correo tiene que
-    dejarlo claro o alguien se quedará esperando a que llegue."""
+    """Antes el objetivo a 3R era la salida y cortaba las ganadoras grandes
+    (+0,050 R/op frente a +0,069 cerrando al final). Ahora solo cubre el día
+    extraordinario, y el correo tiene que decirlo o alguien se quedará
+    esperando a que llegue."""
     riesgo = plan.rango.amplitud
-    assert plan.compra.objetivo == pytest.approx(plan.compra.entrada + 10 * riesgo)
+    assert plan.compra.objetivo == pytest.approx(plan.compra.entrada + 6 * riesgo)
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "red de seguridad" in texto
-        assert "1 de cada 1.000" in texto
+        assert "no estás mirando" in texto
+
+
+def test_el_objetivo_es_alcanzable_en_una_sola_sesion():
+    """La operación se abre y se cierra el mismo día, así que un objetivo que el
+    precio no puede recorrer en una sesión no es un objetivo: es adorno.
+
+    Medido: 6R se alcanza el 0,8 % de las veces (1,6 al año), 10R el 0,1 %
+    (una vez cada tres años). El tope de 8R deja fuera lo segundo.
+    """
+    from oro.config import ConfiguracionRuptura
+    assert ConfiguracionRuptura().r_objetivo <= 8.0
 
 
 def test_el_correo_manda_cerrar_a_mano_y_dice_a_que_hora(plan):

@@ -211,10 +211,25 @@ class ConfiguracionRuptura:
     #     objetivo 3R  + BE en 1R  +0.0574    3.30
     #
     # O sea: el objetivo a 3R cortaba las ganadoras grandes y costaba un tercio
-    # de la ventaja. A 10R no estorba (se ejecuta 1 de cada 1.000 veces) y sigue
-    # cubriendo el día extraordinario en que el precio se dispara y nadie está
-    # mirando. Cuesta 0.0012 R, el 1,7 % de la ventaja: un seguro casi gratis.
-    r_objetivo: float = 10.0
+    # de la ventaja.
+    #
+    # ¿Y CUÁNTO SE ALCANZA DE VERDAD EN UN SOLO DÍA? Es la pregunta correcta,
+    # porque la operación se abre y se cierra en la misma sesión. Excursión
+    # favorable máxima de las 4.065 rupturas, antes de que las cierre el stop:
+    #
+    #     1R  38.9 %  (81 veces/año)      5R   1.4 %  (3.0/año)
+    #     2R  15.0 %  (31/año)            6R   0.8 %  (1.6/año)
+    #     3R   6.2 %  (12.8/año)          8R   0.2 %  (0.5/año)
+    #     4R   2.7 %  (5.6/año)          10R   0.1 %  (0.3/año)
+    #
+    # Mediana 0.74 R, percentil 99 en 5.4 R. Con el rango de hoy (~26 $), 10R
+    # son 260 $ de recorrido en una sesión: el oro no hace eso ni en sus peores
+    # días. Un objetivo que salta 0.3 veces al año no es una red de seguridad,
+    # es decoración, y encima queda ridículo en la pantalla del bróker.
+    #
+    # 6R salta 1.6 veces al año —existe de verdad— y cuesta 0.0059 R, el 8.6 %
+    # de la ventaja. Ese es el precio del seguro y es el que se paga.
+    r_objetivo: float = 6.0
 
     # CUÁL DE LAS DOS ÓRDENES ES LA DE FIAR.
     #

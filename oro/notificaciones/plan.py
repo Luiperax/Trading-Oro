@@ -100,9 +100,10 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
         f"Orden 2 — VENTA tipo «SELL STOP» en {v.entrada:.2f}, "
         f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}."
         + (" ← la de más respaldo hoy" if plan.es_favorita(v) else ""),
-        "Ese take profit está MUY lejos a propósito: es una red de seguridad "
-        "para el día extraordinario, no la salida. Se ejecuta 1 de cada 1.000 "
-        "veces. La salida de verdad es cerrar a mano al final de la sesión.",
+        "Ese take profit está lejos a propósito: es una red de seguridad para "
+        "el día en que el precio se dispara y no estás mirando, no la salida. "
+        "Salta 1 o 2 veces al año. La salida de verdad es cerrar a mano al "
+        "final de la sesión.",
         "En cuanto una de las dos se abra, CANCELA la otra. Si tu bróker tiene "
         "órdenes «OCO» (una cancela la otra), úsalo y se encarga solo.",
         f"Si a las {hora_local(plan.valido_hasta)} no ha saltado ninguna, cancela "
