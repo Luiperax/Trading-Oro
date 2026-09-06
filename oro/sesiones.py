@@ -110,6 +110,27 @@ class OrdenPendiente:
 
 
 @dataclass(frozen=True, slots=True)
+class SesgoAsiatico:
+    """Lo que hizo la sesión asiática antes de que abriera Londres.
+
+    Es el único dato disponible a las 8:00 de Nueva York que separa de verdad las
+    dos rupturas: la que acompaña a Asia gana +0.0883 R por operación y la que va
+    en contra +0.0133, o sea nada (ver `ConfiguracionRuptura`). Cuando la sesión
+    asiática no se decide —cuerpo pequeño respecto a su rango— `direccion` es
+    None y no hay favorita, que es lo que dicen los datos de esos días.
+    """
+
+    direccion: Optional[Direccion]
+    cuerpo: float                   # cierre menos apertura, en dólares (con signo).
+    rango: float                    # rango de la sesión asiática, en dólares.
+
+    @property
+    def fuerza(self) -> float:
+        """Cuánto pesa el cuerpo dentro del rango, de 0 a 1."""
+        return abs(self.cuerpo) / self.rango if self.rango > 0 else 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class PlanRuptura:
     """El plan del día: dos órdenes, una ventana de validez y una hora de cierre."""
 
@@ -126,6 +147,15 @@ class PlanRuptura:
     onzas: float
     coste_r: float                  # cuánto se come el spread, en múltiplos de R.
     r_objetivo: float               # objetivo en R (el mismo para las dos órdenes).
+    sesgo: SesgoAsiatico            # qué hizo Asia, y por tanto cuál es la favorita.
+
+    @property
+    def favorita(self) -> Optional[Direccion]:
+        """Cuál de las dos órdenes tiene más respaldo histórico, si alguna."""
+        return self.sesgo.direccion
+
+    def es_favorita(self, orden: "OrdenPendiente") -> bool:
+        return self.favorita is not None and orden.direccion is self.favorita
 
 
 @dataclass(slots=True)
@@ -175,6 +205,30 @@ def rango_previo(df, cfg: ConfiguracionSistema, dia: date) -> Optional[RangoSesi
         desde=trozo.index[0].to_pydatetime(),
         hasta=trozo.index[-1].to_pydatetime(),
         velas=len(trozo),
+    )
+
+
+def sesgo_asiatico(df, cfg: ConfiguracionSistema, dia: date) -> SesgoAsiatico:
+    """Dirección de la sesión asiática (por defecto 0:00-3:00 de Nueva York).
+
+    Se mide como cierre menos apertura, y solo cuenta si ese cuerpo vale al menos
+    ``sesgo_cuerpo_minimo`` de su propio rango. Sin ese requisito, media hora de
+    ruido decidiría cuál de las dos órdenes se anuncia como la buena: los 885
+    días de cuerpo pequeño miden -0.0162 R/op y sus dos lados se parecen, así que
+    ahí lo honesto es no señalar ninguna.
+    """
+    c = cfg.ruptura
+    trozo = _en_hora_mercado(df, c.sesgo_desde_et, c.sesgo_hasta_et, dia)
+    if len(trozo) < 2:
+        return SesgoAsiatico(direccion=None, cuerpo=0.0, rango=0.0)
+    cuerpo = float(trozo["close"].iloc[-1]) - float(trozo["open"].iloc[0])
+    rango = float(trozo["high"].max()) - float(trozo["low"].min())
+    sesgo = SesgoAsiatico(direccion=None, cuerpo=cuerpo, rango=rango)
+    if sesgo.fuerza < c.sesgo_cuerpo_minimo or cuerpo == 0:
+        return sesgo
+    return SesgoAsiatico(
+        direccion=Direccion.COMPRA if cuerpo > 0 else Direccion.VENTA,
+        cuerpo=cuerpo, rango=rango,
     )
 
 
@@ -265,6 +319,7 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         onzas=onzas,
         coste_r=coste_r,
         r_objetivo=c.r_objetivo,
+        sesgo=sesgo_asiatico(df, cfg, dia),
     )
     res.plan = plan
     return res
@@ -290,6 +345,8 @@ def direccion_disparada(plan: PlanRuptura, alto: float, bajo: float) -> Optional
 
 __all__ = [
     "RangoSesion",
+    "SesgoAsiatico",
+    "sesgo_asiatico",
     "OrdenPendiente",
     "PlanRuptura",
     "ResultadoPlan",

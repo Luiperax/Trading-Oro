@@ -35,6 +35,36 @@ deja preparada una orden a cada lado y decide el mercado.
   mañana, y está medido que no compensa.
 * **Se cierra a las 22:00 de Madrid** si sigue abierta. Nunca de un día para otro.
 
+## Cuál de las dos órdenes es la de fiar
+
+El correo lo dice, y con el número al lado. A las 8:00 de Nueva York ya se sabe
+qué ha hecho la sesión asiática (0:00-3:00), y ese dato separa las dos rupturas:
+
+| Ruptura | R por operación | t |
+|---|---|---|
+| **a favor** de lo que hizo Asia | **+0,088** | 3,32 |
+| en contra | +0,013 | 0,54 |
+
+O sea: el lado que acompaña a Asia se lleva casi toda la ventaja y el otro se
+queda en nada. Las dos mitades del histórico coinciden en el signo, 15 de 20
+años también, y las 5 formas distintas de medir la sesión asiática que probé
+apuntan igual.
+
+**Pero es una indicación, no un hecho probado.** La diferencia entre lados da
+t = 2,07 y no supera la corrección de Bonferroni que aplico (haría falta 2,81).
+Por eso:
+
+* el correo la señala con una estrella, pero **dice también su límite**;
+* **se dejan puestas las dos órdenes igualmente**. No es un filtro: quedarse
+  solo con el lado bueno da +9,1 R al año frente a +10,4 R con los dos, porque
+  se pierden la mitad de las operaciones;
+* si la sesión asiática cierra casi donde abrió (cuerpo menor que el 20 % de su
+  rango), el correo dice que **ninguna destaca**, porque esos 885 días miden
+  −0,016 R y sus dos lados se comportan igual.
+
+Y no es un "compra siempre" disfrazado: por separado, las compras dan +0,049 R
+y las ventas +0,052 R. Casi idénticas.
+
 ## Lo que hay que saber antes de usarla
 
 Está medida sobre 19,6 años de velas horarias reales (118.452 velas), y esto es
@@ -81,6 +111,7 @@ sin tocar código:
 | `ORO_RUPTURA_R_OBJETIVO` | `3.0` | Dónde va el objetivo, en múltiplos del rango. |
 | `ORO_RUPTURA_COSTE_MAX` | `0.60` | Spread por encima del cual no se envía nada. |
 | `ORO_RUPTURA_HORAS_VALIDEZ` | `2` | Cuántas horas valen las órdenes. |
+| `ORO_RUPTURA_SESGO_CUERPO_MINIMO` | `0.20` | Cuánto tiene que moverse Asia para señalar favorita. |
 | `ORO_CAPITAL` | `3000` | Tu capital, para calcular el lote. |
 | `ORO_RIESGO_POR_OPERACION` | `0.0025` | Fracción del capital por operación. |
 

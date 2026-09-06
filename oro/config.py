@@ -205,6 +205,36 @@ class ConfiguracionRuptura:
     # 3R conserva el 73 % de la ventaja de dejar correr sin vigilar nada.
     r_objetivo: float = 3.0
 
+    # CUÁL DE LAS DOS ÓRDENES ES LA DE FIAR.
+    #
+    # A las 8:00 de Nueva York ya se sabe qué ha hecho la sesión asiática, y ese
+    # dato separa las dos rupturas. Medido sobre 4.064 rupturas de 19,6 años,
+    # neto de 0.60 $ y con el objetivo a 3R:
+    #
+    #     ruptura A FAVOR de lo que hizo Asia   +0.0883 R/op   t 3.32
+    #     ruptura EN CONTRA                     +0.0133 R/op   t 0.54
+    #
+    # O sea: el lado que acompaña a Asia se lleva casi toda la ventaja, y el otro
+    # queda en nada. Las dos mitades bloqueadas del histórico coinciden en el
+    # signo (+0.1293/+0.0506 a favor, +0.0128/+0.0137 en contra), 15 de 20 años
+    # también, y las 5 formas distintas de medir la sesión asiática que se
+    # probaron apuntan en la misma dirección.
+    #
+    # HONESTAMENTE: la DIFERENCIA entre lados da t = 2.07, que NO pasa la
+    # corrección de Bonferroni con 5 hipótesis (haría falta 2.81). Es una
+    # indicación sólida, no un hecho demostrado, y el correo lo dice así.
+    #
+    # NO se usa como filtro: quedarse solo con el lado bueno da +9.1 R al año
+    # frente a +10.4 R con los dos, porque se pierden la mitad de operaciones.
+    # Se usa solo para etiquetar cuál de las dos merece más confianza.
+    sesgo_desde_et: int = 0
+    sesgo_hasta_et: int = 3
+    # El cuerpo de la sesión asiática (cierre - apertura) tiene que valer al
+    # menos esta fracción de su rango. Por debajo, la sesión no dice nada: esos
+    # 885 días miden -0.0162 R/op y los dos lados se parecen (-0.029 al alza,
+    # -0.004 a la baja), así que el correo NO señala favorita.
+    sesgo_cuerpo_minimo: float = 0.20
+
     # (Aquí había un `amplitud_minima` de 1.00 $ como suelo fijo del rango. Se
     # quitó al comprobar que era una GUARDA MUERTA en parte: con el spread por
     # defecto de 0.30 $, "coste > 0.30 R" exige un rango menor de 1.00 $, o sea
@@ -332,6 +362,19 @@ class ConfiguracionSistema:
                 f"habría rango suficiente y no se emitiría ningún plan.")
         if b.r_objetivo <= 0:
             problemas.append("ruptura: r_objetivo debe ser positivo.")
+        if b.sesgo_desde_et >= b.sesgo_hasta_et:
+            problemas.append(
+                f"ruptura: sesgo_desde_et ({b.sesgo_desde_et}) debe ser menor que "
+                f"sesgo_hasta_et ({b.sesgo_hasta_et}).")
+        if b.sesgo_hasta_et > b.rango_desde_et:
+            problemas.append(
+                f"ruptura: la ventana del sesgo termina a las {b.sesgo_hasta_et}:00 "
+                f"y el rango empieza a las {b.rango_desde_et}:00: se solaparían y "
+                f"el sesgo miraría las mismas velas que forman el rango.")
+        if not 0.0 <= b.sesgo_cuerpo_minimo < 1.0:
+            problemas.append(
+                f"ruptura: sesgo_cuerpo_minimo ({b.sesgo_cuerpo_minimo}) debe estar "
+                f"en [0, 1): es una fracción del rango de la sesión asiática.")
 
         equiv = (c.prob_minima - 0.40) / 0.35
         if equiv < c.puntuacion_minima:
@@ -423,6 +466,9 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.ruptura.coste_max = _num("ORO_RUPTURA_COSTE_MAX", cfg.ruptura.coste_max)
     cfg.ruptura.horas_validez = int(
         _num("ORO_RUPTURA_HORAS_VALIDEZ", cfg.ruptura.horas_validez)
+    )
+    cfg.ruptura.sesgo_cuerpo_minimo = _num(
+        "ORO_RUPTURA_SESGO_CUERPO_MINIMO", cfg.ruptura.sesgo_cuerpo_minimo
     )
     return cfg
 

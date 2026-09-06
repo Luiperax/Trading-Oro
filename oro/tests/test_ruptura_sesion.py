@@ -234,3 +234,67 @@ def test_una_vela_de_ny_dentro_del_rango_no_impide_el_plan():
     plan = construir_plan(_marco("2026-03-10", velas), _cfg(), ahora=tarde).plan
     assert plan is not None
     assert plan.compra.entrada == pytest.approx(2020.0)
+
+
+# La sesión asiática va de 0:00 a 3:00 de Nueva York, antes del rango de Londres.
+ASIA_SUBE  = {0: (4005, 3995), 1: (4008, 3998), 2: (4012, 4004)}
+ASIA_BAJA  = {0: (4012, 4004), 1: (4008, 3998), 2: (4005, 3995)}
+ASIA_PLANA = {0: (4012, 3995), 1: (4010, 3998), 2: (4008, 4000)}
+LONDRES    = {3: (4018, 4004), 4: (4022, 4010), 5: (4020, 3998),
+              6: (4024, 4008), 7: (4015, 4002)}
+JULIO = datetime(2026, 7, 15, 8, 0, tzinfo=NY).astimezone(timezone.utc)
+
+
+def _plan_con(asia: dict, **ruptura):
+    velas = {**asia, **LONDRES}
+    return construir_plan(_marco("2026-07-15", velas), _cfg(**ruptura), ahora=JULIO).plan
+
+
+def test_si_asia_sube_la_favorita_es_la_compra():
+    plan = _plan_con(ASIA_SUBE)
+    assert plan.favorita is Direccion.COMPRA
+    assert plan.es_favorita(plan.compra)
+    assert not plan.es_favorita(plan.venta)
+
+
+def test_si_asia_baja_la_favorita_es_la_venta():
+    plan = _plan_con(ASIA_BAJA)
+    assert plan.favorita is Direccion.VENTA
+    assert plan.es_favorita(plan.venta)
+    assert not plan.es_favorita(plan.compra)
+
+
+def test_si_asia_se_queda_plana_no_hay_favorita():
+    """Medido: los 885 días de cuerpo pequeño dan -0.0162 R/op y sus dos lados
+    se comportan igual (-0.029 al alza, -0.004 a la baja). Señalar una favorita
+    ahí sería inventarse una ventaja que no está en los datos."""
+    plan = _plan_con(ASIA_PLANA)
+    assert plan.favorita is None
+    assert not plan.es_favorita(plan.compra)
+    assert not plan.es_favorita(plan.venta)
+
+
+def test_el_sesgo_no_mira_las_velas_del_rango_de_londres():
+    """Si la ventana del sesgo se solapara con la del rango, estaría midiendo
+    dos veces lo mismo. Con Asia plana y Londres claramente alcista, la favorita
+    tiene que seguir siendo ninguna."""
+    plan = _plan_con(ASIA_PLANA)
+    assert plan.favorita is None
+    # Y la validación tiene que cazar el solape si alguien mueve las horas.
+    cfg = _cfg(sesgo_hasta_et=5)
+    assert any("solapar" in p for p in cfg.validar()), cfg.validar()
+
+
+def test_sin_velas_asiaticas_no_se_inventa_una_favorita():
+    """Yahoo a veces devuelve el histórico recortado. Sin datos de Asia el
+    correo no puede afirmar nada, y el plan sigue siendo válido igualmente."""
+    plan = construir_plan(_marco("2026-07-15", LONDRES), _cfg(), ahora=JULIO).plan
+    assert plan is not None
+    assert plan.favorita is None
+    assert plan.sesgo.rango == 0.0
+
+
+def test_el_umbral_del_cuerpo_se_puede_ajustar():
+    # ASIA_SUBE tiene cuerpo 8.00 sobre rango 17.00 = 0.47 de fuerza.
+    assert _plan_con(ASIA_SUBE, sesgo_cuerpo_minimo=0.45).favorita is Direccion.COMPRA
+    assert _plan_con(ASIA_SUBE, sesgo_cuerpo_minimo=0.50).favorita is None
