@@ -117,15 +117,10 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
         return 0
 
     plan = resultado.plan
-    # El lote que se imprime es el que de verdad se teclea (mínimo 0.01), no el
-    # teórico: en el registro de la ejecución un "lote 0.00" no dice nada.
-    from .notificaciones.plan import lote_y_riesgo
-
-    lote, perdida, pct, _ = lote_y_riesgo(plan)
     print(f"Plan de {plan.dia}: rango {plan.rango.bajo:.2f}-{plan.rango.alto:.2f} "
-          f"({plan.rango.amplitud:.2f} $), compra {plan.compra.entrada:.2f} / "
-          f"venta {plan.venta.entrada:.2f}, objetivo {plan.r_objetivo:.0f}R, "
-          f"lote {lote:.2f} (riesgo ≈{perdida:.0f} €, {pct:.2%} del capital).")
+          f"({plan.rango.amplitud:.2f} $ de riesgo por onza), "
+          f"compra {plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}, "
+          f"objetivo {plan.r_objetivo:.0f}R.")
 
     # 4) Enviarlo. Igual que con las señales: el día solo se marca como enviado
     #    si el aviso LLEGÓ. Si el correo falla, la siguiente ejecución lo

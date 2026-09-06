@@ -15,7 +15,6 @@ from __future__ import annotations
 from ..sesiones import OrdenPendiente, PlanRuptura
 from ..tiempo import etiqueta_zona, hora_local
 from .base import (
-    LOTE_MINIMO,
     _cierre_local,
     _BORDE,
     _FONDO,
@@ -30,32 +29,20 @@ from .base import (
 )
 
 
-def lote_y_riesgo(plan: PlanRuptura) -> tuple[float, float, float, bool]:
-    """(lotes a teclear, pérdida real en divisa, % del capital, ¿excede el tope?).
-
-    El lote mínimo de casi todos los brókers es 0.01 (una onza). Si el tamaño
-    calculado sale por debajo, no se puede operar más pequeño: se sube al mínimo.
-
-    Y entonces la pérdida hay que recalcularla SOBRE EL LOTE QUE SE TECLEA, no
-    sobre el tamaño teórico. Aquí el detalle importa mucho más que en el sistema
-    intradía: el riesgo de esta estrategia es el rango entero de la mañana, que
-    hoy son 24-30 $ por onza, así que con el lote mínimo se arriesgan 24-30 €
-    —un 1 % de una cuenta de 3.000 €— cuando el objetivo configurado es 7,50 €.
-    Decir "arriesgas 7 €" cuando de verdad son 30 € sería mentir con una cifra.
-    """
-    from ..config import cargar_configuracion
-
-    cfg = cargar_configuracion()
-    lotes = max(LOTE_MINIMO, round(plan.onzas / 100.0, 2))
-    perdida = plan.rango.amplitud * lotes * 100.0
-    pct = perdida / cfg.capital if cfg.capital > 0 else 0.0
-    return lotes, perdida, pct, pct > cfg.riesgo.riesgo_por_operacion * 1.05
-
-
 # Cifras medidas sobre 4.064 rupturas de 19,6 años, neto de 0.60 $ y objetivo 3R.
 # Se citan literalmente en el correo para que nadie tenga que fiarse de mi palabra.
 _R_A_FAVOR = "+0,088"
 _R_EN_CONTRA = "+0,013"
+
+
+def riesgo_por_onza(plan: PlanRuptura) -> float:
+    """Lo que se pierde por cada onza si salta el stop: el rango entero.
+
+    Es el único dato de riesgo que da el correo. El TAMAÑO de la posición lo
+    decide el usuario, así que aquí no se calcula ningún lote ni se avisa de
+    ningún mínimo: con este número y su cuenta, quien opera hace su cuenta.
+    """
+    return plan.rango.amplitud
 
 
 def hora_cierre(plan: PlanRuptura) -> str:
@@ -103,11 +90,10 @@ def aviso_confianza() -> str:
 
 def pasos_plan(plan: PlanRuptura) -> list[str]:
     """Los pasos exactos, en el orden en que se teclean en el bróker."""
-    lotes = lote_y_riesgo(plan)[0]
     c, v = plan.compra, plan.venta
     return [
-        f"Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
-        f"pendientes de {lotes:.2f} lotes cada una. No se abre nada todavía.",
+        "Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
+        "pendientes del tamaño que decidas. No se abre nada todavía.",
         f"Orden 1 — COMPRA tipo «BUY STOP» en {c.entrada:.2f}, "
         f"con stop loss en {c.stop:.2f} y take profit en {c.objetivo:.2f}."
         + (" ← la de más respaldo hoy" if plan.es_favorita(c) else ""),
@@ -135,7 +121,6 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
 
 def mensaje_de_plan(plan: PlanRuptura) -> str:
     """Versión en texto plano (respaldo y clientes sin HTML)."""
-    lotes, perdida, pct, excede = lote_y_riesgo(plan)
     zona = etiqueta_zona(plan.valido_hasta)
     lineas = [
         "⚡ PLAN DEL DÍA — XAU/USD · ruptura del rango de la mañana",
@@ -158,12 +143,8 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         f"  {texto_confianza(plan)}",
         f"  {aviso_confianza()}",
         "",
-        f"Lote para cada orden: {lotes:.2f}",
-        f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € ({pct:.2%} del capital)",
+        f"Riesgo si salta el stop: {riesgo_por_onza(plan):.2f} $ por onza.",
     ]
-    if excede:
-        lineas.append("  ⚠️ Es el LOTE MÍNIMO (0.01) y arriesga MÁS del objetivo "
-                      "configurado; con esta cuenta no se puede bajar más.")
     lineas += [
         "",
         f"Válido hasta las {hora_local(plan.valido_hasta)} ({zona}). "
@@ -187,7 +168,7 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     return "\n".join(lineas)
 
 
-def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str, lotes: float,
+def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str,
                 favorita: bool = False) -> str:
     """Una de las dos órdenes. La favorita lleva borde grueso y una chapa.
 
@@ -220,18 +201,12 @@ def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str, lotes: float,
         f'text-transform:uppercase;">Take profit</td>'
         f'<td style="text-align:right;color:{_VERDE};font-size:15px;'
         f'font-weight:700;">{orden.objetivo:.2f}</td></tr>'
-        f'<tr>'
-        f'<td style="color:{_MUTED};font-size:11px;letter-spacing:1px;'
-        f'text-transform:uppercase;">Lote</td>'
-        f'<td style="text-align:right;color:{_TEXTO};font-size:15px;'
-        f'font-weight:700;">{lotes:.2f}</td></tr>'
         f'</table></td></tr></table>'
     )
 
 
 def mensaje_html_de_plan(plan: PlanRuptura) -> str:
     """Tarjeta HTML del plan del día (misma paleta que el resto de avisos)."""
-    lotes, perdida, pct, excede = lote_y_riesgo(plan)
     zona = etiqueta_zona(plan.valido_hasta)
 
     pasos = "".join(
@@ -240,12 +215,9 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
         f'<span style="color:{_ORO};font-weight:700;">{i}.</span> {_esc(t)}</div>'
         for i, t in enumerate(pasos_plan(plan), 1))
 
-    aviso_lote = (
-        f'<div style="color:{_MUTED};font-size:12px;">Pérdida máxima si salta el '
-        f'stop: ≈{perdida:.0f} € ({pct:.2%} del capital).</div>'
-        + (f'<div style="color:{_ROJO};font-size:12px;margin-top:4px;">'
-           f'⚠️ Es el LOTE MÍNIMO (0.01) y arriesga MÁS del objetivo configurado; '
-           f'con esta cuenta no se puede bajar más.</div>' if excede else ''))
+    aviso_riesgo = (
+        f'<div style="color:{_MUTED};font-size:12px;">Riesgo si salta el stop: '
+        f'{riesgo_por_onza(plan):.2f} $ por onza.</div>')
 
     honestidad = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:12px;padding:3px 0;'
@@ -273,9 +245,9 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       <div style="color:{_MUTED};font-size:12px;margin-bottom:18px;">Amplitud {plan.rango.amplitud:.2f} $ · eso es 1R, lo que arriesgas</div>
 
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Deja estas dos órdenes puestas</div>
-      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE, lotes,
+      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE,
                    plan.es_favorita(plan.compra))}
-      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO, lotes,
+      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO,
                    plan.es_favorita(plan.venta))}
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
        <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
@@ -286,7 +258,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       </table>
       <div style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:12px 16px;margin-bottom:18px;">
         <div style="color:{_ORO};font-size:13px;font-weight:700;">Salta una → cancela la otra</div>
-        {aviso_lote}
+        {aviso_riesgo}
       </div>
 
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
@@ -314,4 +286,4 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
 </div>"""
 
 
-__all__ = ["lote_y_riesgo", "pasos_plan", "mensaje_de_plan", "mensaje_html_de_plan"]
+__all__ = ["riesgo_por_onza", "pasos_plan", "mensaje_de_plan", "mensaje_html_de_plan"]

@@ -118,16 +118,6 @@ sin tocar código:
 | `ORO_RUPTURA_COSTE_MAX` | `0.60` | Spread por encima del cual no se envía nada. |
 | `ORO_RUPTURA_HORAS_VALIDEZ` | `2` | Cuántas horas valen las órdenes. |
 | `ORO_RUPTURA_SESGO_CUERPO_MINIMO` | `0.20` | Cuánto tiene que moverse Asia para señalar favorita. |
-| `ORO_CAPITAL` | `3000` | Tu capital, para calcular el lote. |
-| `ORO_RIESGO_POR_OPERACION` | `0.0025` | Fracción del capital por operación. |
 
 Para probarlo sin esperar a las 14:00: **Actions → «Plan del día XAU/USD» → Run
 workflow → marca `forzar`**. O en local: `python -m oro.cli plan`.
-
-## Sobre el lote
-
-Con 3.000 € y un objetivo de riesgo del 0,25 % (7,50 €), el lote que sale es
-menor que el mínimo del bróker. Con el lote mínimo (0,01 = 1 onza) y un rango de
-26 $, arriesgas **26 €, un 0,87 % del capital**. El correo te lo dice en cada
-envío: no se puede bajar más con esta cuenta, y es mejor verlo escrito que
-suponer que arriesgas 7 €.

@@ -88,20 +88,17 @@ def test_el_asunto_lleva_los_dos_precios(plan):
     assert capturado["html"] is not None
 
 
-def test_con_lote_por_debajo_del_minimo_se_avisa():
-    """Con 3.000 € y un rango de 200 $, el 0.25 % del capital da menos del lote
-    mínimo. El correo tiene que decirlo: el riesgo real será mayor."""
-    cfg = ConfiguracionSistema()
-    cfg.riesgo.coste_operacion = 0.30
-    ancha = {h: (2200.0, 2000.0) for h in range(3, 8)}
-    plan = construir_plan(_marco("2026-03-10", ancha), cfg, ahora=AHORA).plan
-    assert plan.onzas < 1.0        # el tamaño teórico no llega ni a una onza
-    # Y la cifra que da el correo tiene que ser la del lote QUE SE TECLEA
-    # (0.01 lotes = 1 onza = 200 $ de riesgo), no la del tamaño teórico.
+def test_el_correo_no_calcula_el_lote(plan):
+    """El tamaño de la posición lo decide el usuario. El correo da el riesgo POR
+    ONZA —que es lo que necesita para hacer su cuenta— y nada más: ni lote
+    sugerido, ni aviso de mínimo, ni porcentaje del capital."""
+    from oro.notificaciones.plan import riesgo_por_onza
+
+    assert riesgo_por_onza(plan) == pytest.approx(plan.rango.amplitud)
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
-        assert "LOTE MÍNIMO" in texto
-        assert "200 €" in texto
-        assert "7 €" not in texto
+        assert f"{plan.rango.amplitud:.2f} $ por onza" in texto
+        for prohibido in ("Lote", "lote", "LOTE", "del capital"):
+            assert prohibido not in texto, f"aparece {prohibido!r}"
 
 
 def _plan_con_asia(sube: bool = True):
