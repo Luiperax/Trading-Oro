@@ -70,7 +70,7 @@ El mismo camino se usa en backtesting (histórico, vela a vela) y en vivo
   etiquetado) evita el solape de etiquetas entre train y test.
 - **Backtester conservador**: entrada a la apertura de la vela siguiente, stop
   evaluado antes que el objetivo dentro de la vela (hipótesis pesimista),
-  break-even tras TP1, una posición a la vez y tope diario. Reduce el sesgo
+  stop dinámico desde la entrada, una posición a la vez y tope diario. Reduce el sesgo
   optimista habitual en backtests ingenuos.
 - **Notificaciones desacopladas** tras una interfaz: añadir un canal no toca la
   lógica. Credenciales solo por variables de entorno.
@@ -115,7 +115,7 @@ capital compuesta a partir del PnL real por operación.
   (FED/IPC/PCE/NFP) inminentes y activa `riesgo_noticia_alta` para no operar.
 - **Motor en vivo**: `oro.vivo.RunnerVivo` compone datos + sentimiento + señales
   + gestión; `oro.vivo.GestorOperaciones` decide y notifica las **salidas**
-  (TP parciales, break-even tras TP1, stop, cierre). Tope de 2–4 señales/día.
+  (objetivo, stop dinámico, cierre intradía). Tope de 2–4 señales/día.
 
 ### Pendiente para producción real (integraciones externas)
 Estas piezas requieren cuentas, claves y/o datos de pago:

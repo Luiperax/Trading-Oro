@@ -79,6 +79,12 @@ def evaluar_guardas(snapshot: MarketSnapshot, cfg: ConfiguracionSistema) -> List
     motivos: List[str] = []
     c = cfg.calidad
 
+    # OJO: hoy esta guarda no puede dispararse. Ni Yahoo ni Dukascopy dan el
+    # spread, así que los adaptadores escriben 0.2 fijo y la condición 0.2 > 0.6
+    # nunca es cierta. Se mantiene porque un proveedor con spread real la
+    # activaría sola, pero NO cuenta como protección: el sistema asume 0.30 $ de
+    # coste a todas horas cuando el spread real varía mucho a lo largo del día
+    # (en la reapertura de las 18:00 de Nueva York puede ser de 1 a 3 $).
     if snapshot.spread > c.spread_max:
         motivos.append(
             f"Spread demasiado alto ({snapshot.spread:.2f} > {c.spread_max:.2f})."

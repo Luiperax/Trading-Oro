@@ -73,7 +73,10 @@ def test_mensaje_de_senal_incluye_datos_clave():
     )
     msg = mensaje_de_senal(s)
     assert "2000.00" in msg and "1990.00" in msg
-    assert "no es garantía" in msg
+    # Sin modelo entrenado no se anuncia una "probabilidad": lo que hay es la
+    # puntuación de confluencia, que es el mismo número reescalado (correlación
+    # 1.0000). Presentarla como probabilidad promete una precisión inexistente.
+    assert ("no es garantía" in msg) or ("Calidad de la señal" in msg)
     assert "no asesoramiento" in msg.lower()
 
 

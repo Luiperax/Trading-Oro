@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional
@@ -25,19 +27,58 @@ class Evento(str, Enum):
     NUEVA_SENAL = "nueva_senal"
     MOVER_STOP = "mover_stop"
     TP_ALCANZADO = "tp_alcanzado"
+    # El precio se acerca al objetivo sin haber llegado: se propone subirlo.
+    # Es una PROPUESTA, no una orden: si no da tiempo a moverla, el objetivo
+    # original se ejecuta igual y no se pierde nada.
+    AMPLIAR_OBJETIVO = "ampliar_objetivo"
     CIERRE = "cierre"
     CAMBIO_MERCADO = "cambio_mercado"
+    # Plan de ruptura de sesión: DOS órdenes pendientes que se dejan puestas por
+    # la mañana. No es una señal de entrada inmediata, y por eso es un evento
+    # aparte: el correo dice qué teclear, no «entra ahora».
+    PLAN_RUPTURA = "plan_ruptura"
 
 
-def _cierre_local() -> str:
-    """Hora a la que llegará el AVISO de cierre, en la hora del usuario.
+def _cierre_local(momento: datetime | None = None) -> str:
+    """Hora a la que se cerrará la operación, en la hora del usuario.
 
     Es el dato accionable: no sirve decir "21:00 UTC" ni la hora a la que cierra
-    el mercado, sino a qué hora recibirá el aviso para cerrar en el bróker.
-    Coincide con la franja del trabajo de cierre (oro.cierre).
+    el mercado, sino a qué hora tiene que estar cerrada la posición.
+
+    Hay DOS cosas que pueden cerrarla y no siempre van en el mismo orden:
+
+      * el aviso de cierre, a una hora local fija (``HORA_AVISO_LOCAL``:50);
+      * la red de seguridad del gestor, definida en hora de NUEVA YORK
+        (``hora_cierre_et``), que normalmente cae después.
+
+    Normalmente el aviso llega primero y son las 21:50. Pero Europa y Estados
+    Unidos NO cambian la hora el mismo fin de semana (1 semana desfasada en
+    octubre y 3 en marzo), y esas semanas el cierre de Nueva York cae a las 21:00
+    en Madrid: ANTES del aviso. Anunciar "21:50" esas cuatro semanas al año sería
+    decir una hora que no es, y quien lo lea esperará un correo que ya llegó.
     """
+    import datetime as _dt
+
     from ..cierre import HORA_AVISO_LOCAL
-    return f"{HORA_AVISO_LOCAL}:50"
+    from ..config import cargar_configuracion
+    from ..tiempo import a_local
+
+    ahora = momento or _dt.datetime.now(_dt.timezone.utc)
+    cfg = cargar_configuracion()
+    if not cfg.riesgo.cerrar_intradia:
+        return f"{HORA_AVISO_LOCAL}:50"
+    try:
+        from zoneinfo import ZoneInfo
+
+        from ..dominio.mercado import ZONA_MERCADO
+
+        en_ny = ahora.astimezone(ZoneInfo(ZONA_MERCADO)).replace(
+            hour=cfg.riesgo.hora_cierre_et, minute=0, second=0, microsecond=0)
+        red_seguridad = a_local(en_ny.astimezone(_dt.timezone.utc))
+    except Exception:  # noqa: BLE001 — sin zoneinfo, el aviso sigue siendo válido.
+        return f"{HORA_AVISO_LOCAL}:50"
+    aviso = red_seguridad.replace(hour=HORA_AVISO_LOCAL, minute=50)
+    return f"{min(aviso, red_seguridad):%H:%M}"
 
 
 LOTE_MINIMO = 0.01          # el lote más pequeño que acepta un bróker (= 1 oz).
@@ -77,10 +118,91 @@ def _texto_riesgo(signal: Signal) -> str:
     """Frase honesta sobre lo que se arriesga de verdad con el lote mínimo."""
     perdida, pct, excede = _riesgo_real(signal)
     if not excede:
-        return f"Pérdida máxima si salta el stop: ≈{perdida:.0f} ({pct:.2%} del capital)"
-    return (f"Pérdida máxima si salta el stop: ≈{perdida:.0f} = {pct:.2%} del capital. "
+        return f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € ({pct:.2%} del capital)"
+    return (f"Pérdida máxima si salta el stop: ≈{perdida:.0f} € = {pct:.2%} del capital. "
             f"⚠️ Es el LOTE MÍNIMO (0.01) y arriesga MÁS del objetivo configurado; "
             f"con esta cuenta no se puede bajar más")
+
+
+def _trailing(signal: Signal):
+    """(distancia del stop dinámico en $, ¿está activo?).
+
+    Es el dato que de verdad cierra la operación: el TP a 5R solo corta el 0.9 %
+    de las veces. Sin decirlo, quien recibe el aviso no puede configurarlo en el
+    bróker y se queda con un stop fijo, que es la gestión peor medida.
+    """
+    from ..config import cargar_configuracion
+
+    r = cargar_configuracion().riesgo
+    if not (r.trailing_activo and r.trailing_desde_entrada):
+        return 0.0, False
+    return abs(signal.entrada - signal.stop_loss) * r.trailing_r, True
+
+
+def _rr(signal: Signal) -> str:
+    """R:R real, o 'sin techo' cuando no hay objetivo fijo."""
+    if not signal.take_profits:
+        return "sin techo"
+    return f"{signal.riesgo_recompensa:.2f}"
+
+
+def pasos_operacion(signal: Signal) -> list[str]:
+    """Los pasos exactos a ejecutar, en lenguaje de alguien que nunca ha operado.
+
+    Existe porque el sistema tiene que servir a quien no sabe qué es un ATR ni un
+    trailing stop. Una lista de precios sueltos no dice qué hacer con ellos; esto
+    sí, y en el mismo orden en que se teclea en el bróker.
+    """
+    from ..config import cargar_configuracion
+
+    compra = signal.direccion.value == "compra"
+    r_cfg = cargar_configuracion().riesgo
+    dist, trailing = _trailing(signal)
+    pasos = [
+        f"Abre una {'COMPRA' if compra else 'VENTA'} de XAU/USD (oro) al precio de mercado.",
+        f"Pon el STOP LOSS en {signal.stop_loss:.2f}. Es obligatorio: es lo que "
+        f"limita la pérdida si sale mal.",
+    ]
+    if len(signal.take_profits) == 1:
+        tp = signal.take_profits[0]
+        pasos.append(f"Pon el TAKE PROFIT en {tp.precio:.2f}. Si el precio llega "
+                     f"mientras no miras, se cierra sola con beneficio. Lo alcanza "
+                     f"1 de cada 3 operaciones ganadoras; las demás las cierra "
+                     f"antes el stop.")
+        ampliacion = r_cfg.r_ampliacion_objetivo
+        if ampliacion > tp.r_multiple:
+            riesgo = abs(signal.entrada - signal.stop_loss)
+            destino = signal.entrada + signal.direccion.signo * riesgo * ampliacion
+            pasos.append(f"Si el precio se acerca a ese objetivo sin llegar, te "
+                         f"mando un aviso para subirlo a {destino:.2f} y darle más "
+                         f"recorrido. Es opcional: si no llegas a tiempo, se "
+                         f"ejecuta el de {tp.precio:.2f} y no pierdes nada.")
+    elif signal.take_profits:
+        primero, ultimo = signal.take_profits[0], signal.take_profits[-1]
+        pasos.append(f"Pon el TAKE PROFIT en {primero.precio:.2f} para el "
+                     f"{primero.fraccion:.0%} de la posición. Ahí recoges parte "
+                     f"del beneficio: lo alcanza 1 de cada 3 operaciones ganadoras.")
+        pasos.append(f"El {ultimo.fraccion:.0%} restante va a por {ultimo.precio:.2f}. "
+                     f"Cuando salte el primero te aviso para que muevas ahí el "
+                     f"objetivo del resto.")
+    if trailing:
+        pasos.append(f"Si tu bróker tiene TRAILING STOP, actívalo a {dist:.2f} $ de "
+                     f"distancia y se encarga solo. Si no lo tiene, no pasa nada: "
+                     f"te iré mandando avisos de ajuste diciéndote a qué precio "
+                     f"mover el stop.")
+    # La operación es INTRADÍA: si no salta ni el stop ni el TP, hay que cerrarla
+    # antes de que cierre el mercado. Decir "no vigiles nada" contradiría el aviso
+    # de cierre que se manda a esa hora, y dejaría la posición abierta de noche
+    # creyendo lo contrario.
+    if r_cfg.cerrar_intradia:
+        pasos.append(f"Ya está. A partir de aquí me encargo yo: si la operación "
+                     f"avanza te aviso para subir el stop y proteger lo ganado, y "
+                     f"si a las {_cierre_local()} sigue abierta te aviso para "
+                     f"cerrarla (no se queda de un día para otro). Si salta el stop "
+                     f"o llega al objetivo, se cierra sola sin que hagas nada.")
+    else:
+        pasos.append("Y ya está. No hay que vigilar nada más: la operación se cierra sola.")
+    return pasos
 
 
 def mensaje_de_senal(signal: Signal) -> str:
@@ -93,11 +215,20 @@ def mensaje_de_senal(signal: Signal) -> str:
         f"Stop:     {signal.stop_loss:.2f}",
     ]
     for k, tp in enumerate(signal.take_profits, 1):
-        lineas.append(f"TP{k}:      {tp.precio:.2f}  ({tp.r_multiple:.1f}R, {tp.fraccion:.0%})")
+        etiqueta = "TP" if len(signal.take_profits) == 1 else f"TP{k}"
+        lineas.append(f"{etiqueta+':':<10}{tp.precio:.2f}  ({tp.r_multiple:.1f}R)")
+    dist, activo = _trailing(signal)
+    if activo:
+        lineas.append(f"Trailing: {dist:.2f} $   (stop dinámico: ponlo en el bróker)")
+    lineas += ["", "QUÉ HACER, paso a paso:"]
+    lineas += [f"  {i}. {t}" for i, t in enumerate(pasos_operacion(signal), 1)]
     lineas += [
         "",
-        f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)",
-        f"Confianza: {signal.confianza:.0%}   R:R: {signal.riesgo_recompensa:.2f}",
+        (f"Probabilidad estimada: {signal.probabilidad:.0%}  (no es garantía)"
+         if signal.probabilidad_de_modelo else
+         f"Calidad de la señal: {signal.puntuacion:.0%}  (confluencia de "
+         f"factores; aún no hay modelo entrenado)"),
+        f"Confianza: {signal.confianza:.0%}   R:R: {_rr(signal)}",
         "",
         f"👉 LOTE a introducir en el bróker: {_lote_y_riesgo(signal)[0]:.2f}",
         f"   {_texto_riesgo(signal)}",
@@ -158,8 +289,16 @@ def mensaje_html_de_senal(signal: Signal) -> str:
 
     niveles = _fila_nivel("Stop Loss", f"{signal.stop_loss:.2f}", _ROJO)
     for k, tp in enumerate(signal.take_profits, 1):
-        niveles += _fila_nivel(f"Take Profit {k}", f"{tp.precio:.2f}", _VERDE,
-                               f"· {tp.r_multiple:.1f}R · {tp.fraccion:.0%}")
+        etiqueta = "Take Profit" if len(signal.take_profits) == 1 else f"Take Profit {k}"
+        niveles += _fila_nivel(etiqueta, f"{tp.precio:.2f}", _VERDE, f"· {tp.r_multiple:.1f}R")
+    dist, activo = _trailing(signal)
+    if activo:
+        niveles += _fila_nivel("Trailing stop", f"{dist:.2f} $", _ORO, "· ponlo en el bróker")
+
+    pasos = "".join(
+        f'<div style="color:{_TEXTO};font-size:13px;line-height:1.5;margin-bottom:6px;">'
+        f'<span style="color:{_ORO};font-weight:700;">{i}.</span> {_esc(t)}</div>'
+        for i, t in enumerate(pasos_operacion(signal), 1))
 
     motivos = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:13px;padding:3px 0;">'
@@ -180,10 +319,18 @@ def mensaje_html_de_senal(signal: Signal) -> str:
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;">Precio de entrada</div>
       <div style="color:{_TEXTO};font-size:36px;font-weight:800;margin:2px 0 18px;">${signal.entrada:.2f}</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">{niveles}</table>
+      <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
+       <tr><td style="background:#0e131c;border-radius:12px;padding:14px 16px;">
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Qué hacer, paso a paso</div>
+         {pasos}
+       </td></tr>
+      </table>
       <table role="presentation" style="border-collapse:collapse;margin-bottom:16px;"><tr>
-        {_pill("Probabilidad", f"{signal.probabilidad:.0%}", _ORO)}
+        {_pill("Probabilidad" if signal.probabilidad_de_modelo else "Calidad",
+               f"{signal.probabilidad:.0%}" if signal.probabilidad_de_modelo
+               else f"{signal.puntuacion:.0%}", _ORO)}
         {_pill("Confianza", f"{signal.confianza:.0%}", _ORO)}
-        {_pill("R : R", f"{signal.riesgo_recompensa:.2f}", _TEXTO)}
+        {_pill("R : R", _rr(signal), _TEXTO)}
       </tr></table>
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
        <tr><td style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:14px 16px;">
@@ -356,6 +503,19 @@ class Notificador(ABC):
         titulo = f"{emoji} XAU/USD {signal.direccion.value.upper()} @ {signal.entrada:.2f} — señal"
         return self.enviar(titulo, mensaje_de_senal(signal), Evento.NUEVA_SENAL,
                            html=mensaje_html_de_senal(signal))
+
+    def notificar_plan(self, plan) -> bool:
+        """Envía el plan de ruptura del día (dos órdenes pendientes).
+
+        La importación va DENTRO a propósito: `oro.notificaciones.plan` importa
+        de este módulo, y hacerlo arriba crearía un ciclo de importación.
+        """
+        from .plan import mensaje_de_plan, mensaje_html_de_plan
+
+        titulo = (f"⚡ PLAN XAU/USD — deja 2 órdenes: compra {plan.compra.entrada:.2f} "
+                  f"/ venta {plan.venta.entrada:.2f}")
+        return self.enviar(titulo, mensaje_de_plan(plan), Evento.PLAN_RUPTURA,
+                           html=mensaje_html_de_plan(plan))
 
 
 class NotificadorMultiple(Notificador):

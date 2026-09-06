@@ -146,7 +146,10 @@ def test_el_break_even_no_dice_salida_porque_no_se_sale():
     assert "NUEVO STOP" in n.html.upper(), "debe hablar de stop, no de salida"
     assert ">Salida<" not in n.html, "no se sale de nada al mover el stop"
     assert "Resultado total" not in n.html, "la operación sigue abierta"
-    assert "Asegurado hasta ahora" in n.html
+    # La etiqueta depende de si el stop ya protege beneficio o solo reduce la
+    # pérdida; lo que no puede es hablar de resultado final.
+    assert ("Asegurado si salta el stop" in n.html
+            or "Pérdida máxima ahora" in n.html)
 
 
 def test_la_tarjeta_cabe_en_la_pantalla_de_un_movil():
@@ -164,3 +167,73 @@ def test_la_tarjeta_cabe_en_la_pantalla_de_un_movil():
     assert n.html.count("max-width:460px") == 1
     # los chips no pueden ir cada uno en su celda de tabla
     assert 'padding:0 6px 0 0;"><span' not in n.html
+
+
+def test_la_cifra_grande_de_un_ajuste_es_lo_que_garantiza_el_stop():
+    """En un ajuste de stop no se ha realizado nada todavía.
+
+    Usar `r_acumulado` como cifra grande daba "+0.00R" junto a un mensaje que
+    decía "ya no puede perder dinero": el número contradecía al texto. Lo que
+    importa en ese aviso es lo que GARANTIZA el nuevo stop si salta.
+    """
+    import datetime as dt
+
+    from oro.config import cargar_configuracion
+    from oro.datos.sintetico import ProveedorSintetico
+    from oro.dominio import Direccion, Signal
+    from oro.notificaciones.base import Evento
+    from oro.riesgo import calcular_niveles
+    from oro.vivo.gestor import GestorOperaciones
+    from oro.vivo.runner import RunnerVivo
+
+    cfg = cargar_configuracion()
+    n = calcular_niveles(4451.90, Direccion.COMPRA, atr=8.4, cfg=cfg)
+    riesgo = abs(n.entrada - n.stop_loss)
+    sig = Signal(momento=dt.datetime.now(dt.timezone.utc), direccion=Direccion.COMPRA,
+                 entrada=n.entrada, stop_loss=n.stop_loss, take_profits=n.take_profits,
+                 probabilidad=0.6, confianza=0.8, riesgo_recompensa=n.riesgo_recompensa,
+                 tamano_posicion=1.0, motivos_entrada=["x"], riesgos=[],
+                 contexto_tecnico="", puntuacion=0.7)
+    g = GestorOperaciones(sig, cerrar_intradia=False, trailing_activo=True,
+                          trailing_r=cfg.riesgo.trailing_r, trailing_desde_entrada=True)
+
+    capturado = []
+
+    class _Falso:
+        entrega = True
+
+        def enviar(self, titulo, cuerpo, evento=None, datos=None, html=None):
+            capturado.append((titulo, datos, html))
+            return True
+
+    runner = RunnerVivo(cfg, ProveedorSintetico(semilla=1), _Falso())
+    for paso in (0.6, 1.8):
+        for ev in g.actualizar(n.entrada + riesgo * paso, dt.datetime.now(dt.timezone.utc)):
+            if ev.tipo is Evento.MOVER_STOP:
+                runner._notificar_evento(ev, g)
+                esperado = round((ev.precio - n.entrada) / riesgo, 2)
+                _, _, html = capturado[-1]
+                assert f"{esperado:+.2f}" in html, (
+                    f"la tarjeta no muestra {esperado:+.2f}R, que es lo que "
+                    f"garantiza el stop en {ev.precio:.2f}")
+                assert "+0.00" not in html, "muestra el R realizado en vez del garantizado"
+                etiqueta = "Asegurado si salta el stop" if esperado > 0 else "Pérdida máxima ahora"
+                assert etiqueta in html
+                assert f"{ev.precio:.2f}" in html
+
+    assert len(capturado) >= 2, "no se generaron avisos de ajuste"
+
+
+def test_el_asunto_del_ajuste_no_dice_break_even():
+    # El stop dinámico avisa también cuando aún está por debajo de la entrada.
+    from oro.notificaciones.base import Evento
+    from oro.vivo.runner import RunnerVivo
+
+    titulo = RunnerVivo._titulo(Evento.MOVER_STOP) if hasattr(RunnerVivo, "_titulo") else None
+    if titulo is None:  # el título vive en un diccionario interno
+        import inspect
+
+        fuente = inspect.getsource(RunnerVivo)
+        assert "MUEVE EL STOP a break-even" not in fuente
+    else:
+        assert "break-even" not in titulo.lower()

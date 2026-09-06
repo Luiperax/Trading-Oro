@@ -4,7 +4,7 @@ En cada ciclo:
 
 1. Refresca los datos de precio y calcula el estado de mercado (ATR, sesión).
 2. Consulta el sentimiento de prensa y el calendario macro (riesgo de noticia).
-3. **Gestiona las operaciones abiertas** y notifica sus salidas (TP, break-even,
+3. **Gestiona las operaciones abiertas** y notifica sus ajustes y salidas (objetivo,
    stop, cierre).
 4. Si procede (tope diario de 2–4 no alcanzado y hay hueco), busca una **nueva
    entrada A+** y la notifica.
@@ -176,6 +176,9 @@ class RunnerVivo:
                     hora_cierre_et=r_cfg.hora_cierre_et,
                     trailing_activo=r_cfg.trailing_activo,
                     trailing_r=r_cfg.trailing_r,
+                    trailing_desde_entrada=r_cfg.trailing_desde_entrada,
+                    r_ampliacion_objetivo=r_cfg.r_ampliacion_objetivo,
+                    r_disparo_ampliacion=r_cfg.r_disparo_ampliacion,
                 )
                 # La operación SOLO existe si el aviso llegó. Si no se pudo
                 # enviar, el usuario no habría entrado: darla por abierta crearía
@@ -236,6 +239,7 @@ class RunnerVivo:
             # Condiciones de la señal + etiqueta real: esto es lo que el sistema
             # usa para APRENDER por qué salió bien o mal.
             "features": getattr(gestor, "features", {}),
+            "motivos": list(getattr(gestor, "motivos", [])),
             "label": 1 if gestor.r_acumulado > 0 else 0,
         }
         try:
@@ -375,8 +379,12 @@ class RunnerVivo:
         # Títulos claros y accionables para las SALIDAS.
         titulos = {
             Evento.TP_ALCANZADO: "🎯 CIERRA PARTE — objetivo alcanzado (XAU/USD)",
-            Evento.MOVER_STOP: "🛡 MUEVE EL STOP a break-even (XAU/USD)",
+            # El asunto no puede decir "break-even": con el stop dinámico el
+            # aviso llega también cuando aún está por debajo de la entrada
+            # (reduciendo la pérdida) y cuando ya asegura beneficio.
+            Evento.MOVER_STOP: "🛡 AJUSTA EL STOP — la operación avanza (XAU/USD)",
             Evento.CIERRE: "🚪 SAL DE LA OPERACIÓN — cierre (XAU/USD)",
+            Evento.AMPLIAR_OBJETIVO: "📈 SUBE EL OBJETIVO — va camino de él (XAU/USD)",
         }
         titulo = titulos.get(ev.tipo, "Actualización — XAU/USD")
         from ..tiempo import etiqueta_zona, hora_local
@@ -401,7 +409,7 @@ class RunnerVivo:
         #
         # El motivo se corta por ". " (punto y ESPACIO), no por ".", porque los
         # precios llevan decimales y se quedaba en "STOP alcanzado a 4508".
-        motivo = str(ev.mensaje).split(". ")[0].strip().lstrip("🚪🎯🛡 ").strip()
+        motivo = str(ev.mensaje).split(". ")[0].strip().lstrip("🚪🎯🛡📈 ").strip()
         datos = {
             "accion": self._instruccion(ev.tipo),
             "motivo": motivo,
@@ -410,7 +418,16 @@ class RunnerVivo:
             "hora": hora,
         }
         if ev.tipo is Evento.MOVER_STOP:
-            datos["etiqueta_r"] = "Asegurado hasta ahora"
+            # La cifra grande NO puede ser `r_acumulado`: en un ajuste de stop no
+            # se ha realizado nada todavía, así que valdría 0.00 R y contradiría
+            # al propio mensaje ("ya no puede perder dinero" junto a un +0.00R).
+            # Lo que importa aquí es lo que GARANTIZA el nuevo stop.
+            riesgo = abs(gestor.entrada - gestor.stop_inicial)
+            en_stop = (gestor.direccion.signo * (ev.precio - gestor.entrada) / riesgo
+                       if riesgo > 0 else 0.0)
+            datos["r"] = round(en_stop, 2)
+            datos["etiqueta_r"] = ("Asegurado si salta el stop" if en_stop > 0
+                                   else "Pérdida máxima ahora")
             datos["izq"] = ("Entrada", gestor.entrada)
             datos["der"] = ("Nuevo stop", ev.precio)
             datos["color_der"] = "#F5A524"      # ámbar: es protección, no salida
@@ -419,6 +436,20 @@ class RunnerVivo:
             datos["etiqueta_r"] = "Asegurado hasta ahora"
             datos["izq"] = ("Entrada", gestor.entrada)
             datos["der"] = ("Cierre parcial", ev.precio)
+            datos["restante"] = f"{gestor.restante:.0%}"
+        elif ev.tipo is Evento.AMPLIAR_OBJETIVO:
+            # Aquí NO se sale de nada ni se ha realizado nada: la cifra grande es
+            # a cuánto llegaría el objetivo propuesto. Con `r_acumulado` saldría
+            # 0.00R, y con las cajas del cierre parecería que hay que vender.
+            riesgo = abs(gestor.entrada - gestor.stop_inicial)
+            datos["r"] = round(gestor.direccion.signo * (ev.precio - gestor.entrada)
+                               / riesgo, 2) if riesgo > 0 else 0.0
+            datos["etiqueta_r"] = "Si llega al nuevo objetivo"
+            objetivo_actual = next((n.precio for n in gestor.niveles if not n.alcanzado),
+                                   gestor.entrada)
+            datos["izq"] = ("Objetivo ahora", objetivo_actual)
+            datos["der"] = ("Súbelo a", ev.precio)
+            datos["color_der"] = "#2ECC71"      # verde: es una oportunidad, no un riesgo
             datos["restante"] = f"{gestor.restante:.0%}"
         else:
             datos["etiqueta_r"] = "Resultado total"
@@ -435,6 +466,11 @@ class RunnerVivo:
     def _instruccion(tipo: Evento) -> str:
         return {
             Evento.TP_ALCANZADO: "Cierra la parte indicada de la posición y asegura beneficio.",
-            Evento.MOVER_STOP: "Mueve el stop al punto de entrada (break-even): riesgo cero.",
+            # No se puede fijar "al punto de entrada": el stop dinámico lo mueve a
+            # niveles distintos según avanza el precio, y el propio mensaje ya dice
+            # a cuál. Repetir "break-even" haría que el mismo correo pidiera dos
+            # cosas contradictorias.
+            Evento.MOVER_STOP: "Cambia el Stop Loss en tu bróker al precio indicado.",
+            Evento.AMPLIAR_OBJETIVO: ("Sube el Take Profit al precio indicado. Si no llegas a tiempo, no pasa nada."),
             Evento.CIERRE: "Cierra la operación completa AHORA.",
         }.get(tipo, "Revisa la operación.")

@@ -29,7 +29,14 @@ class ProveedorSintetico(ProveedorDatos):
         timeframe: str = "M15",
         semilla: int = 42,
         spread_base: float = 0.25,
+        fin: "datetime | None" = None,
     ) -> None:
+        # Por defecto la serie termina AHORA, que es lo realista para desarrollo.
+        # Pero eso hace que una prueba dé un resultado distinto según la hora a
+        # la que se ejecute: con la última vela a las 15:45 de Nueva York el
+        # runner responde "demasiado tarde para abrir una operación intradía" y
+        # la prueba falla sin que nada esté roto. `fin` permite clavarla.
+        self._fin = fin
         self._n = velas
         self._precio_inicial = precio_inicial
         self._tf_min = _MINUTOS_TF.get(timeframe, 15)
@@ -73,7 +80,7 @@ class ProveedorSintetico(ProveedorDatos):
         volumen = (1000 + 8000 * vol / vol.mean() * rng.uniform(0.5, 1.5, n)).round()
         spread = self._spread_base * (1 + 2 * (vol / vol.mean() - 1).clip(0)).round(3)
 
-        fin = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        fin = (self._fin or datetime.now(timezone.utc)).replace(second=0, microsecond=0)
         indices = pd.date_range(
             end=fin, periods=n, freq=f"{self._tf_min}min", tz="UTC"
         )

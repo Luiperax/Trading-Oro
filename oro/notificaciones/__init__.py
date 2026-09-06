@@ -12,6 +12,7 @@ de eventos de gestión (mover stop, TP alcanzado, cierre).
 from __future__ import annotations
 
 from .base import Evento, Notificador, NotificadorMultiple, mensaje_de_senal
+from .plan import mensaje_de_plan, mensaje_html_de_plan
 from .canales import (
     NotificadorConsola,
     NotificadorEmail,
@@ -24,6 +25,8 @@ __all__ = [
     "Notificador",
     "NotificadorMultiple",
     "mensaje_de_senal",
+    "mensaje_de_plan",
+    "mensaje_html_de_plan",
     "NotificadorConsola",
     "NotificadorEmail",
     "NotificadorTelegram",

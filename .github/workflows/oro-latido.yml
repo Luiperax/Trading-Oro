@@ -73,4 +73,29 @@ jobs:
           ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
           ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
           ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+          # ---- Configuración de la OPERATIVA (pestaña «Variables» de Actions) ----
+          # Vacío = el valor por defecto del código. Estas faltaban: se podían
+          # configurar en el repositorio y NO llegaban al proceso, así que
+          # cambiarlas no hacía nada y no había forma de notarlo.
+          #
+          # ORO_COSTE_OPERACION es el más importante de todos: es el spread de
+          # tu bróker en $/oz por operación completa, y de él depende que el
+          # sistema gane o pierda (ver ConfiguracionRiesgo.coste_operacion).
+          # Umbrales de calidad. Van en TODOS los trabajos operativos aunque
+          # solo el de señales los use para decidir: comparten el fichero de
+          # estado, y dos procesos con configuraciones distintas es un fallo
+          # sutil que no da ningún error.
+          ORO_PUNTUACION_MINIMA: ${{ vars.ORO_PUNTUACION_MINIMA }}
+          ORO_PROB_MINIMA: ${{ vars.ORO_PROB_MINIMA }}
+          ORO_CONFIANZA_MINIMA: ${{ vars.ORO_CONFIANZA_MINIMA }}
+          ORO_OPERACIONES_MAX_DIA: ${{ vars.ORO_OPERACIONES_MAX_DIA }}
+          ORO_COSTE_OPERACION: ${{ vars.ORO_COSTE_OPERACION }}
+          ORO_CAPITAL: ${{ vars.ORO_CAPITAL }}
+          ORO_RIESGO_POR_OPERACION: ${{ vars.ORO_RIESGO_POR_OPERACION }}
+          ORO_TRAILING_R: ${{ vars.ORO_TRAILING_R }}
+          ORO_OPERACIONES_MIN_DIA: ${{ vars.ORO_OPERACIONES_MIN_DIA }}
+          ORO_TIMEFRAME: ${{ vars.ORO_TIMEFRAME }}
+          ORO_SIMBOLO: ${{ vars.ORO_SIMBOLO }}
+          ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
+          ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
         run: python -m oro.latido --si-toca

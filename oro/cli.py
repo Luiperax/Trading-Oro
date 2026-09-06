@@ -5,6 +5,7 @@ Ejemplos:
     python -m oro.cli backtest --velas 8000 Ejecuta un backtest y muestra las métricas.
     python -m oro.cli entrenar              Entrena el modelo con validación walk-forward.
     python -m oro.cli demo                  Demostración de extremo a extremo.
+    python -m oro.cli plan                  Plan de ruptura del día (2 órdenes pendientes).
     python -m oro.cli servir                Arranca la API/panel (requiere uvicorn).
 """
 
@@ -194,6 +195,14 @@ def _cmd_servir(args) -> int:
     return 0
 
 
+def _cmd_plan(args) -> int:
+    """Muestra (y opcionalmente envía) el plan de ruptura del día."""
+    from .plan_sesion import ejecutar
+
+    print(_AVISO, "\n")
+    return ejecutar(forzar=True, sintetico=bool(getattr(args, "sintetico", False)))
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Sistema de análisis de XAU/USD (ORO)")
     parser.add_argument("--velas", type=int, default=6000, help="Nº de velas a usar.")
@@ -217,6 +226,7 @@ def main(argv=None) -> int:
                         help="Máximo de operaciones abiertas a la vez.")
     p_vivo.add_argument("--sin-sentimiento", action="store_true", dest="sin_sentimiento",
                         help="No consultar prensa/calendario (solo técnico).")
+    sub.add_parser("plan", help="Plan de ruptura del día (dos órdenes pendientes).")
     p_srv = sub.add_parser("servir", help="Arranca la API/panel.")
     p_srv.add_argument("--host", default="127.0.0.1")
     p_srv.add_argument("--port", type=int, default=8010)
@@ -229,7 +239,7 @@ def main(argv=None) -> int:
     despacho = {
         "senal": _cmd_senal, "backtest": _cmd_backtest, "entrenar": _cmd_entrenar,
         "demo": _cmd_demo, "sentimiento": _cmd_sentimiento, "vivo": _cmd_vivo,
-        "servir": _cmd_servir,
+        "plan": _cmd_plan, "servir": _cmd_servir,
     }
     return despacho[args.comando](args)
 

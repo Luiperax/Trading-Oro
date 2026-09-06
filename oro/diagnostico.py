@@ -163,6 +163,61 @@ def _bloque_condiciones(ops: list) -> list[str]:
     return lineas
 
 
+def _bloque_motivos(ops: list) -> list[str]:
+    """¿Qué motivos de entrada funcionan y cuáles no?
+
+    Es la parte de "cómo lo puedo hacer mejor" en el lenguaje que el usuario leyó
+    en el correo, no en features numéricas que nadie interpreta. Compara la tasa
+    de acierto CON el motivo presente frente a SIN él: un motivo que aparece en
+    todas las señales no explica nada, aunque la tasa parezca alta.
+    """
+    con_motivos = [o for o in ops if o.get("motivos") and "label" in o]
+    if len(con_motivos) < _MIN_TOTAL:
+        faltan = _MIN_TOTAL - len(con_motivos)
+        return ["", "¿Qué motivos funcionan mejor? Faltan "
+                f"{faltan} señales con motivos registrados para poder compararlos."]
+
+    todos = sorted({m for o in con_motivos for m in o["motivos"]})
+    filas = []
+    for motivo in todos:
+        con = [o for o in con_motivos if motivo in o["motivos"]]
+        sin = [o for o in con_motivos if motivo not in o["motivos"]]
+        if len(con) < _MIN_GRUPO or len(sin) < _MIN_GRUPO:
+            continue          # sin contraste no se puede atribuir nada al motivo.
+        t_con = sum(int(o["label"]) for o in con) / len(con)
+        t_sin = sum(int(o["label"]) for o in sin) / len(sin)
+        filas.append((t_con - t_sin, t_con, len(con), motivo))
+    if not filas:
+        return ["", "¿Qué motivos funcionan mejor? Todos aparecen casi siempre (o casi "
+                "nunca): sin contraste no se puede saber cuál aporta."]
+
+    filas.sort(reverse=True)
+    # El signo manda: poner un ✓ a un motivo que RESTA acierto es peor que no
+    # decir nada, porque invita a fiarse justo de lo que está haciendo daño.
+    _RELEVANTE = 0.05
+    ayudan = [f for f in filas if f[0] >= _RELEVANTE][:3]
+    estorban = [f for f in filas if f[0] <= -_RELEVANTE][-2:]
+
+    lineas = ["", "¿Qué motivos funcionan mejor? (acierto con el motivo vs sin él)"]
+    if not ayudan and not estorban:
+        lineas.append("  Ninguno destaca todavía: con estas señales, aciertan más o menos")
+        lineas.append("  igual estén presentes o no. Hacen falta más datos.")
+        return lineas
+
+    def _linea(marca, dif, t_con, n, motivo, cola=""):
+        corto = motivo[:66] + ("…" if len(motivo) > 66 else "")
+        lineas.append(f"  {marca} {corto}")
+        lineas.append(f"      {t_con:.0%} de acierto en {n} señales "
+                      f"({dif:+.0%} frente a cuando no aparece){cola}")
+
+    for dif, t_con, n, motivo in ayudan:
+        _linea("✓", dif, t_con, n, motivo)
+    for dif, t_con, n, motivo in estorban:
+        _linea("✗", dif, t_con, n, motivo, ": NO está ayudando")
+    lineas.append("  ⚠️ Orientativo: con pocas señales, estas diferencias pueden ser azar.")
+    return lineas
+
+
 def _hora(o: dict) -> str:
     ap = str(o.get("apertura", ""))
     return f"{ap[11:13]}:00 UTC" if len(ap) >= 13 else "?"
@@ -195,6 +250,7 @@ def construir_diagnostico(ops: list, titulo: str = "DIAGNÓSTICO DE SEÑALES —
                                 "Por dirección:")
     lineas += _bloque_por_clave(ops, _hora, "Por hora de entrada (UTC):")
     lineas += _bloque_por_clave(ops, _motivo, "Cómo se cerraron:")
+    lineas += _bloque_motivos(ops)
     lineas += _bloque_condiciones(ops)
     lineas += ["", "Esto lo usa el sistema para APRENDER de sus propias órdenes e ir",
                "mejorándolas. Análisis, no asesoramiento financiero."]
