@@ -42,8 +42,7 @@ def _proveedor_vivo(args):
 
 def _construir_notificador():
     """Compone los canales de notificación disponibles según el entorno."""
-    import os
-
+    from . import entorno
     from .notificaciones import (
         NotificadorConsola,
         NotificadorEmail,
@@ -53,17 +52,17 @@ def _construir_notificador():
     )
 
     canales = [NotificadorConsola()]
-    if os.getenv("ORO_TELEGRAM_TOKEN") and os.getenv("ORO_TELEGRAM_CHAT_ID"):
+    if entorno.presente("ORO_TELEGRAM_TOKEN") and entorno.presente("ORO_TELEGRAM_CHAT_ID"):
         canales.append(NotificadorTelegram())
-    if os.getenv("ORO_WEBHOOK_URL"):
+    if entorno.presente("ORO_WEBHOOK_URL"):
         canales.append(NotificadorWebhook())
-    if os.getenv("ORO_SMTP_HOST"):
+    if entorno.presente("ORO_SMTP_HOST"):
         canales.append(NotificadorEmail())
 
     # Sin ningún canal REAL, la consola haría de tapadera: el sistema creería
     # que te avisó. Desatendido eso abriría operaciones fantasma, así que se
     # grita en el log en vez de seguir en silencio.
-    if len(canales) == 1 and os.getenv("GITHUB_ACTIONS", "").lower() == "true":
+    if len(canales) == 1 and entorno.texto("GITHUB_ACTIONS").lower() == "true":
         print("=" * 68)
         print("❌ NO HAY NINGÚN CANAL DE AVISO CONFIGURADO.")
         print("   Faltan los secretos ORO_SMTP_HOST / ORO_TELEGRAM_TOKEN /")

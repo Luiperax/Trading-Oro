@@ -7,12 +7,12 @@ corto para que la alerta llegue en segundos.
 
 from __future__ import annotations
 
-import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
+from .. import entorno
 from .base import Evento, Notificador
 
 
@@ -34,8 +34,8 @@ class NotificadorTelegram(Notificador):
     """Envía por la Bot API de Telegram (con formato HTML básico y emojis)."""
 
     def __init__(self, token: Optional[str] = None, chat_id: Optional[str] = None) -> None:
-        self._token = token or os.getenv("ORO_TELEGRAM_TOKEN", "")
-        self._chat_id = chat_id or os.getenv("ORO_TELEGRAM_CHAT_ID", "")
+        self._token = token or entorno.texto("ORO_TELEGRAM_TOKEN")
+        self._chat_id = chat_id or entorno.texto("ORO_TELEGRAM_CHAT_ID")
 
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:
@@ -63,7 +63,7 @@ class NotificadorWebhook(Notificador):
     """POST JSON a una URL. Base para push (FCM), WhatsApp Business API, Slack…"""
 
     def __init__(self, url: Optional[str] = None) -> None:
-        self._url = url or os.getenv("ORO_WEBHOOK_URL", "")
+        self._url = url or entorno.texto("ORO_WEBHOOK_URL")
 
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:
@@ -96,11 +96,14 @@ class NotificadorEmail(Notificador):
         clave: Optional[str] = None,
         destino: Optional[str] = None,
     ) -> None:
-        self._host = host or os.getenv("ORO_SMTP_HOST", "")
-        self._puerto = int(os.getenv("ORO_SMTP_PUERTO", puerto))
-        self._usuario = usuario or os.getenv("ORO_SMTP_USUARIO", "")
-        self._clave = clave or os.getenv("ORO_SMTP_CLAVE", "")
-        self._destino = destino or os.getenv("ORO_SMTP_DESTINO", "")
+        self._host = host or entorno.texto("ORO_SMTP_HOST")
+        # Una Variable de Actions sin definir llega VACÍA, no ausente, y esto era
+        # `int(os.getenv(...))`: el vigilante moría a los 17 segundos sin mandar
+        # una sola alerta. Ver oro/entorno.py.
+        self._puerto = entorno.entero("ORO_SMTP_PUERTO", int(puerto))
+        self._usuario = usuario or entorno.texto("ORO_SMTP_USUARIO")
+        self._clave = clave or entorno.texto("ORO_SMTP_CLAVE")
+        self._destino = destino or entorno.texto("ORO_SMTP_DESTINO")
 
     def enviar(self, titulo: str, cuerpo: str, evento: Evento = Evento.NUEVA_SENAL,
                html: Optional[str] = None) -> bool:

@@ -16,9 +16,9 @@ Variables de entorno:
 
 from __future__ import annotations
 
-import os
 import sys
 
+from . import entorno
 from .cli import _construir_notificador
 from .config import cargar_configuracion
 from .datos import ProveedorYahoo
@@ -30,11 +30,11 @@ def _probar_email() -> tuple[bool, str]:
     import smtplib
     from email.mime.text import MIMEText
 
-    host = os.getenv("ORO_SMTP_HOST", "")
-    puerto = int(os.getenv("ORO_SMTP_PUERTO", "587"))
-    usuario = os.getenv("ORO_SMTP_USUARIO", "")
-    clave = os.getenv("ORO_SMTP_CLAVE", "")
-    destino = os.getenv("ORO_SMTP_DESTINO", "")
+    host = entorno.texto("ORO_SMTP_HOST")
+    puerto = entorno.entero("ORO_SMTP_PUERTO", 587)
+    usuario = entorno.texto("ORO_SMTP_USUARIO")
+    clave = entorno.texto("ORO_SMTP_CLAVE")
+    destino = entorno.texto("ORO_SMTP_DESTINO")
     if not (host and usuario and destino):
         return False, "faltan ORO_SMTP_HOST / ORO_SMTP_USUARIO / ORO_SMTP_DESTINO"
     msg = MIMEText("Notificación de PRUEBA del sistema XAU/USD. Si lees esto, el correo funciona. "
@@ -58,18 +58,18 @@ def _probar() -> int:
     print("Probando canales de notificación configurados…")
     alguno = False
     fallo = False
-    if os.getenv("ORO_SMTP_HOST"):
+    if entorno.presente("ORO_SMTP_HOST"):
         alguno = True
         ok, err = _probar_email()
         fallo = fallo or not ok
         print(f"  Email    → {'OK, revisa tu bandeja (y la carpeta de spam).' if ok else 'FALLO: ' + err}")
-    if os.getenv("ORO_TELEGRAM_TOKEN") and os.getenv("ORO_TELEGRAM_CHAT_ID"):
+    if entorno.presente("ORO_TELEGRAM_TOKEN") and entorno.presente("ORO_TELEGRAM_CHAT_ID"):
         alguno = True
         from .notificaciones import NotificadorTelegram
         ok = NotificadorTelegram().enviar("✅ Prueba XAU/USD", "Notificación de prueba. ¡Funciona!")
         fallo = fallo or not ok
         print(f"  Telegram → {'OK' if ok else 'FALLO (revisa token y chat_id).'}")
-    if os.getenv("ORO_WEBHOOK_URL"):
+    if entorno.presente("ORO_WEBHOOK_URL"):
         alguno = True
         from .notificaciones import NotificadorWebhook
         ok = NotificadorWebhook().enviar("✅ Prueba XAU/USD", "Notificación de prueba.")
@@ -110,7 +110,7 @@ def main(argv=None) -> int:
     )
     if modelo is not None:
         print("Modelo aprendido cargado: la confianza usa el modelo validado.")
-    ruta = os.getenv("ORO_ESTADO", "oro_estado.json")
+    ruta = entorno.texto("ORO_ESTADO", "oro_estado.json")
     runner.cargar_estado(ruta)
     resultado = runner.ciclo()
     runner.guardar_estado(ruta)

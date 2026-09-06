@@ -10,9 +10,10 @@ Se pueden sobreescribir mediante variables de entorno con prefijo ``ORO_``
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import List
+
+from . import entorno
 
 
 @dataclass(slots=True)
@@ -442,38 +443,27 @@ def cargar_configuracion() -> ConfiguracionSistema:
     """
     cfg = ConfiguracionSistema()
 
-    def _num(nombre: str, actual: float) -> float:
-        bruto = os.getenv(nombre)
-        if bruto is None:
-            return actual
-        try:
-            return type(actual)(bruto)
-        except (TypeError, ValueError):
-            return actual
+    # La lectura del entorno vive en oro/entorno.py: una variable VACÍA es una
+    # variable no definida, siempre. Tener aquí una copia de esas reglas hacía
+    # que el resto del código (canales, tiempo, web) usara otras distintas, y
+    # ahí es donde apareció el fallo que tumbó el vigilante.
+    def _num(nombre: str, actual):
+        return (entorno.entero(nombre, actual) if isinstance(actual, int)
+                else entorno.decimal(nombre, actual))
 
-    def _bool(nombre: str, actual: bool) -> bool:
-        """Interruptor por entorno. Una Variable de Actions sin definir llega
-        como cadena VACÍA, y `bool("")` es falso: eso apagaría la estrategia sin
-        que nadie lo hubiera pedido. Vacío = se mantiene el valor actual."""
-        bruto = (os.getenv(nombre) or "").strip().lower()
-        if not bruto:
-            return actual
-        if bruto in ("1", "true", "si", "sí", "on", "yes"):
-            return True
-        if bruto in ("0", "false", "no", "off"):
-            return False
-        print(f"⚠️  {nombre}={bruto!r} no es sí/no; se mantiene {actual}.")
-        return actual
+    _bool = entorno.booleano
 
     cfg.capital = _num("ORO_CAPITAL", cfg.capital)
-    cfg.simbolo = os.getenv("ORO_SIMBOLO", cfg.simbolo)
-    cfg.timeframe = _marco(os.getenv("ORO_TIMEFRAME", ""), cfg.timeframe)
+    # Con la variable VACÍA esto dejaba el símbolo en "" y el proveedor pedía
+    # un instrumento sin nombre.
+    cfg.simbolo = entorno.texto("ORO_SIMBOLO", cfg.simbolo)
+    cfg.timeframe = _marco(entorno.texto("ORO_TIMEFRAME"), cfg.timeframe)
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
     )
-    cfg.ruta_operaciones = os.getenv("ORO_RUTA_OPERACIONES", cfg.ruta_operaciones)
-    cfg.ruta_senales = os.getenv("ORO_RUTA_SENALES", cfg.ruta_senales)
-    cfg.ruta_modelo = os.getenv("ORO_RUTA_MODELO", cfg.ruta_modelo)
+    cfg.ruta_operaciones = entorno.texto("ORO_RUTA_OPERACIONES", cfg.ruta_operaciones)
+    cfg.ruta_senales = entorno.texto("ORO_RUTA_SENALES", cfg.ruta_senales)
+    cfg.ruta_modelo = entorno.texto("ORO_RUTA_MODELO", cfg.ruta_modelo)
     cfg.riesgo.trailing_r = _num("ORO_TRAILING_R", cfg.riesgo.trailing_r)
     cfg.riesgo.coste_operacion = _num("ORO_COSTE_OPERACION", cfg.riesgo.coste_operacion)
     cfg.riesgo.operaciones_max_dia = int(

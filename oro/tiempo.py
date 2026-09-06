@@ -11,19 +11,33 @@ de hora verano/invierno lo resuelve la propia base de datos de zonas horarias.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
+
+from . import entorno
 
 ZONA_POR_DEFECTO = "Europe/Madrid"
 
 
 def zona_usuario():
     """Zona horaria configurada; UTC si el sistema no la reconoce."""
-    nombre = os.getenv("ORO_ZONA_HORARIA", ZONA_POR_DEFECTO)
+    # Con la variable VACÍA (que es como GitHub manda una Variable no definida)
+    # esto devolvía ZoneInfo("") -> excepción -> UTC, y TODAS las horas de los
+    # correos salían mal sin dar ningún error. Es el fallo más peligroso de los
+    # tres de su clase, porque no se nota. Ver oro/entorno.py.
+    nombre = entorno.texto("ORO_ZONA_HORARIA", ZONA_POR_DEFECTO)
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo(nombre)
     except Exception:  # noqa: BLE001 — sin zoneinfo, mejor UTC que reventar.
+        if nombre != ZONA_POR_DEFECTO:
+            print(f"⚠️  ORO_ZONA_HORARIA={nombre!r} no se reconoce; se prueba "
+                  f"{ZONA_POR_DEFECTO}.")
+            try:
+                from zoneinfo import ZoneInfo
+                return ZoneInfo(ZONA_POR_DEFECTO)
+            except Exception:  # noqa: BLE001
+                pass
+        print("⚠️  Sin base de datos de zonas horarias: las horas irán en UTC.")
         return timezone.utc
 
 

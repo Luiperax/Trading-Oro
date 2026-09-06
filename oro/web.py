@@ -17,14 +17,16 @@ Variables de entorno relevantes:
 
 from __future__ import annotations
 
-import os
+from . import entorno
 
 from .api.vivo_web import crear_app_vivo
 from .cli import _construir_notificador
 from .config import cargar_configuracion
 from .vivo import RunnerVivo
 
-_intervalo = int(os.getenv("ORO_INTERVALO", "900"))
+# A nivel de módulo: con `int(os.getenv(...))` una variable vacía impedía
+# hasta IMPORTAR el panel. Ver oro/entorno.py.
+_intervalo = entorno.entero("ORO_INTERVALO", 900)
 
 # Runner con datos reales (Yahoo) y los canales de notificación disponibles.
 _runner = RunnerVivo(cargar_configuracion(), notificador=_construir_notificador())
