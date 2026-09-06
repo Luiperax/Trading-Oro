@@ -203,6 +203,18 @@ class ConfiguracionSistema:
         # El umbral de probabilidad, sin modelo, equivale a un umbral de puntuación
         # (probabilidad = 0.40 + 0.35*puntuacion). Si ese equivalente queda por
         # debajo de `puntuacion_minima`, nunca rechaza nada que el otro no rechace.
+        # El spread se come la ventaja. Medido sobre 4.410 operaciones de 19,6
+        # años: ventaja bruta +0.0298 R con 1R valiendo 7.4 $ de media, así que
+        # el equilibrio ronda 0.15 $ (1.16 $ mirando solo 2024-2026, con el oro
+        # mucho más caro). Por encima de 1 $ no hay lectura de los datos con la
+        # que el sistema salga positivo, y conviene que lo diga en voz alta.
+        if r.coste_operacion > 1.0:
+            problemas.append(
+                f"coste_operacion = {r.coste_operacion:.2f} $/op: por encima del "
+                f"spread de equilibrio con cualquier lectura de los datos "
+                f"(0.15 $ en 19,6 años, 1.16 $ solo en 2024-2026). El sistema "
+                f"pierde por costes, no por las señales.")
+
         equiv = (c.prob_minima - 0.40) / 0.35
         if equiv < c.puntuacion_minima:
             problemas.append(
