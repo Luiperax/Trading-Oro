@@ -72,6 +72,38 @@ tendencia: renuncia a parte de la subida a cambio de no comerse los desplomes.
 
 Aguanta mejor porque está **fuera del mercado un tercio del tiempo**.
 
+## La otra restricción: el horario de quien lo usa
+
+Medido sobre las 4.410 entradas, repartidas por hora de Madrid:
+
+| Franja | Entradas | % | Ventaja bruta |
+|---|---|---|---|
+| **00:00-07:00 (durmiendo)** | 1.561 | **35,4 %** | **+0,0622 R** |
+| 07:00-13:00 | 1.059 | 24,0 % | +0,0192 R |
+| 13:00-19:00 | 1.207 | 27,4 % | +0,0163 R |
+| 19:00-24:00 | 583 | 13,2 % | −0,0094 R |
+
+**La sesión asiática concentra la ventaja del sistema intradía, y cae de noche.**
+Restringido a horas despiertas (07:00-24:00), con spread de 0,30 $:
+
+| Periodo | Ops/año | Bruto | Neto | t |
+|---|---|---|---|---|
+| 2007-2026 | 145 | +0,0121 | −0,0453 | −2,80 |
+| 2020-2026 | 142 | +0,0016 | −0,0345 | −1,24 |
+| 2024-2026 | 151 | +0,0609 | +0,0360 | 0,81 |
+
+Entrar tarde tampoco vale: tomando las señales nocturnas y entrando a las 08:00,
+la ventaja cae de +0,0622 R a +0,0174 R. Y no es porque el movimiento ya haya
+ocurrido —solo el 6 % había tocado el stop y el 1 % el objetivo—, sino porque la
+señal deja de ser válida al envejecer.
+
+**Consecuencia**: el sistema intradía necesita ejecución automática para capturar
+su propia ventaja. A mano y de día es, en el mejor de los casos, neutro.
+
+La estrategia de tendencia esquiva esta restricción igual que esquiva el spread:
+cambia de posición 2-3 veces al año, así que da igual la hora a la que llegue el
+aviso.
+
 ## Lo que NO es
 
 No es un sistema de señales intradía. Cambia de posición unas 2-3 veces al año y
