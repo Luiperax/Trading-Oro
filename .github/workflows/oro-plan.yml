@@ -86,7 +86,6 @@ jobs:
           # Parámetros de esta estrategia (vacío = valores medidos por defecto).
           ORO_RUPTURA_ACTIVA: ${{ vars.ORO_RUPTURA_ACTIVA }}
           ORO_RUPTURA_R_OBJETIVO: ${{ vars.ORO_RUPTURA_R_OBJETIVO }}
-          ORO_RUPTURA_COSTE_MAX: ${{ vars.ORO_RUPTURA_COSTE_MAX }}
           ORO_RUPTURA_HORAS_VALIDEZ: ${{ vars.ORO_RUPTURA_HORAS_VALIDEZ }}
           ORO_RUPTURA_SESGO_CUERPO_MINIMO: ${{ vars.ORO_RUPTURA_SESGO_CUERPO_MINIMO }}
         run: |

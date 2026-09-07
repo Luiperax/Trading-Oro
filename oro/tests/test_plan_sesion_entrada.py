@@ -74,12 +74,12 @@ def test_si_el_correo_falla_no_se_da_por_enviado(entorno, monkeypatch):
     assert len(entorno.planes) == 2       # se reintentó y esta vez sí llegó
 
 
-def test_con_spread_alto_no_manda_nada_y_no_falla(entorno, monkeypatch):
-    """Con el spread del usuario de hoy la ventaja medida es negativa: el trabajo
-    tiene que terminar en verde SIN mandar nada, no reventar."""
-    monkeypatch.setenv("ORO_COSTE_OPERACION", "1.45")
+def test_el_coste_de_operar_no_impide_mandar_el_plan(entorno, monkeypatch):
+    """El plan se manda pase lo que pase con el coste. Antes había una puerta
+    que lo bloqueaba; se quitó a petición del usuario, que decide él."""
+    monkeypatch.setenv("ORO_COSTE_OPERACION", "5.00")
     assert plan_sesion.ejecutar(ahora=_a_las(8)) == 0
-    assert entorno.planes == []
+    assert len(entorno.planes) == 1
 
 
 def test_forzar_salta_la_hora_y_el_duplicado(entorno):

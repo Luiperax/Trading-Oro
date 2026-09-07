@@ -73,8 +73,7 @@ para dejar puestas y olvidarte. La que salte es la operación del día.
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
 Aviso honesto: acierta el 44,7 % de las veces y entre 2017 y 2020 perdió cuatro
-años seguidos. Y con un spread por encima de 0,60 $/onza **no se envía**, porque
-a ese coste la ventaja medida es negativa.
+años seguidos.
 
 ## Documentación
 

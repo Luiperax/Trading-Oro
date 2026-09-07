@@ -160,7 +160,7 @@ class ConfiguracionRuptura:
     en :mod:`oro.sesiones`; aquí solo van los números y por qué valen eso.
 
     Ajustable por entorno: ORO_RUPTURA_ACTIVA, ORO_RUPTURA_R_OBJETIVO,
-    ORO_RUPTURA_COSTE_MAX, ORO_RUPTURA_HORAS_VALIDEZ.
+    ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO.
     """
 
     # Interruptor general. Se apaga con ORO_RUPTURA_ACTIVA=0 sin tocar nada más.
@@ -269,34 +269,6 @@ class ConfiguracionRuptura:
     # dispararse nunca. Dos guardas para lo mismo, una de ellas inútil y las dos
     # dando sensación de protección. Se queda la que se adapta al spread.)
 
-    # EL FRENO IMPORTANTE. Por encima de este coste la ventaja medida es
-    # NEGATIVA (a 1.45 $: -0.0590 R/op, t = -2.90), así que el sistema deja de
-    # emitir el plan en vez de mandar a operar a pérdida. Se sube con
-    # ORO_RUPTURA_COSTE_MAX solo si se sabe lo que se hace.
-    coste_max: float = 0.60
-
-    # Además, día a día: si el rango de esa mañana es tan estrecho que el spread
-    # se lleva más de esta fracción de lo que se arriesga, ese día no se opera.
-    #
-    # OJO CON APRETARLO, porque suena prudente y no lo es. Este umbral se puso
-    # primero en 0.20 y la medición lo desmintió: con spread de 0.60 $ quitaba
-    # 163 operaciones y bajaba la t de 3.38 a 2.78, empeorando las DOS mitades
-    # del histórico. Los días de rango estrecho no son los malos —son justo los
-    # que mejor miden (ver el filtro de rango estrecho en oro/sesiones.py)—, así
-    # que filtrarlos por su coste tira ventaja a la basura.
-    #
-    #     umbral      spread 0.60 $        ops quitadas
-    #     sin umbral  +0.0687  t 3.38               0
-    #     0.30 R      +0.0683  t 3.36              19   <- actual: red de seguridad
-    #     0.20 R      +0.0550  t 2.78             163
-    #     0.15 R      +0.0570  t 2.86             519
-    #     0.10 R      +0.0492  t 2.27           1.388
-    #
-    # Se queda en 0.30: caza los días absurdos (con 0.60 $ de spread, un rango
-    # de menos de 2 $) sin tocar la estrategia. Tampoco rescata un spread malo,
-    # que era la tentación: a 1.45 $ ningún umbral funciona (deja 33 operaciones
-    # al año con t = 0.63, indistinguible de cero). Para eso está `coste_max`.
-    coste_r_max: float = 0.30
 
 
 @dataclass(slots=True)
@@ -479,7 +451,6 @@ def cargar_configuracion() -> ConfiguracionSistema:
     # Ruptura de sesión (ver ConfiguracionRuptura y el módulo oro.sesiones).
     cfg.ruptura.activa = _bool("ORO_RUPTURA_ACTIVA", cfg.ruptura.activa)
     cfg.ruptura.r_objetivo = _num("ORO_RUPTURA_R_OBJETIVO", cfg.ruptura.r_objetivo)
-    cfg.ruptura.coste_max = _num("ORO_RUPTURA_COSTE_MAX", cfg.ruptura.coste_max)
     cfg.ruptura.horas_validez = int(
         _num("ORO_RUPTURA_HORAS_VALIDEZ", cfg.ruptura.horas_validez)
     )

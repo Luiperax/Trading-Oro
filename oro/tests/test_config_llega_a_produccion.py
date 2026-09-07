@@ -33,7 +33,7 @@ _SOLO_LOCAL = {"ORO_ESTADO", "ORO_INTERVALO", "ORO_PANEL_CLAVE", "ORO_BUCLE_CADA
 # en los trabajos del sistema intradía, que es una estrategia distinta, así que
 # exigírselos sería ruido; a cambio, se exigen en el suyo (ver más abajo).
 _DE_LA_RUPTURA = {"ORO_RUPTURA_ACTIVA", "ORO_RUPTURA_R_OBJETIVO",
-                  "ORO_RUPTURA_COSTE_MAX", "ORO_RUPTURA_HORAS_VALIDEZ",
+                  "ORO_RUPTURA_HORAS_VALIDEZ",
                   "ORO_RUPTURA_SESGO_CUERPO_MINIMO"}
 # Trabajos que ejecutan la lógica de operativa y necesitan la configuración.
 _OPERATIVOS = ("oro-alertas.yml", "oro-cierre.yml", "oro-latido.yml", "oro-aprender.yml")

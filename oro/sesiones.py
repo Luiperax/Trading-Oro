@@ -34,25 +34,6 @@ etc.). Las 10 dan resultado positivo, así que no depende de acertar la hora
 exacta. Y el walk-forward —elegir el filtro con los 5 años anteriores y operar
 el sexto, sin mirar el futuro— da +0.1350 R/op con 10 de 15 años en positivo.
 
-POR QUÉ EL COSTE AQUÍ NO LA MATA
---------------------------------
-El sistema intradía arriesga 1.5 × ATR, que hoy son unos 27 $ pero de media
-histórica solo 7.4 $: un spread de 1.45 $ se come 0.195 R, seis veces la ventaja
-bruta. Aquí el riesgo es el rango ENTERO de la mañana de Londres: 10.3 $ de
-media histórica y unos 24-30 $ hoy. El mismo spread pesa la mitad o menos.
-
-Aun así, hay que decirlo claro: **con 1.45 $ esto tampoco gana.** Medido:
-
-    spread   R/op      t       R/año   acierto   años+
-    0.30 $  +0.1123   5.58     +23.3    46.2 %   18/20
-    0.60 $  +0.0673   3.34     +14.0    44.7 %   14/20
-    1.45 $  -0.0604  -2.99     -12.5    40.8 %    7/20
-
-Y filtrar por "que el spread no se coma más de X R" no lo arregla: a 1.45 $ deja
-33 operaciones al año con t = 0.63, o sea indistinguible de cero. Por eso el
-plan NO se emite si ``coste_operacion`` supera ``coste_max`` (0.60 $ por
-defecto): es preferible no operar a operar sabiendo que se pierde por costes.
-
 LA SALIDA
 ---------
 No hay objetivo cercano: la operación se CIERRA A MANO al final de la sesión
@@ -62,9 +43,8 @@ No hay objetivo cercano: la operación se CIERRA A MANO al final de la sesión
     objetivo a 3R (versión anterior)  +0.0501        t 2.77
 
 El objetivo a 3R cortaba las ganadoras grandes y costaba un tercio de la
-ventaja. Queda un objetivo a 10R como red de seguridad: se ejecuta 1 de cada
-1.000 veces y cuesta 0.0012 R, así que no estorba y cubre el día en que el
-precio se dispara y nadie está mirando.
+ventaja. Queda un objetivo a 6R como red de seguridad: salta 1,6 veces al año y
+cubre el día en que el precio se dispara y nadie está mirando.
 
 Mover el stop a la entrada al llegar a 1R sube la ventaja a +0.0768 (t 3.91).
 Va como paso OPCIONAL en el correo, porque exige mirar el móvil una vez.
@@ -72,13 +52,12 @@ Va como paso OPCIONAL en el correo, porque exige mirar el móvil una vez.
 LO QUE NO SE PUEDE OCULTAR
 --------------------------
 * 14 de 20 años en positivo, no 20. Hubo una racha mala larga: de 2017 a 2020
-  pierde cuatro años seguidos incluso con spread de 0.60 $. Quien no pueda
+  pierde cuatro años seguidos. Quien no pueda
   aguantar eso, que no la use.
 * Acierta el 44.7 % de las veces. Gana porque las ganadoras son mayores, no
   porque acierte mucho. La mayoría de los días la operación pierde.
-* 1R son 24-30 $ por onza hoy. Con 0.01 lotes (1 onza), eso es 24-30 € de
-  riesgo por operación, un 0.8-1 % de 3.000 €. Es el lote mínimo: no se puede
-  arriesgar menos.
+* 1R son 24-30 $ por onza hoy: eso es lo que se pierde por onza si salta el
+  stop. El tamaño de la posición lo decide quien opera.
 """
 
 from __future__ import annotations
@@ -273,15 +252,6 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         res.motivos_no.append("La ruptura de sesión está desactivada en la configuración.")
         return res
 
-    # El coste manda. Por encima del umbral la ventaja medida es negativa, así
-    # que emitir el plan sería mandar a alguien a perder dinero con buenos modales.
-    if r.coste_operacion > c.coste_max:
-        res.motivos_no.append(
-            f"Tu coste por operación ({r.coste_operacion:.2f} $/oz) supera el máximo "
-            f"al que esta estrategia gana ({c.coste_max:.2f} $/oz). Medido: a 0.60 $ "
-            f"da +0.069 R por operación, y a 1.45 $ da -0.059 R. No se emite el plan.")
-        return res
-
     dia = dia_sesion(ahora)
     rango = rango_previo(df, cfg, dia)
     if rango is None:
@@ -291,13 +261,10 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         return res
 
     riesgo = rango.amplitud
-    coste_r = r.coste_operacion / riesgo if riesgo > 0 else 1.0
-    if coste_r > c.coste_r_max:
-        res.motivos_no.append(
-            f"Con un rango de {riesgo:.2f} $, tu spread se llevaría {coste_r:.1%} de "
-            f"lo que arriesgas (máximo {c.coste_r_max:.0%}): el rango de hoy es "
-            f"demasiado estrecho para lo que cuesta operar. Hoy no compensa.")
-        return res
+    # El coste de operar se sigue calculando —hace falta para que el registro de
+    # aprendizaje guarde resultados netos y no en bruto— pero NO decide nada: ni
+    # bloquea el plan ni aparece en el correo.
+    coste_r = r.coste_operacion / riesgo if riesgo > 0 else 0.0
 
     # ¿Ha empezado ya la sesión y el rango YA se ha roto? Pasa cuando GitHub
     # retrasa la tarea, cuando se lanza a mano a media tarde, o cuando el propio
