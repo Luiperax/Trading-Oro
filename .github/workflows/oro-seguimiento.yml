@@ -21,7 +21,11 @@ on:
     # De 12:00 a 21:00 UTC cubre 8:00-16:00 de Nueva York en las dos mitades del
     # año (verano UTC-4, invierno UTC-5). Fuera de la sesión el propio código
     # sale sin hacer nada, así que sobrar horas no cuesta más que un arranque.
-    - cron: "*/15 12-21 * * 1-5"
+    # Cada media hora y fuera del minuto :00. El vigilante hace este mismo
+    # trabajo dentro de su bucle (ver oro/vigilar.py), así que esto es la red
+    # de seguridad, no la vía principal: pedir menos turnos hace que GitHub
+    # estrangule menos el repositorio entero.
+    - cron: "13,43 12-21 * * 1-5"
   workflow_dispatch:
 
 permissions:

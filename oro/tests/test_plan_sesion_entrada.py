@@ -123,7 +123,13 @@ def test_las_tareas_programadas_cubren_las_dos_mitades_del_ano():
 
     raiz = Path(__file__).resolve().parents[2]
     texto = (raiz / ".github" / "workflows" / "oro-plan.yml").read_text(encoding="utf-8")
-    horas = [int(h) for h in re.findall(r'cron:\s*"0 (\d+) \* \* 1-5"', texto)]
+    # Los minutos son ahora una lista (7,22,37,52) para huir del :00, así que se
+    # lee la HORA sea cual sea la lista de minutos que la precede.
+    horas: list[int] = []
+    for cron in re.findall(r'cron:\s*"([^"]+)"', texto):
+        campos = cron.split()
+        for h in campos[1].split(","):
+            horas.extend([int(h)] * len(campos[0].split(",")))
     assert horas, "no se han encontrado tareas programadas en oro-plan.yml"
 
     from oro.config import cargar_configuracion
