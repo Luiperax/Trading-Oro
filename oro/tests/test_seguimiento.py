@@ -346,3 +346,51 @@ def test_no_se_sigue_un_plan_de_otro_dia(entorno):
     assert seguir_plan.ejecutar(ahora=otro_dia) == 0
     assert espia.avisos == []
     assert not (tmp / "rupturas.jsonl").exists()
+
+
+# ---- El vigilante atiende la ruptura desde su propio bucle ----
+
+def test_el_vigilante_manda_el_plan_y_lo_sigue(monkeypatch):
+    """GitHub no disparaba `oro-plan.yml` ni `oro-seguimiento.yml`: cero
+    ejecuciones en su primer día laborable, con trece huecos programados. El
+    repositorio declara ~180 ejecuciones al día y GitHub estrangula.
+
+    El vigilante ya tiene un proceso vivo 50 minutos que ganó su turno, así que
+    hace también este trabajo. Esta prueba fija que lo llama de verdad.
+    """
+    from oro import vigilar
+
+    llamadas = []
+    monkeypatch.setattr(vigilar, "_ejecutar_plan", lambda: llamadas.append("plan"))
+    monkeypatch.setattr(vigilar, "_ejecutar_seguimiento",
+                        lambda: llamadas.append("seguimiento"))
+    vigilar._atender_ruptura()
+    assert llamadas == ["plan", "seguimiento"]
+
+
+def test_un_fallo_de_la_ruptura_no_tumba_el_vigilante(monkeypatch, capsys):
+    """Lo único verdaderamente crítico del vigilante es gestionar las
+    operaciones abiertas. Un error en la ruptura no puede impedirlo."""
+    from oro import vigilar
+
+    def revienta():
+        raise RuntimeError("proveedor caído")
+
+    monkeypatch.setattr(vigilar, "_ejecutar_plan", revienta)
+    monkeypatch.setattr(vigilar, "_ejecutar_seguimiento", revienta)
+    vigilar._atender_ruptura()          # no debe lanzar
+    assert "error en plan de ruptura" in capsys.readouterr().out
+
+
+def test_los_crons_evitan_el_minuto_cero():
+    """El minuto :00 es la franja más congestionada de GitHub y la que más se
+    salta. Los trabajos de la ruptura no lo usan."""
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[2]
+    for nombre in ("oro-plan.yml", "oro-seguimiento.yml"):
+        texto = (raiz / ".github" / "workflows" / nombre).read_text(encoding="utf-8")
+        for cron in re.findall(r'cron:\s*"([^"]+)"', texto):
+            minutos = cron.split()[0]
+            assert "0" not in minutos.split(","), f"{nombre}: {cron} usa el minuto :00"

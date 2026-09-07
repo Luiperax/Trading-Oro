@@ -131,6 +131,43 @@ def _cerrar_antes_de_ceder(runner, ruta: str) -> None:
     _guardar_en_repo(ruta)
 
 
+def _atender_ruptura() -> None:
+    """Manda el plan de ruptura y sigue su operación, desde dentro del bucle.
+
+    POR QUÉ AQUÍ Y NO SOLO EN SU PROPIO TRABAJO
+    -------------------------------------------
+    `oro-plan.yml` y `oro-seguimiento.yml` existen y son correctos —lanzados a
+    mano funcionan— pero GitHub NO los estaba disparando: cero ejecuciones en
+    su primer día laborable, con trece huecos programados. El repositorio
+    declara del orden de 180 ejecuciones programadas al día entre todos los
+    trabajos, y GitHub estrangula: el vigilante, que pide arrancar cada 15
+    minutos, arranca de verdad 4 o 6 veces al día.
+
+    Depender de un cron nuevo en un repositorio ya estrangulado era construir
+    sobre arena. Aquí, en cambio, hay un proceso VIVO durante 50 minutos que ya
+    ha ganado su turno: aprovecharlo no cuesta ni un arranque más.
+
+    Las dos llamadas son baratas e idempotentes: fuera de su horario salen en
+    dos líneas, y dentro no repiten nada que ya hayan hecho (el plan recuerda
+    el día enviado y el seguimiento recuerda los avisos mandados).
+    """
+    for nombre, ejecutar in (("plan", _ejecutar_plan), ("seguimiento", _ejecutar_seguimiento)):
+        try:
+            ejecutar()
+        except Exception as e:  # noqa: BLE001 — la ruptura no puede tumbar el vigilante.
+            print(f"  ! error en {nombre} de ruptura:", type(e).__name__, str(e)[:100])
+
+
+def _ejecutar_plan() -> None:
+    from .plan_sesion import ejecutar
+    ejecutar()
+
+
+def _ejecutar_seguimiento() -> None:
+    from .seguir_plan import ejecutar
+    ejecutar()
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--probar" in argv:
@@ -177,6 +214,8 @@ def main(argv=None) -> int:
                     print("  ✔ estado guardado en el repositorio (a salvo).")
         except Exception as e:  # noqa: BLE001 — el bucle no debe caerse por un fallo puntual.
             print("  ! error en el ciclo:", type(e).__name__, str(e)[:100])
+
+        _atender_ruptura()
 
         if _toca_relevo(cfg):
             # Se cede el turno al trabajo de cierre, pero NO se deja la operación

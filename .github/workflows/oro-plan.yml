@@ -33,9 +33,12 @@ on:
     # nada: `oro_plan.json` recuerda el día.
     #   verano   12:00 UTC = 8 ET (envía) · 13:00 = 9 ET (reintento) · 14:00 = 10 ET (fuera)
     #   invierno 12:00 UTC = 7 ET (fuera) · 13:00 = 8 ET (envía)     · 14:00 = 9 ET (reintento)
-    - cron: "0 12 * * 1-5"
-    - cron: "0 13 * * 1-5"
-    - cron: "0 14 * * 1-5"
+    # NO en el minuto :00: es la franja más congestionada de GitHub y la que
+    # más se salta. Doce intentos repartidos por la hora, de los que solo el
+    # primero válido envía (el estado recuerda el día) y el resto no hacen nada.
+    - cron: "7,22,37,52 12 * * 1-5"
+    - cron: "7,22,37,52 13 * * 1-5"
+    - cron: "7,22,37,52 14 * * 1-5"
   workflow_dispatch:
     inputs:
       forzar:
