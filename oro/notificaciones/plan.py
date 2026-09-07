@@ -162,7 +162,6 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         "    porque las ganadoras son mucho mayores que las perdedoras.",
         "  • Medido sobre 19,6 años: 14 años en positivo de 20, y una racha mala",
         "    de 2017 a 2020 en la que perdió cuatro años seguidos.",
-        f"  • El spread se lleva hoy el {plan.coste_r:.1%} de lo que arriesgas.",
         "",
         "⚠️ Herramienta de análisis, no asesoramiento financiero.",
     ]
@@ -228,7 +227,6 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
             "Gana porque las ganadoras son mucho mayores.",
             "Medido sobre 19,6 años reales: 14 años en positivo de 20, con una "
             "racha mala de 2017 a 2020 que perdió cuatro años seguidos.",
-            f"El spread se lleva hoy el {plan.coste_r:.1%} de lo que arriesgas.",
         ))
 
     return f"""\

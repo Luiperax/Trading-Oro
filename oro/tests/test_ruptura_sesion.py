@@ -123,62 +123,6 @@ def test_las_horas_limite_aguantan_el_cambio_de_horario():
         assert plan.cierre_forzoso.astimezone(NY).hour == 16, dia
 
 
-def test_con_spread_alto_no_se_emite_el_plan():
-    """El freno importante: por encima del coste al que la ventaja medida se
-    vuelve negativa, el sistema NO manda a operar, ni siquiera con buenos modales.
-    """
-    cfg = _cfg()
-    cfg.riesgo.coste_operacion = 1.45          # el spread real del usuario hoy
-    res = construir_plan(_marco("2026-03-10", MANANA), cfg, ahora=AHORA)
-    assert not res.hay_plan
-    assert any("coste" in m.lower() for m in res.motivos_no)
-
-
-def test_con_el_rango_demasiado_estrecho_el_spread_manda_parar():
-    """Rango de 0.90 $ y spread de 0.30 $: el coste sería el 33 % de lo que se
-    arriesga, por encima del máximo del 30 %."""
-    estrecha = {3: (2000.6, 2000.0), 4: (2000.8, 2000.2), 5: (2000.7, 2000.1),
-                6: (2000.9, 2000.3), 7: (2000.85, 2000.4)}
-    res = construir_plan(_marco("2026-03-10", estrecha), _cfg(), ahora=AHORA)
-    assert not res.hay_plan
-    assert any("spread" in m.lower() for m in res.motivos_no)
-
-
-@pytest.mark.parametrize("spread", [0.10, 0.30, 0.60])
-def test_el_umbral_de_coste_diario_se_puede_disparar_de_verdad(spread):
-    """Una guarda que NUNCA salta es peor que no tenerla: da sensación de
-    protección y no protege. Aquí hubo una: un suelo fijo de 1.00 $ de amplitud
-    tapaba al umbral de coste con el spread por defecto, y el umbral no llegaba
-    a dispararse nunca. Se quitó el suelo; esta prueba impide que vuelva.
-    """
-    cfg = _cfg()
-    cfg.riesgo.coste_operacion = spread
-    # Un rango justo por debajo del que el umbral tolera.
-    ancho = spread / cfg.ruptura.coste_r_max * 0.9
-    base = 2000.0
-    apretada = {h: (base + ancho, base) for h in range(3, 8)}
-    res = construir_plan(_marco("2026-03-10", apretada), cfg, ahora=AHORA)
-    assert not res.hay_plan, f"con spread {spread} y rango {ancho:.2f} $ debería parar"
-    assert any("spread" in m.lower() for m in res.motivos_no)
-
-
-def test_el_umbral_diario_de_coste_es_una_red_no_un_filtro():
-    """Apretarlo está MEDIDO que hace daño: a 0.20 R quitaba 163 operaciones y
-    bajaba la t de 3.38 a 2.78, empeorando las dos mitades del histórico. Los
-    días de rango estrecho son los que mejor miden, no los peores.
-
-    Esta prueba fija el valor para que nadie lo "mejore" apretándolo sin medir.
-    """
-    from oro.config import ConfiguracionRuptura
-    assert ConfiguracionRuptura().coste_r_max >= 0.30
-
-    # Y con un rango normal de hoy (26 $) y un spread bueno, no puede estorbar.
-    normal = {3: (4018, 4004), 4: (4022, 4010), 5: (4020, 3998),
-              6: (4024, 4008), 7: (4015, 4002)}
-    plan = construir_plan(_marco("2026-03-10", normal), _cfg(), ahora=AHORA).plan
-    assert plan is not None and plan.coste_r < 0.02
-
-
 def test_desactivada_no_emite_nada():
     res = construir_plan(_marco("2026-03-10", MANANA), _cfg(activa=False), ahora=AHORA)
     assert not res.hay_plan
@@ -298,3 +242,14 @@ def test_el_umbral_del_cuerpo_se_puede_ajustar():
     # ASIA_SUBE tiene cuerpo 8.00 sobre rango 17.00 = 0.47 de fuerza.
     assert _plan_con(ASIA_SUBE, sesgo_cuerpo_minimo=0.45).favorita is Direccion.COMPRA
     assert _plan_con(ASIA_SUBE, sesgo_cuerpo_minimo=0.50).favorita is None
+
+
+def test_el_coste_de_operar_no_bloquea_el_plan():
+    """El plan se emite pase lo que pase con el coste: el sistema informa y el
+    usuario decide. El coste se sigue calculando porque el registro de
+    aprendizaje guarda resultados netos, pero no gobierna nada."""
+    cfg = _cfg()
+    cfg.riesgo.coste_operacion = 5.00
+    res = construir_plan(_marco("2026-03-10", MANANA), cfg, ahora=AHORA)
+    assert res.hay_plan
+    assert res.motivos_no == []

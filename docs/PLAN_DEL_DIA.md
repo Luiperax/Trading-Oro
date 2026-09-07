@@ -120,20 +120,6 @@ plan, esta estrategia no es para ti, y es mejor saberlo ahora.
 El detalle de todo lo que se midió —incluidas las dos reglas parecidas que se
 descartaron y por qué— está en [ESTRATEGIAS_MEDIDAS.md](ESTRATEGIAS_MEDIDAS.md).
 
-## Por qué puede que no recibas ningún correo
-
-Es lo más probable ahora mismo, y **es correcto**:
-
-> `Tu coste por operación (1.45 $/oz) supera el máximo al que esta estrategia
-> gana (0.60 $/oz).`
-
-Con el spread de 1,45-2 $ de tu cuenta actual, la ventaja medida es **negativa**
-(−0,059 R por operación). El sistema no manda el plan porque mandarlo sería
-mandarte a perder dinero con buenos modales. En cuanto tengas una cuenta con
-spread de 0,30-0,60 $ y lo pongas en `ORO_COSTE_OPERACION`, empezará a llegar.
-
-Ver [CAMBIAR_DE_CUENTA.md](CAMBIAR_DE_CUENTA.md).
-
 ## Cómo se ajusta
 
 Todo desde **Settings → Secrets and variables → Actions → Variables** de GitHub,
@@ -141,10 +127,8 @@ sin tocar código:
 
 | Variable | Por defecto | Qué hace |
 |---|---|---|
-| `ORO_COSTE_OPERACION` | `0.30` | Tu spread real en $/onza. **El que manda.** |
 | `ORO_RUPTURA_ACTIVA` | `1` | `0` apaga la estrategia entera. |
 | `ORO_RUPTURA_R_OBJETIVO` | `3.0` | Dónde va el objetivo, en múltiplos del rango. |
-| `ORO_RUPTURA_COSTE_MAX` | `0.60` | Spread por encima del cual no se envía nada. |
 | `ORO_RUPTURA_HORAS_VALIDEZ` | `2` | Cuántas horas valen las órdenes. |
 | `ORO_RUPTURA_SESGO_CUERPO_MINIMO` | `0.20` | Cuánto tiene que moverse Asia para señalar favorita. |
 
