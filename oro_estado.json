@@ -6,6 +6,13 @@
   "historial": [
     {
       "tipo": "mover_stop",
+      "momento": "2026-09-08T19:02:29.317102+00:00",
+      "precio": 4435.44,
+      "mensaje": "Mueve el STOP a 4435.44: a partir de ahora esta operación YA NO PUEDE PERDER DINERO. El objetivo sigue en 4380.83; no lo toques.",
+      "r": 0.0
+    },
+    {
+      "tipo": "mover_stop",
       "momento": "2026-09-08T18:59:25.061519+00:00",
       "precio": 4440.54,
       "mensaje": "El precio va a favor. Mueve el STOP a 4440.54: si se gira ahora pierdes -0.02R en vez de -1.00R. El objetivo sigue en 4380.83; no lo toques.",
@@ -388,13 +395,6 @@
       "precio": 4057.55,
       "mensaje": "TP2 alcanzado a 4057.55 (2.0R). Cerrar 30% de la posición.",
       "r": 1.1
-    },
-    {
-      "tipo": "mover_stop",
-      "momento": "2026-07-15T13:57:48+00:00",
-      "precio": 4039.6,
-      "mensaje": "Mover STOP a break-even (4039.60). Operación sin riesgo a partir de ahora.",
-      "r": 0.5
     }
   ],
   "abiertas": [
@@ -402,8 +402,8 @@
       "direccion": "venta",
       "entrada": 4439.89990234375,
       "riesgo": 29.535274637690236,
-      "stop_actual": 4440.53527463769,
-      "en_breakeven": false,
+      "stop_actual": 4435.43527463769,
+      "en_breakeven": true,
       "restante": 1.0,
       "r_acumulado": 0.0,
       "estado": "abierta",
@@ -415,11 +415,11 @@
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4440.53527463769,
+      "stop_avisado": 4435.43527463769,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
       "ampliacion_avisada": false,
-      "peak": 4411.0,
+      "peak": 4405.9,
       "probabilidad": 0.638,
       "confianza": 0.84,
       "stop_inicial": 4469.43517698144,
