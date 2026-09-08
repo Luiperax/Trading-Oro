@@ -25,6 +25,17 @@ from pathlib import Path
 
 RUTA_ESTADO = "oro_estado.json"
 RUTA_OPERACIONES = "operaciones_oro.jsonl"
+# La ruptura de sesión tiene su propio estado y su propio registro. Se guardan
+# aquí porque el vigilante también manda el plan y lo sigue (ver oro/vigilar.py),
+# y su paso de guardado es este.
+#
+# CASO REAL (8-sep-2026): el plan se envió correctamente a las 12:01 UTC, pero
+# `oro_plan.json` no se subía. El runner se destruye al acabar, así que la
+# ejecución siguiente no tenía memoria de haberlo enviado y habría mandado el
+# MISMO plan otra vez; y el seguimiento, sin plan que seguir, no habría avisado
+# nunca de mover el stop ni de cerrar, ni habría registrado el resultado.
+RUTA_PLAN = "oro_plan.json"
+RUTA_RUPTURAS = "oro_rupturas.jsonl"
 
 
 def _git(*args: str, timeout: int = 60) -> subprocess.CompletedProcess:
@@ -100,24 +111,35 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
         return False
 
     estado_nuestro = _leer(ruta_estado)
+    plan_nuestro = _leer(RUTA_PLAN)
     ops_nuestro = _leer(RUTA_OPERACIONES)
-    if estado_nuestro is None and ops_nuestro is None:
+    rupturas_nuestro = _leer(RUTA_RUPTURAS)
+    if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
+                               rupturas_nuestro)):
         return False
 
     # No subir un estado ilegible: machacaría la copia BUENA del remoto con
     # basura y perdería las operaciones abiertas de todas las máquinas. El
     # runner siempre escribe JSON válido, así que llegar aquí con algo ilegible
     # significa disco corrupto o escritura a medias: mejor conservar el remoto.
-    if estado_nuestro is not None:
-        import json as _json
+    import json as _json
+
+    def _valido(texto, nombre):
+        if texto is None:
+            return None
         try:
-            _json.loads(estado_nuestro)
+            _json.loads(texto)
+            return texto
         except ValueError:
-            print(f"⚠️  {ruta_estado} no es JSON válido: NO se sube "
+            print(f"⚠️  {nombre} no es JSON válido: NO se sube "
                   f"(se conserva la versión del repositorio).")
-            estado_nuestro = None
-            if ops_nuestro is None:
-                return False
+            return None
+
+    estado_nuestro = _valido(estado_nuestro, ruta_estado)
+    plan_nuestro = _valido(plan_nuestro, RUTA_PLAN)
+    if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
+                               rupturas_nuestro)):
+        return False
 
     _git("config", "user.name", "oro-alertas-bot")
     _git("config", "user.email", "actions@users.noreply.github.com")
@@ -129,20 +151,25 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
             continue
         _git("reset", "--hard", "origin/main")
 
-        # 2) Reescribir: el estado es del proceso vivo; el registro se une.
-        if estado_nuestro is not None:
-            Path(ruta_estado).write_text(estado_nuestro, encoding="utf-8")
-        unido = _unir_jsonl(ops_nuestro, _leer(RUTA_OPERACIONES))
-        if unido is not None:
-            Path(RUTA_OPERACIONES).write_text(unido, encoding="utf-8")
+        # 2) Reescribir: los ESTADOS son del proceso vivo y mandan ellos; los
+        #    REGISTROS solo crecen, así que se unen sin perder líneas de nadie.
+        for ruta, contenido in ((ruta_estado, estado_nuestro),
+                                (RUTA_PLAN, plan_nuestro)):
+            if contenido is not None:
+                Path(ruta).write_text(contenido, encoding="utf-8")
+        for ruta, contenido in ((RUTA_OPERACIONES, ops_nuestro),
+                                (RUTA_RUPTURAS, rupturas_nuestro)):
+            unido = _unir_jsonl(contenido, _leer(ruta))
+            if unido is not None:
+                Path(ruta).write_text(unido, encoding="utf-8")
 
         # 3) Preparar cada fichero por separado (uno ausente no aborta el otro).
-        _git("add", "-f", ruta_estado)
-        _git("add", "-f", RUTA_OPERACIONES)
+        for ruta in (ruta_estado, RUTA_PLAN, RUTA_OPERACIONES, RUTA_RUPTURAS):
+            _git("add", "-f", ruta)
         if _git("diff", "--cached", "--quiet").returncode == 0:
             return False  # nada que guardar
 
-        if _git("commit", "-m", "Estado y registro de señales XAU/USD [skip ci]").returncode != 0:
+        if _git("commit", "-m", "Estado y registros de XAU/USD [skip ci]").returncode != 0:
             time.sleep(2)
             continue
         if _git("push", timeout=90).returncode == 0:
