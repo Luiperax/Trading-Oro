@@ -498,3 +498,67 @@ Con esto se han probado siete vías distintas. Ninguna deja al motor de señales
 en positivo a un coste alcanzable. La única estrategia intradía del proyecto con
 ventaja medida y sostenida sigue siendo la ruptura del rango de sesión, que
 también abre y cierra el mismo día.
+
+
+---
+
+## Marcar la orden con más confianza: el análisis completo
+
+Petición: *analizar y marcar la opción que más confianza aporte de cumplirse,
+con un análisis previo*. Esto es lo que salió.
+
+### Un modelo con 8 condiciones — NO funciona
+
+Todo lo conocido a las 8:00 ET sin mirar el futuro: sesión asiática (cuerpo y
+fuerza), dólar en la madrugada y en la mañana de Londres (EUR/USD invertido),
+dónde cierra Londres dentro de su rango, precio vs medias de 5 y 20 días,
+anchura del rango, posición respecto al cierre de ayer. Ridge entrenada con los
+5 años anteriores, puntuando el año siguiente.
+
+| Cuartil de puntuación (fuera de muestra) | n | R/op | Acierto |
+|---|---|---|---|
+| peor | 747 | **+0,0750** | 46,1 % |
+| 2º | 747 | +0,0641 | 46,2 % |
+| 3º | 746 | +0,0881 | 44,4 % |
+| **mejor** | 747 | **+0,0380** | 41,2 % |
+
+El cuartil «mejor» rinde **menos** que el «peor». La diferencia media entre
+mitades es +0,0229 R con **t = 0,71** y 9 de 15 años a favor. No separa nada.
+
+### La sesión asiática sola — sí aguanta
+
+Regla fija, sin entrenar, medida año por año (cada año es una observación
+independiente, así que el t no está inflado por solapamiento):
+
+| | |
+|---|---|
+| Diferencia media (marcada − la otra) | **+0,0930 R** |
+| Años a favor | **14 de 20** |
+| t | **2,31** |
+| Últimos 5 años | +0,0862 R, 4 de 5 a favor |
+
+2025 fue el peor año (−0,2975), lo que explica la impresión reciente de que
+falla.
+
+### No se puede graduar
+
+Si el efecto creciera con la fuerza del movimiento asiático habría relación
+dosis-respuesta, que es mucho más difícil de falsificar por azar. No la hay:
+
+| Cuerpo asiático | Diferencia | t |
+|---|---|---|
+| 0-10 % del rango | +0,0675 | 0,59 |
+| 10-20 % | +0,0394 | 0,33 |
+| 20-35 % | +0,1493 | 1,58 |
+| 35-50 % | +0,0538 | 0,55 |
+| 50-100 % | +0,0902 | 1,52 |
+
+Sube y baja sin orden. La confianza se queda binaria: hay sesgo o no lo hay.
+
+### Cómo se presenta
+
+La marca vuelve al correo —se pidió— pero redactada **en condicional**:
+`◆ LA MEJOR SI SALTA`. Nunca «esta es la que va a pasar», porque cuál salta es
+50,0 % (z = 0,00) y presentarlo como predicción hacía que pareciera fallar el
+49 % de los días. Y el correo dice de dónde sale, incluido que el modelo de 8
+condiciones no funcionó.

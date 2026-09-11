@@ -82,10 +82,13 @@ def texto_confianza(plan: PlanRuptura) -> str:
 
 def aviso_confianza() -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
-    return ("Y es una INDICACIÓN, no un hecho probado: la diferencia entre "
-            "lados da t = 2,07 y no supera la corrección estadística que aplico "
-            "(haría falta 2,81). Deja las DOS órdenes puestas igualmente: el "
-            "sistema no elige lado, elige el mercado.")
+    return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
+            "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
+            "del rango, cierre de ayer) combinadas en un modelo entrenado con "
+            "años anteriores. NO funcionó fuera de muestra. La asiática sola es "
+            "lo único que aguanta: 14 de 20 años a favor, t = 2,31. Aun así no "
+            "supera la corrección estadística estricta, así que deja las DOS "
+            "órdenes puestas: el sistema no elige lado, elige el mercado.")
 
 
 def pasos_plan(plan: PlanRuptura) -> list[str]:
@@ -95,9 +98,11 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
         "Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
         "pendientes del tamaño que decidas. No se abre nada todavía.",
         f"Orden 1 — COMPRA tipo «BUY STOP» en {c.entrada:.2f}, "
-        f"con stop loss en {c.stop:.2f} y take profit en {c.objetivo:.2f}.",
+        f"con stop loss en {c.stop:.2f} y take profit en {c.objetivo:.2f}."
+        + (" ← si salta esta, históricamente rinde más" if plan.es_favorita(c) else ""),
         f"Orden 2 — VENTA tipo «SELL STOP» en {v.entrada:.2f}, "
-        f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}.",
+        f"con stop loss en {v.stop:.2f} y take profit en {v.objetivo:.2f}."
+        + (" ← si salta esta, históricamente rinde más" if plan.es_favorita(v) else ""),
         "Ese take profit está lejos a propósito: es una red de seguridad para "
         "el día en que el precio se dispara y no estás mirando, no la salida. "
         "Salta 1 o 2 veces al año. La salida de verdad es cerrar a mano al "
@@ -132,9 +137,11 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         "",
         "DOS ÓRDENES PENDIENTES (salta una, cancela la otra):",
         f"  COMPRA (buy stop)  en {plan.compra.entrada:.2f}   "
-        f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}",
+        f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}"
+        f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.compra) else ''}",
         f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
-        f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}",
+        f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}"
+        f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.venta) else ''}",
         "",
         "CUÁL DE LAS DOS ES LA DE FIAR:",
         f"  {texto_confianza(plan)}",
@@ -164,8 +171,9 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     return "\n".join(lineas)
 
 
-def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str) -> str:
-    """Una de las dos órdenes, SIN marcas de preferencia.
+def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str,
+                favorita: bool = False) -> str:
+    """Una de las dos órdenes, con la marca redactada en CONDICIONAL.
 
     Aquí hubo una estrella de "más respaldo" junto a una de las dos, y era
     engañosa: medido sobre 3.180 días, la marcada es la que salta el 50,0 % de
@@ -179,8 +187,11 @@ def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str) -> str:
 
     Lo que el sesgo asiático SÍ dice va ahora en su bloque de texto, explicado.
     """
-    borde = f'1px solid {color}'
-    chapa = ''
+    borde = f'2px solid {color}' if favorita else f'1px solid {color}'
+    chapa = (f'<span style="display:inline-block;background:{color};color:#0b0e14;'
+             f'border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;'
+             f'letter-spacing:1px;margin-left:6px;">◆ LA MEJOR SI SALTA</span>'
+             if favorita else '')
     return (
         f'<table role="presentation" width="100%" style="border-collapse:collapse;'
         f'margin-bottom:10px;">'
@@ -244,8 +255,10 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       <div style="color:{_MUTED};font-size:12px;margin-bottom:18px;">Amplitud {plan.rango.amplitud:.2f} $ · eso es 1R, lo que arriesgas</div>
 
       <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Deja estas dos órdenes puestas</div>
-      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE)}
-      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO)}
+      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE,
+                   plan.es_favorita(plan.compra))}
+      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO,
+                   plan.es_favorita(plan.venta))}
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
        <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
          <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cuál de las dos es la de fiar</div>
