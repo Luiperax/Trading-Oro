@@ -36,6 +36,21 @@ on:
     # NO en el minuto :00: es la franja más congestionada de GitHub y la que
     # más se salta. Doce intentos repartidos por la hora, de los que solo el
     # primero válido envía (el estado recuerda el día) y el resto no hacen nada.
+    # Dos cosas aprendidas a base de mirar ejecuciones reales:
+    #
+    # 1. GitHub RETRASA los turnos, y mucho. Un cron de las 14:00 disparó a las
+    #    18:50, casi cinco horas tarde. Por eso se pide turno desde las 09:00:
+    #    un disparo retrasado de una a tres horas aterriza DENTRO de la ventana
+    #    (12:00-14:00 UTC), y uno puntual sale en dos líneas sin hacer nada,
+    #    porque el propio código comprueba la hora del mercado.
+    #
+    # 2. El minuto :00 es la franja más congestionada y la que más se salta.
+    #
+    # El estado recuerda el día enviado, así que de todos estos turnos solo el
+    # primero que caiga en ventana manda el correo; los demás no hacen nada.
+    - cron: "7,22,37,52 9 * * 1-5"
+    - cron: "7,22,37,52 10 * * 1-5"
+    - cron: "7,22,37,52 11 * * 1-5"
     - cron: "7,22,37,52 12 * * 1-5"
     - cron: "7,22,37,52 13 * * 1-5"
     - cron: "7,22,37,52 14 * * 1-5"
