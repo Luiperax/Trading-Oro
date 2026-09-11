@@ -124,19 +124,22 @@ def test_el_correo_explica_el_sesgo_sin_marcar_ninguna_orden(sube, esperada, otr
         assert esperada in texto and "+0,088" in texto and "+0,013" in texto
         # Y que la otra salte no es un fallo del sistema.
         assert f"Si hoy salta la {otra}" in texto
-        # Ninguna orden va marcada.
-        assert "MÁS RESPALDO" not in texto
-        assert "más respaldo hoy" not in texto
+        # La marca existe, pero SIEMPRE en condicional: nunca "esta va a pasar".
+        assert "LA MEJOR SI SALTA" in texto
+        assert "si salta esta" in texto or "SI SALTA" in texto
 
 
 def test_el_correo_no_vende_la_confianza_como_certeza():
-    """La diferencia entre lados da t = 2,07 y no pasa la corrección. Decirlo es
-    la diferencia entre una indicación y una promesa."""
+    """La marca tiene que venir con de dónde sale y qué se descartó. Se probaron
+    8 condiciones combinadas en un modelo y NO funcionó fuera de muestra; la
+    asiática sola aguanta con 14 de 20 años y t = 2,31, sin llegar a la
+    corrección estricta. Ocultar eso convertiría una indicación en promesa."""
     plan = _plan_con_asia()
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
-        assert "INDICACIÓN" in texto and "no un hecho probado" in texto
-        assert "2,07" in texto
-        assert "las DOS órdenes puestas" in texto
+        assert "8 condiciones" in texto
+        assert "NO funcionó fuera de muestra" in texto
+        assert "14 de 20 años" in texto and "2,31" in texto
+        assert "las DOS" in texto
 
 
 def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
@@ -144,7 +147,7 @@ def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
     assert plan.favorita is None
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "trata las dos órdenes como iguales" in texto
-        assert "MÁS RESPALDO" not in texto
+        assert "LA MEJOR SI SALTA" not in texto
 
 
 def test_el_objetivo_es_una_red_de_seguridad_no_la_salida(plan):
