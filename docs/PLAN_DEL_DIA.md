@@ -70,35 +70,29 @@ objetivo, se supone el stop. Y si en el primer tramo sale del rango por los dos
 lados, no se registra ninguna operación: inventarse la dirección envenenaría el
 aprendizaje.
 
-## Cuál de las dos órdenes es la de fiar
+## Qué dice el sesgo asiático (y qué NO dice)
 
-El correo lo dice, y con el número al lado. A las 8:00 de Nueva York ya se sabe
-qué ha hecho la sesión asiática (0:00-3:00), y ese dato separa las dos rupturas:
+**No dice cuál de las dos órdenes va a saltar.** Medido sobre 3.180 días, la
+marcada es la que salta el **50,0 %** de las veces (z = 0,00): como predicción
+vale exactamente lo que una moneda al aire.
+
+Lo que dice es qué pasa *después*, una vez que ya ha saltado una:
 
 | Ruptura | R por operación | t |
 |---|---|---|
-| **a favor** de lo que hizo Asia | **+0,088** | 3,32 |
-| en contra | +0,013 | 0,54 |
+| la que acompaña a la asiática | **+0,129** | 3,91 |
+| la contraria | +0,034 | 1,14 |
 
-O sea: el lado que acompaña a Asia se lleva casi toda la ventaja y el otro se
-queda en nada. Las dos mitades del histórico coinciden en el signo, 15 de 20
-años también, y las 5 formas distintas de medir la sesión asiática que probé
-apuntan igual.
+Por eso el correo lo explica en texto y **no marca ninguna de las dos órdenes**.
+Hubo una estrella junto a la favorita y era engañosa: puesta al lado de una
+orden se lee como predicción, y el **49 % de los días parecía equivocarse** —un
+25 % saltaba la marcada y perdía, un 24 % saltaba la otra y ganaba— aunque el
+dato fuese correcto. Un dato que parece fallar la mitad de las veces destruye la
+confianza en todo lo demás que dice el correo.
 
-**Pero es una indicación, no un hecho probado.** La diferencia entre lados da
-t = 2,07 y no supera la corrección de Bonferroni que aplico (haría falta 2,81).
-Por eso:
-
-* el correo la señala con una estrella, pero **dice también su límite**;
-* **se dejan puestas las dos órdenes igualmente**. No es un filtro: quedarse
-  solo con el lado bueno da +9,1 R al año frente a +10,4 R con los dos, porque
-  se pierden la mitad de las operaciones;
-* si la sesión asiática cierra casi donde abrió (cuerpo menor que el 20 % de su
-  rango), el correo dice que **ninguna destaca**, porque esos 885 días miden
-  −0,016 R y sus dos lados se comportan igual.
-
-Y no es un "compra siempre" disfrazado: por separado, las compras dan +0,049 R
-y las ventas +0,052 R. Casi idénticas.
+**Y es una indicación, no un hecho probado.** La diferencia entre lados da
+t = 2,07 y no supera la corrección de Bonferroni (haría falta 2,81). Se dejan
+las dos órdenes puestas siempre: el sistema no elige lado, elige el mercado.
 
 ## Lo que hay que saber antes de usarla
 

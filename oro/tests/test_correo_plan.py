@@ -111,15 +111,22 @@ def _plan_con_asia(sube: bool = True):
 
 @pytest.mark.parametrize("sube,esperada,otra", [(True, "COMPRA", "VENTA"),
                                                 (False, "VENTA", "COMPRA")])
-def test_el_correo_dice_cual_de_las_dos_tiene_mas_respaldo(sube, esperada, otra):
+def test_el_correo_explica_el_sesgo_sin_marcar_ninguna_orden(sube, esperada, otra):
+    """Aquí había una estrella junto a una de las dos órdenes. Medido sobre
+    3.180 días, la marcada es la que salta el 50,0 % de las veces (z = 0.00):
+    como predicción vale lo que una moneda, y puesta al lado de una orden se lee
+    como predicción. El 49 % de los días parecía equivocarse."""
     plan = _plan_con_asia(sube)
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
-        assert "MÁS RESPALDO" in texto
-        assert f"La {esperada} tiene más respaldo" in texto
-        # Y las dos cifras que lo justifican, para no pedir fe.
-        assert "+0,088" in texto and "+0,013" in texto
-        # La otra no se descarta: sigue habiendo que ponerla.
-        assert f"La {otra} no pierde dinero" in texto
+        # Lo primero que se dice es lo que NO es.
+        assert "NO dice cuál de las dos va a saltar" in texto
+        assert "50,0 %" in texto
+        assert esperada in texto and "+0,088" in texto and "+0,013" in texto
+        # Y que la otra salte no es un fallo del sistema.
+        assert f"Si hoy salta la {otra}" in texto
+        # Ninguna orden va marcada.
+        assert "MÁS RESPALDO" not in texto
+        assert "más respaldo hoy" not in texto
 
 
 def test_el_correo_no_vende_la_confianza_como_certeza():
@@ -136,7 +143,7 @@ def test_con_asia_plana_el_correo_dice_que_ninguna_destaca(plan):
     """El `plan` de la fixture no tiene velas asiáticas: no hay favorita."""
     assert plan.favorita is None
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
-        assert "NINGUNA de las dos destaca" in texto
+        assert "trata las dos órdenes como iguales" in texto
         assert "MÁS RESPALDO" not in texto
 
 
