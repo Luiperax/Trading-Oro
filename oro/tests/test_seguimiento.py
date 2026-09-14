@@ -394,3 +394,37 @@ def test_los_crons_evitan_el_minuto_cero():
         for cron in re.findall(r'cron:\s*"([^"]+)"', texto):
             minutos = cron.split()[0]
             assert "0" not in minutos.split(","), f"{nombre}: {cron} usa el minuto :00"
+
+
+def test_la_ventana_del_vigilante_cubre_la_del_plan():
+    """El plan solo sale si hay un proceso vivo entre las 12:00 y las 14:00 UTC.
+
+    Medido sobre ejecuciones reales: GitHub sirve al trabajo del plan tres
+    turnos al día, siempre entre las 16:20 y las 17:45 UTC, pida 3 o pida 24.
+    Nunca en ventana. Lo único que ha entregado el plan a tiempo es el bucle del
+    vigilante, y con 50 minutos era una lotería: acertó el 9 y el 10, y falló el
+    11 por 33 minutos.
+
+    Con una ventana larga, una ejecución que arranque en cualquier momento de la
+    mañana sigue viva cuando abre la ventana. Esta prueba fija esa relación.
+    """
+    import re
+    from pathlib import Path
+
+    from oro.config import cargar_configuracion
+    from oro.vigilar import _num_env
+
+    raiz = Path(__file__).resolve().parents[2]
+    minutos = _num_env("ORO_BUCLE_MINUTOS", 290.0)
+    c = cargar_configuracion().ruptura
+    ventana_h = c.horas_validez               # 2 horas de ventana de disparo
+    assert minutos / 60.0 >= 2 * ventana_h, (
+        f"la ventana del vigilante ({minutos:.0f} min) debería cubrir varias "
+        f"veces la del plan ({ventana_h} h) para no depender de la suerte")
+
+    # Y el tope del workflow tiene que dejar terminar al bucle, sin pasarse del
+    # máximo de GitHub (360 min).
+    texto = (raiz / ".github" / "workflows" / "oro-alertas.yml").read_text(encoding="utf-8")
+    tope = int(re.search(r"timeout-minutes:\s*(\d+)", texto).group(1))
+    assert minutos < tope <= 360, (
+        f"tope del trabajo {tope} min frente a una ventana de {minutos:.0f} min")

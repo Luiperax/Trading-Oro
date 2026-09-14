@@ -52,9 +52,11 @@ concurrency:
 jobs:
   revisar:
     runs-on: ubuntu-latest
-    # La ventana de vigilancia dura ~50 min; este tope evita que un ciclo colgado
-    # deje la máquina ocupada. Debe superar ORO_BUCLE_MINUTOS con margen.
-    timeout-minutes: 58
+    # La ventana de vigilancia dura ~290 min (ver oro/vigilar.py: es lo único
+    # que ha entregado el plan del día a tiempo, porque es un proceso vivo).
+    # Este tope evita que un ciclo colgado deje la máquina ocupada, y debe
+    # superar ORO_BUCLE_MINUTOS con margen. El máximo de GitHub son 360.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
 

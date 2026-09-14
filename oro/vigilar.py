@@ -15,7 +15,7 @@ guardando el estado tras cada ciclo. Así:
     python -m oro.vigilar
 
 Variables de entorno:
-    ORO_BUCLE_MINUTOS   duración de la ventana en minutos (por defecto 50).
+    ORO_BUCLE_MINUTOS   duración de la ventana en minutos (por defecto 290).
     ORO_BUCLE_CADA_SEG  segundos entre revisiones (por defecto 180 = 3 min).
     ORO_ESTADO          ruta del fichero de estado (por defecto oro_estado.json).
     (más las de oro/config.py y los canales de aviso ORO_SMTP_* / ORO_TELEGRAM_*)
@@ -173,7 +173,26 @@ def main(argv=None) -> int:
     if "--probar" in argv:
         return _probar()
 
-    minutos = _num_env("ORO_BUCLE_MINUTOS", 50.0)
+    # CASI CINCO HORAS, no 50 minutos. La razón está medida sobre ejecuciones
+    # reales, no supuesta:
+    #
+    # GitHub sirve una fracción minúscula de los turnos que se le piden, y los
+    # sirve CUANDO QUIERE. El trabajo del plan pide 24 turnos al día entre las
+    # 09:00 y las 14:52 UTC, y GitHub le dio tres, siempre entre las 16:20 y las
+    # 17:45 —fuera de la ventana útil (12:00-14:00)— tres días seguidos. Pedir
+    # más turnos no sirvió de nada: el 11-sep se pasó de 3 a 24 peticiones y
+    # siguieron llegando las mismas tres, a la misma hora tardía.
+    #
+    # Lo único que ha entregado el plan a tiempo es este bucle, porque es un
+    # proceso VIVO: si está corriendo cuando abre la ventana, lo manda. Con 50
+    # minutos eso era una lotería —el 9 y el 10 acertó, el 11 falló por 33
+    # minutos— así que se alarga la ventana.
+    #
+    # Con ~5 horas por ejecución y `cancel-in-progress: false`, en cuanto una
+    # termina arranca la siguiente que estuviera en cola, así que la cobertura
+    # pasa de unas 4 horas al día a la mayor parte del día. El tope de GitHub
+    # para un trabajo son 6 horas; 290 minutos deja margen.
+    minutos = _num_env("ORO_BUCLE_MINUTOS", 290.0)
     cada = max(30.0, _num_env("ORO_BUCLE_CADA_SEG", 180.0))
 
     cfg = cargar_configuracion()
