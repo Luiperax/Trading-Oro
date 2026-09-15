@@ -131,41 +131,48 @@ def _cerrar_antes_de_ceder(runner, ruta: str) -> None:
     _guardar_en_repo(ruta)
 
 
-def _atender_ruptura() -> None:
-    """Manda el plan de ruptura y sigue su operación, desde dentro del bucle.
+def _atender_ruptura(ruta_estado: str) -> None:
+    """Manda el plan de ruptura y sigue su operacion, desde dentro del bucle.
 
-    POR QUÉ AQUÍ Y NO SOLO EN SU PROPIO TRABAJO
+    POR QUE AQUI Y NO SOLO EN SU PROPIO TRABAJO
     -------------------------------------------
-    `oro-plan.yml` y `oro-seguimiento.yml` existen y son correctos —lanzados a
-    mano funcionan— pero GitHub NO los estaba disparando: cero ejecuciones en
-    su primer día laborable, con trece huecos programados. El repositorio
-    declara del orden de 180 ejecuciones programadas al día entre todos los
-    trabajos, y GitHub estrangula: el vigilante, que pide arrancar cada 15
-    minutos, arranca de verdad 4 o 6 veces al día.
-
-    Depender de un cron nuevo en un repositorio ya estrangulado era construir
-    sobre arena. Aquí, en cambio, hay un proceso VIVO durante 50 minutos que ya
-    ha ganado su turno: aprovecharlo no cuesta ni un arranque más.
+    `oro-plan.yml` y `oro-seguimiento.yml` existen y son correctos, pero GitHub
+    apenas los dispara: al trabajo del plan le sirve tres turnos al dia, siempre
+    entre las 16:20 y las 17:45 UTC, pida 3 o pida 24, y la ventana util son las
+    12:00-14:00. Aqui, en cambio, hay un proceso VIVO que ya gano su turno.
 
     Las dos llamadas son baratas e idempotentes: fuera de su horario salen en
-    dos líneas, y dentro no repiten nada que ya hayan hecho (el plan recuerda
-    el día enviado y el seguimiento recuerda los avisos mandados).
+    dos lineas, y dentro no repiten nada que ya hayan hecho (el plan recuerda el
+    dia enviado y el seguimiento recuerda los avisos mandados).
+
+    SE GUARDA EN CUANTO PASA ALGO, no al final de la ventana. El bucle dura casi
+    cinco horas: si la maquina muere entre que se manda el plan y que termina,
+    el repositorio no se entera de que ya se envio y la siguiente ejecucion lo
+    manda OTRA VEZ. Cinco horas es demasiado tiempo para dejar esa memoria solo
+    en el disco del runner.
+
+    Un fallo aqui no puede tumbar el vigilante: lo unico verdaderamente critico
+    es gestionar las operaciones abiertas.
     """
-    for nombre, ejecutar in (("plan", _ejecutar_plan), ("seguimiento", _ejecutar_seguimiento)):
+    antes = _dia_del_plan()
+    for nombre, modulo in (("plan", "plan_sesion"), ("seguimiento", "seguir_plan")):
         try:
-            ejecutar()
-        except Exception as e:  # noqa: BLE001 — la ruptura no puede tumbar el vigilante.
+            __import__(f"oro.{modulo}", fromlist=["ejecutar"]).ejecutar()
+        except Exception as e:  # noqa: BLE001
             print(f"  ! error en {nombre} de ruptura:", type(e).__name__, str(e)[:100])
+    if _dia_del_plan() != antes:
+        if _guardar_en_repo(ruta_estado):
+            print("  ✔ plan de ruptura guardado en el repositorio (a salvo).")
 
 
-def _ejecutar_plan() -> None:
-    from .plan_sesion import ejecutar
-    ejecutar()
-
-
-def _ejecutar_seguimiento() -> None:
-    from .seguir_plan import ejecutar
-    ejecutar()
+def _dia_del_plan():
+    """Dia del ultimo plan enviado, o None. Sirve para detectar que se acaba de
+    mandar uno y hay que subirlo ya."""
+    try:
+        from .plan_sesion import _ultimo_dia_enviado
+        return _ultimo_dia_enviado()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def main(argv=None) -> int:
@@ -234,7 +241,12 @@ def main(argv=None) -> int:
         except Exception as e:  # noqa: BLE001 — el bucle no debe caerse por un fallo puntual.
             print("  ! error en el ciclo:", type(e).__name__, str(e)[:100])
 
-        _atender_ruptura()
+        # Se guarda EN CUANTO pasa algo con la ruptura, no al final de la ventana.
+        # El bucle dura casi cinco horas: si la máquina muere entre que se manda
+        # el plan y que termina, el repositorio no se entera de que ya se envió y
+        # la siguiente ejecución lo manda OTRA VEZ. Cinco horas es mucho tiempo
+        # para dejar esa memoria solo en el disco del runner.
+        _atender_ruptura(ruta)
 
         if _toca_relevo(cfg):
             # Se cede el turno al trabajo de cierre, pero NO se deja la operación

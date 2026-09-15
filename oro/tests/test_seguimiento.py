@@ -351,34 +351,70 @@ def test_no_se_sigue_un_plan_de_otro_dia(entorno):
 # ---- El vigilante atiende la ruptura desde su propio bucle ----
 
 def test_el_vigilante_manda_el_plan_y_lo_sigue(monkeypatch):
-    """GitHub no disparaba `oro-plan.yml` ni `oro-seguimiento.yml`: cero
-    ejecuciones en su primer día laborable, con trece huecos programados. El
-    repositorio declara ~180 ejecuciones al día y GitHub estrangula.
-
-    El vigilante ya tiene un proceso vivo 50 minutos que ganó su turno, así que
-    hace también este trabajo. Esta prueba fija que lo llama de verdad.
-    """
-    from oro import vigilar
+    """GitHub apenas dispara `oro-plan.yml`: tres turnos al día, siempre entre
+    las 16:20 y las 17:45 UTC, y la ventana útil son las 12:00-14:00. El
+    vigilante tiene un proceso vivo que ya ganó su turno, así que hace también
+    este trabajo. Esta prueba fija que llama a los dos."""
+    from oro import plan_sesion, seguir_plan, vigilar
 
     llamadas = []
-    monkeypatch.setattr(vigilar, "_ejecutar_plan", lambda: llamadas.append("plan"))
-    monkeypatch.setattr(vigilar, "_ejecutar_seguimiento",
-                        lambda: llamadas.append("seguimiento"))
-    vigilar._atender_ruptura()
+    monkeypatch.setattr(plan_sesion, "ejecutar",
+                        lambda *a, **k: llamadas.append("plan") or 0)
+    monkeypatch.setattr(seguir_plan, "ejecutar",
+                        lambda *a, **k: llamadas.append("seguimiento") or 0)
+    monkeypatch.setattr(vigilar, "_dia_del_plan", lambda: None)
+    vigilar._atender_ruptura("estado.json")
     assert llamadas == ["plan", "seguimiento"]
+
+
+def test_al_mandar_el_plan_se_guarda_en_el_repositorio_al_instante(monkeypatch):
+    """El bucle dura casi cinco horas. Si la máquina muere entre que se manda el
+    plan y que termina, el repositorio no se entera y la ejecución siguiente lo
+    manda OTRA VEZ. Por eso se sube en cuanto cambia el día del plan."""
+    import datetime as _dt
+
+    from oro import plan_sesion, seguir_plan, vigilar
+
+    monkeypatch.setattr(plan_sesion, "ejecutar", lambda *a, **k: 0)
+    monkeypatch.setattr(seguir_plan, "ejecutar", lambda *a, **k: 0)
+    dias = iter([None, _dt.date(2026, 9, 15)])       # antes y después
+    monkeypatch.setattr(vigilar, "_dia_del_plan", lambda: next(dias))
+    guardados = []
+    monkeypatch.setattr(vigilar, "_guardar_en_repo",
+                        lambda ruta: guardados.append(ruta) or True)
+    vigilar._atender_ruptura("estado.json")
+    assert guardados == ["estado.json"]
+
+
+def test_si_el_plan_no_cambia_no_se_guarda_cada_tres_minutos(monkeypatch):
+    """El bucle pasa por aquí cada 3 minutos durante horas. Subir al repositorio
+    en cada pasada sería un commit cada tres minutos sin nada que guardar."""
+    import datetime as _dt
+
+    from oro import plan_sesion, seguir_plan, vigilar
+
+    monkeypatch.setattr(plan_sesion, "ejecutar", lambda *a, **k: 0)
+    monkeypatch.setattr(seguir_plan, "ejecutar", lambda *a, **k: 0)
+    monkeypatch.setattr(vigilar, "_dia_del_plan", lambda: _dt.date(2026, 9, 15))
+    guardados = []
+    monkeypatch.setattr(vigilar, "_guardar_en_repo",
+                        lambda ruta: guardados.append(ruta) or True)
+    vigilar._atender_ruptura("estado.json")
+    assert guardados == []
 
 
 def test_un_fallo_de_la_ruptura_no_tumba_el_vigilante(monkeypatch, capsys):
     """Lo único verdaderamente crítico del vigilante es gestionar las
     operaciones abiertas. Un error en la ruptura no puede impedirlo."""
-    from oro import vigilar
+    from oro import plan_sesion, seguir_plan, vigilar
 
-    def revienta():
+    def revienta(*a, **k):
         raise RuntimeError("proveedor caído")
 
-    monkeypatch.setattr(vigilar, "_ejecutar_plan", revienta)
-    monkeypatch.setattr(vigilar, "_ejecutar_seguimiento", revienta)
-    vigilar._atender_ruptura()          # no debe lanzar
+    monkeypatch.setattr(plan_sesion, "ejecutar", revienta)
+    monkeypatch.setattr(seguir_plan, "ejecutar", revienta)
+    monkeypatch.setattr(vigilar, "_dia_del_plan", lambda: None)
+    vigilar._atender_ruptura("estado.json")          # no debe lanzar
     assert "error en plan de ruptura" in capsys.readouterr().out
 
 
