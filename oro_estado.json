@@ -1,15 +1,15 @@
 {
   "fecha": "2026-09-15",
   "senales_hoy": 1,
-  "perdida_r_hoy": 0.967,
+  "perdida_r_hoy": 1.0,
   "ultima_vela_senal": "2026-09-15T04:00:00+00:00",
   "historial": [
     {
       "tipo": "cierre",
-      "momento": "2026-09-15T08:04:18.762080+00:00",
-      "precio": 4319.3,
-      "mensaje": "STOP alcanzado a 4319.30. Salir. Resultado total: -0.97R.",
-      "r": -0.97
+      "momento": "2026-09-15T08:58:57.985263+00:00",
+      "precio": 4318.4,
+      "mensaje": "STOP alcanzado a 4318.40. Salir. Resultado total: -1.00R.",
+      "r": -1.0
     },
     {
       "tipo": "entrada",
