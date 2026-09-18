@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-09-18",
-  "avisados": [],
+  "avisados": [
+    "2026-09-18:break-even"
+  ],
   "plan": {
     "dia": "2026-09-18",
     "rango": {
