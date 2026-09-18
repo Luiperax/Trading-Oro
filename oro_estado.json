@@ -6,20 +6,6 @@
   "historial": [
     {
       "tipo": "mover_stop",
-      "momento": "2026-09-18T08:02:01.637570+00:00",
-      "precio": 4410.75,
-      "mensaje": "VA BIEN. Mueve el STOP a 4410.75: te deja +0.60R asegurados aunque el precio se gire. El objetivo sigue en 4449.79; no lo toques.",
-      "r": 0.0
-    },
-    {
-      "tipo": "ampliar_objetivo",
-      "momento": "2026-09-18T06:58:31.532981+00:00",
-      "precio": 4477.74,
-      "mensaje": "El precio se acerca al objetivo de 4449.79 sin haber llegado. Si puedes, sube el TAKE PROFIT a 4477.74 (3.0R) para dar más recorrido. Si no llegas a tiempo no pasa nada: el objetivo de ahora se ejecuta igual.",
-      "r": 0.0
-    },
-    {
-      "tipo": "mover_stop",
       "momento": "2026-09-18T06:13:08.188844+00:00",
       "precio": 4395.85,
       "mensaje": "Mueve el STOP a 4395.85: a partir de ahora esta operación YA NO PUEDE PERDER DINERO. El objetivo sigue en 4449.79; no lo toques.",
@@ -393,6 +379,22 @@
       "stop": 4320.27,
       "mensaje": "[VENTA] XAU/USD @ 4291.20 | SL 4320.27 | TP 4262.13 (1.0R) / 4233.05 (2.0R) / 4203.98 (3.0R) | P≈67% conf 89% | R:R 1.70",
       "prob": 0.67
+    },
+    {
+      "tipo": "cierre",
+      "momento": "2026-07-20T22:27:31+00:00",
+      "precio": 4012.0,
+      "mensaje": "Cierre INTRADÍA a 4012.00 (no se mantiene de un día para otro). Resultado total: -0.51R.",
+      "r": -0.51
+    },
+    {
+      "tipo": "entrada",
+      "momento": "2026-07-20T07:44:02+00:00",
+      "direccion": "compra",
+      "entrada": 4023.9,
+      "stop": 4000.61,
+      "mensaje": "[COMPRA] XAU/USD @ 4023.90 | SL 4000.61 | TP 4047.19 (1.0R) / 4070.48 (2.0R) / 4093.77 (3.0R) | P≈67% conf 88% | R:R 1.70",
+      "prob": 0.67
     }
   ],
   "abiertas": [
@@ -400,7 +402,7 @@
       "direccion": "compra",
       "entrada": 4393.89990234375,
       "riesgo": 27.946695609116432,
-      "stop_actual": 4410.753304390883,
+      "stop_actual": 4407.653304390884,
       "en_breakeven": true,
       "restante": 1.0,
       "r_acumulado": 0.0,
@@ -413,11 +415,11 @@
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4410.753304390883,
+      "stop_avisado": 4395.853304390884,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
-      "ampliacion_avisada": true,
-      "peak": 4438.7,
+      "ampliacion_avisada": false,
+      "peak": 4435.6,
       "probabilidad": 0.6926799467277023,
       "confianza": 0.9181142096110033,
       "stop_inicial": 4365.953206734634,
