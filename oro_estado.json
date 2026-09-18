@@ -6,10 +6,24 @@
   "historial": [
     {
       "tipo": "cierre",
-      "momento": "2026-09-18T12:31:13.384907+00:00",
-      "precio": 4407.65,
-      "mensaje": "Cierre por STOP DINÁMICO a 4407.65 (beneficio asegurado). Resultado total: +0.49R.",
-      "r": 0.49
+      "momento": "2026-09-18T14:17:25.254770+00:00",
+      "precio": 4410.75,
+      "mensaje": "Cierre por STOP DINÁMICO a 4410.75 (beneficio asegurado). Resultado total: +0.60R.",
+      "r": 0.6
+    },
+    {
+      "tipo": "mover_stop",
+      "momento": "2026-09-18T08:02:01.637570+00:00",
+      "precio": 4410.75,
+      "mensaje": "VA BIEN. Mueve el STOP a 4410.75: te deja +0.60R asegurados aunque el precio se gire. El objetivo sigue en 4449.79; no lo toques.",
+      "r": 0.0
+    },
+    {
+      "tipo": "ampliar_objetivo",
+      "momento": "2026-09-18T06:58:31.532981+00:00",
+      "precio": 4477.74,
+      "mensaje": "El precio se acerca al objetivo de 4449.79 sin haber llegado. Si puedes, sube el TAKE PROFIT a 4477.74 (3.0R) para dar más recorrido. Si no llegas a tiempo no pasa nada: el objetivo de ahora se ejecuta igual.",
+      "r": 0.0
     },
     {
       "tipo": "mover_stop",
@@ -377,22 +391,6 @@
       "stop": 4320.27,
       "mensaje": "[VENTA] XAU/USD @ 4291.20 | SL 4320.27 | TP 4262.13 (1.0R) / 4233.05 (2.0R) / 4203.98 (3.0R) | P≈67% conf 89% | R:R 1.70",
       "prob": 0.67
-    },
-    {
-      "tipo": "entrada",
-      "momento": "2026-08-07T00:00:00+00:00",
-      "direccion": "venta",
-      "entrada": 4291.2,
-      "stop": 4320.27,
-      "mensaje": "[VENTA] XAU/USD @ 4291.20 | SL 4320.27 | TP 4262.13 (1.0R) / 4233.05 (2.0R) / 4203.98 (3.0R) | P≈67% conf 89% | R:R 1.70",
-      "prob": 0.67
-    },
-    {
-      "tipo": "cierre",
-      "momento": "2026-07-20T22:27:31+00:00",
-      "precio": 4012.0,
-      "mensaje": "Cierre INTRADÍA a 4012.00 (no se mantiene de un día para otro). Resultado total: -0.51R.",
-      "r": -0.51
     }
   ],
   "abiertas": []
