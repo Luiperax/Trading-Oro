@@ -1,9 +1,18 @@
 {
-  "fecha": "2026-09-23",
-  "senales_hoy": 0,
+  "fecha": "2026-09-24",
+  "senales_hoy": 1,
   "perdida_r_hoy": 0.0,
-  "ultima_vela_senal": "2026-09-22T16:00:00+00:00",
+  "ultima_vela_senal": "2026-09-23T22:00:00+00:00",
   "historial": [
+    {
+      "tipo": "entrada",
+      "momento": "2026-09-23T22:00:00+00:00",
+      "direccion": "venta",
+      "entrada": 4324.2,
+      "stop": 4345.04,
+      "mensaje": "[VENTA] XAU/USD @ 4324.20 | SL 4345.04 | TP 4282.51 (2.0R) | P≈64% conf 84% | R:R 2.00",
+      "prob": 0.64
+    },
     {
       "tipo": "cierre",
       "momento": "2026-09-22T19:31:41.975662+00:00",
@@ -380,16 +389,74 @@
       "stop": 4436.7,
       "mensaje": "[COMPRA] XAU/USD @ 4460.90 | SL 4436.70 | TP 4485.10 (1.0R) / 4509.30 (2.0R) / 4533.51 (3.0R) | P≈64% conf 85% | R:R 1.70",
       "prob": 0.65
-    },
-    {
-      "tipo": "entrada",
-      "momento": "2026-08-12T06:00:00+00:00",
-      "direccion": "compra",
-      "entrada": 4462.8,
-      "stop": 4438.6,
-      "mensaje": "[COMPRA] XAU/USD @ 4462.80 | SL 4438.60 | TP 4487.00 (1.0R) / 4511.20 (2.0R) / 4535.41 (3.0R) | P≈64% conf 85% | R:R 1.70",
-      "prob": 0.65
     }
   ],
-  "abiertas": []
+  "abiertas": [
+    {
+      "direccion": "venta",
+      "entrada": 4324.2001953125,
+      "riesgo": 20.84432912070315,
+      "stop_actual": 4345.044524433203,
+      "en_breakeven": false,
+      "restante": 1.0,
+      "r_acumulado": 0.0,
+      "estado": "abierta",
+      "abierta_en": "2026-09-23T22:00:00+00:00",
+      "resumen": "[VENTA] XAU/USD @ 4324.20 | SL 4345.04 | TP 4282.51 (2.0R) | P≈64% conf 84% | R:R 2.00",
+      "cerrar_intradia": true,
+      "hora_cierre_et": 16,
+      "hora_cierre": 16,
+      "trailing": true,
+      "trailing_r": 1.0,
+      "trailing_desde_entrada": true,
+      "stop_avisado": 4345.044524433203,
+      "r_ampliacion": 3.0,
+      "r_disparo": 1.5,
+      "ampliacion_avisada": false,
+      "peak": 4324.2001953125,
+      "probabilidad": 0.638,
+      "confianza": 0.84,
+      "stop_inicial": 4345.044524433203,
+      "features": {
+        "ret_1": 0.000347,
+        "ret_5": -0.001225,
+        "ret_20": -0.010696,
+        "dist_ema20_atr": -1.103666,
+        "dist_ema50_atr": -2.472677,
+        "dist_ema200_atr": -4.324799,
+        "pendiente_ema50": -0.560649,
+        "rsi_14": 36.431564,
+        "rsi_norm": -0.271369,
+        "macd_hist_norm": -0.057577,
+        "adx": 37.688964,
+        "di_diff": -0.12337,
+        "bb_pct_b": 0.283006,
+        "bb_ancho": 0.019188,
+        "atr_rel": 0.739771,
+        "atr_z": -1.589761,
+        "dist_vwap_atr": -1.235411,
+        "vol_rel": 0.833089,
+        "sesion_sin": -0.5,
+        "sesion_cos": 0.866025,
+        "cuerpo_rel": 0.02528,
+        "mecha_sup_rel": 0.556957,
+        "mecha_inf_rel": 0.417764
+      },
+      "motivos": [
+        "El oro viene bajando y vendemos a favor de ese movimiento.",
+        "El movimiento tiene fuerza, no es un mercado parado (ADX 38).",
+        "El impulso reciente empuja en nuestra dirección (MACD y DI).",
+        "No llegamos tarde: el precio aún no está agotado (RSI 36).",
+        "El precio está del lado bueno del precio medio del día (VWAP)."
+      ],
+      "niveles": [
+        [
+          4282.511537071093,
+          1.0,
+          2.0,
+          false
+        ]
+      ]
+    }
+  ]
 }
