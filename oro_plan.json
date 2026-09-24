@@ -1,8 +1,6 @@
 {
   "ultimo_plan": "2026-09-24",
-  "avisados": [
-    "2026-09-24:caducado"
-  ],
+  "avisados": [],
   "plan": {
     "dia": "2026-09-24",
     "rango": {
@@ -33,6 +31,5 @@
       "cuerpo": -8.80029296875,
       "rango": 22.2001953125
     }
-  },
-  "registrado": "2026-09-24"
+  }
 }
