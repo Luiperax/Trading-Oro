@@ -5,6 +5,13 @@
   "ultima_vela_senal": "2026-09-23T22:00:00+00:00",
   "historial": [
     {
+      "tipo": "cierre",
+      "momento": "2026-09-24T10:35:45.169759+00:00",
+      "precio": 4281.5,
+      "mensaje": "Todos los objetivos alcanzados. Operación cerrada. Resultado total: +2.00R.",
+      "r": 2.0
+    },
+    {
       "tipo": "mover_stop",
       "momento": "2026-09-24T10:17:34.166342+00:00",
       "precio": 4305.94,
@@ -380,81 +387,7 @@
       "precio": 4471.8,
       "mensaje": "Cierre por STOP DINÁMICO a 4471.80 (beneficio asegurado). Resultado total: +0.69R.",
       "r": 0.69
-    },
-    {
-      "tipo": "mover_stop",
-      "momento": "2026-08-12T11:00:00+00:00",
-      "precio": 4462.8,
-      "mensaje": "Mover STOP a break-even (4462.80). Operación sin riesgo a partir de ahora.",
-      "r": 0.5
     }
   ],
-  "abiertas": [
-    {
-      "direccion": "venta",
-      "entrada": 4324.2001953125,
-      "riesgo": 20.84432912070315,
-      "stop_actual": 4305.9443291207035,
-      "en_breakeven": true,
-      "restante": 1.0,
-      "r_acumulado": 0.0,
-      "estado": "abierta",
-      "abierta_en": "2026-09-23T22:00:00+00:00",
-      "resumen": "",
-      "cerrar_intradia": true,
-      "hora_cierre_et": 16,
-      "hora_cierre": 16,
-      "trailing": true,
-      "trailing_r": 1.0,
-      "trailing_desde_entrada": true,
-      "stop_avisado": 4305.9443291207035,
-      "r_ampliacion": 3.0,
-      "r_disparo": 1.5,
-      "ampliacion_avisada": true,
-      "peak": 4285.1,
-      "probabilidad": 0.638,
-      "confianza": 0.84,
-      "stop_inicial": 4345.044524433203,
-      "features": {
-        "ret_1": 0.000347,
-        "ret_5": -0.001225,
-        "ret_20": -0.010696,
-        "dist_ema20_atr": -1.103666,
-        "dist_ema50_atr": -2.472677,
-        "dist_ema200_atr": -4.324799,
-        "pendiente_ema50": -0.560649,
-        "rsi_14": 36.431564,
-        "rsi_norm": -0.271369,
-        "macd_hist_norm": -0.057577,
-        "adx": 37.688964,
-        "di_diff": -0.12337,
-        "bb_pct_b": 0.283006,
-        "bb_ancho": 0.019188,
-        "atr_rel": 0.739771,
-        "atr_z": -1.589761,
-        "dist_vwap_atr": -1.235411,
-        "vol_rel": 0.833089,
-        "sesion_sin": -0.5,
-        "sesion_cos": 0.866025,
-        "cuerpo_rel": 0.02528,
-        "mecha_sup_rel": 0.556957,
-        "mecha_inf_rel": 0.417764
-      },
-      "motivos": [
-        "El oro viene bajando y vendemos a favor de ese movimiento.",
-        "El movimiento tiene fuerza, no es un mercado parado (ADX 38).",
-        "El impulso reciente empuja en nuestra dirección (MACD y DI).",
-        "No llegamos tarde: el precio aún no está agotado (RSI 36).",
-        "El precio está del lado bueno del precio medio del día (VWAP)."
-      ],
-      "niveles": [
-        [
-          4282.511537071093,
-          1.0,
-          2.0,
-          false
-        ]
-      ]
-    }
-  ]
+  "abiertas": []
 }
