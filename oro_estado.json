@@ -5,6 +5,13 @@
   "ultima_vela_senal": "2026-09-23T22:00:00+00:00",
   "historial": [
     {
+      "tipo": "mover_stop",
+      "momento": "2026-09-24T02:10:42.760082+00:00",
+      "precio": 4331.94,
+      "mensaje": "El precio va a favor. Mueve el STOP a 4331.94: si se gira ahora pierdes -0.37R en vez de -1.00R. El objetivo sigue en 4282.51; no lo toques.",
+      "r": 0.0
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-09-23T22:00:00+00:00",
       "direccion": "venta",
@@ -380,15 +387,6 @@
       "precio": 4485.1,
       "mensaje": "TP1 alcanzado a 4485.10 (1.0R). Cerrar 50% de la posición.",
       "r": 0.5
-    },
-    {
-      "tipo": "entrada",
-      "momento": "2026-08-12T06:00:00+00:00",
-      "direccion": "compra",
-      "entrada": 4460.9,
-      "stop": 4436.7,
-      "mensaje": "[COMPRA] XAU/USD @ 4460.90 | SL 4436.70 | TP 4485.10 (1.0R) / 4509.30 (2.0R) / 4533.51 (3.0R) | P≈64% conf 85% | R:R 1.70",
-      "prob": 0.65
     }
   ],
   "abiertas": [
@@ -396,7 +394,7 @@
       "direccion": "venta",
       "entrada": 4324.2001953125,
       "riesgo": 20.84432912070315,
-      "stop_actual": 4345.044524433203,
+      "stop_actual": 4331.9443291207035,
       "en_breakeven": false,
       "restante": 1.0,
       "r_acumulado": 0.0,
@@ -409,11 +407,11 @@
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4345.044524433203,
+      "stop_avisado": 4331.9443291207035,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
       "ampliacion_avisada": false,
-      "peak": 4324.2001953125,
+      "peak": 4311.1,
       "probabilidad": 0.638,
       "confianza": 0.84,
       "stop_inicial": 4345.044524433203,
