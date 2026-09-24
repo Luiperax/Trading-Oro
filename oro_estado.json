@@ -6,9 +6,9 @@
   "historial": [
     {
       "tipo": "mover_stop",
-      "momento": "2026-09-24T08:34:20.311289+00:00",
-      "precio": 4323.54,
-      "mensaje": "Mueve el STOP a 4323.54: a partir de ahora esta operación YA NO PUEDE PERDER DINERO. El objetivo sigue en 4282.51; no lo toques.",
+      "momento": "2026-09-24T09:29:06.554465+00:00",
+      "precio": 4316.64,
+      "mensaje": "Mueve el STOP a 4316.64: a partir de ahora esta operación YA NO PUEDE PERDER DINERO. El objetivo sigue en 4282.51; no lo toques.",
       "r": 0.0
     },
     {
@@ -394,7 +394,7 @@
       "direccion": "venta",
       "entrada": 4324.2001953125,
       "riesgo": 20.84432912070315,
-      "stop_actual": 4315.4443291207035,
+      "stop_actual": 4316.644329120703,
       "en_breakeven": true,
       "restante": 1.0,
       "r_acumulado": 0.0,
@@ -407,11 +407,11 @@
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4323.544329120703,
+      "stop_avisado": 4316.644329120703,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
       "ampliacion_avisada": false,
-      "peak": 4294.6,
+      "peak": 4295.8,
       "probabilidad": 0.638,
       "confianza": 0.84,
       "stop_inicial": 4345.044524433203,
