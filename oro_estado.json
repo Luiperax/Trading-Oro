@@ -5,6 +5,13 @@
   "ultima_vela_senal": "2026-09-25T06:00:00+00:00",
   "historial": [
     {
+      "tipo": "mover_stop",
+      "momento": "2026-09-25T08:55:10.228710+00:00",
+      "precio": 4300.17,
+      "mensaje": "El precio va a favor. Mueve el STOP a 4300.17: si se gira ahora pierdes -0.39R en vez de -1.00R. El objetivo sigue en 4364.85; no lo toques.",
+      "r": 0.0
+    },
+    {
       "tipo": "entrada",
       "momento": "2026-09-25T06:00:00+00:00",
       "direccion": "compra",
@@ -380,13 +387,6 @@
       "precio": 4425.48,
       "mensaje": "STOP alcanzado a 4425.48. Salir. Resultado total: -1.00R.",
       "r": -1.0
-    },
-    {
-      "tipo": "cierre",
-      "momento": "2026-08-19T10:00:00+00:00",
-      "precio": 4425.48,
-      "mensaje": "STOP alcanzado a 4425.48. Salir. Resultado total: -1.00R.",
-      "r": -1.0
     }
   ],
   "abiertas": [
@@ -394,7 +394,7 @@
       "direccion": "compra",
       "entrada": 4310.7998046875,
       "riesgo": 27.026968640052473,
-      "stop_actual": 4283.7728360474475,
+      "stop_actual": 4300.173031359947,
       "en_breakeven": false,
       "restante": 1.0,
       "r_acumulado": 0.0,
@@ -407,11 +407,11 @@
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4283.7728360474475,
+      "stop_avisado": 4300.173031359947,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
       "ampliacion_avisada": false,
-      "peak": 4310.7998046875,
+      "peak": 4327.2,
       "probabilidad": 0.6659999999999999,
       "confianza": 0.8799999999999999,
       "stop_inicial": 4283.7728360474475,
