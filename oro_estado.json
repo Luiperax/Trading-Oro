@@ -6,6 +6,13 @@
   "historial": [
     {
       "tipo": "mover_stop",
+      "momento": "2026-09-30T08:49:45.607066+00:00",
+      "precio": 4212.79,
+      "mensaje": "Mueve el STOP a 4212.79: a partir de ahora esta operación YA NO PUEDE PERDER DINERO. El objetivo sigue en 4254.12; no lo toques.",
+      "r": 0.0
+    },
+    {
+      "tipo": "mover_stop",
       "momento": "2026-09-30T07:02:59.670151+00:00",
       "precio": 4201.89,
       "mensaje": "El precio va a favor. Mueve el STOP a 4201.89: si se gira ahora pierdes -0.50R en vez de -1.00R. El objetivo sigue en 4254.12; no lo toques.",
@@ -380,13 +387,6 @@
       "stop": 4735.34,
       "mensaje": "[VENTA] XAU/USD @ 4702.60 | SL 4735.34 | TP 4669.86 (1.0R) / 4637.12 (2.0R) / 4604.39 (3.0R) | P≈66% conf 87% | R:R 1.70",
       "prob": 0.66
-    },
-    {
-      "tipo": "cierre",
-      "momento": "2026-08-19T10:00:00+00:00",
-      "precio": 4425.48,
-      "mensaje": "STOP alcanzado a 4425.48. Salir. Resultado total: -1.00R.",
-      "r": -1.0
     }
   ],
   "abiertas": [
@@ -394,24 +394,24 @@
       "direccion": "compra",
       "entrada": 4212.2998046875,
       "riesgo": 20.90793812492575,
-      "stop_actual": 4210.692061875075,
-      "en_breakeven": false,
+      "stop_actual": 4212.792061875074,
+      "en_breakeven": true,
       "restante": 1.0,
       "r_acumulado": 0.0,
       "estado": "abierta",
       "abierta_en": "2026-09-30T05:00:00+00:00",
-      "resumen": "[COMPRA] XAU/USD @ 4212.30 | SL 4191.39 | TP 4254.12 (2.0R) | P≈65% conf 86% | R:R 2.00",
+      "resumen": "",
       "cerrar_intradia": true,
       "hora_cierre_et": 16,
       "hora_cierre": 16,
       "trailing": true,
       "trailing_r": 1.0,
       "trailing_desde_entrada": true,
-      "stop_avisado": 4201.892061875074,
+      "stop_avisado": 4212.792061875074,
       "r_ampliacion": 3.0,
       "r_disparo": 1.5,
       "ampliacion_avisada": false,
-      "peak": 4231.6,
+      "peak": 4233.7,
       "probabilidad": 0.6523580782288539,
       "confianza": 0.8605115403269341,
       "stop_inicial": 4191.391866562574,
