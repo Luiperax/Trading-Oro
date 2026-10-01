@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-10-01",
-  "avisados": [],
+  "avisados": [
+    "2026-10-01:cierre"
+  ],
   "plan": {
     "dia": "2026-10-01",
     "rango": {
@@ -31,5 +33,6 @@
       "cuerpo": 6.60009765625,
       "rango": 22.0
     }
-  }
+  },
+  "registrado": "2026-10-01"
 }
