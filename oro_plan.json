@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-10-02",
-  "avisados": [],
+  "avisados": [
+    "2026-10-02:break-even"
+  ],
   "plan": {
     "dia": "2026-10-02",
     "rango": {
@@ -31,5 +33,6 @@
       "cuerpo": 3.39990234375,
       "rango": 19.599609375
     }
-  }
+  },
+  "registrado": "2026-10-02"
 }
