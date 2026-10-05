@@ -39,7 +39,7 @@ from typing import Iterator, Optional
 
 from .config import ConfiguracionSistema, cargar_configuracion
 from .dominio.mercado import dia_sesion, hora_mercado
-from .seguimiento import registro_de, seguir
+from .seguimiento import deslizamiento_de, registro_de, seguir
 from .spread import spread_de
 from .sesiones import construir_plan
 
@@ -90,10 +90,13 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None) -> list[dict]:
         # falso en los dos extremos: cobrarle a 2016 el spread de 2026 (0.63 $
         # frente a 0.295 real) baja el resultado histórico de +0.1029 a +0.0680
         # R por operación e inventa una estrategia peor de lo que fue.
-        coste = spread_de(dia.year)
+        coste = spread_de(dia.year) + deslizamiento_de(plan, cfg)
         ficha = registro_de(plan, s, coste)
         ficha["origen"] = "historico"
-        ficha["spread_usado"] = round(coste, 3)
+        # Los dos componentes por separado: si mañana se vuelve a medir uno,
+        # hay que poder saber con qué se calculó cada R de hace meses.
+        ficha["spread_usado"] = round(spread_de(dia.year), 3)
+        ficha["deslizamiento_usado"] = round(deslizamiento_de(plan, cfg), 3)
         fichas.append(ficha)
     return fichas
 

@@ -1,34 +1,34 @@
 {
-  "operaciones_historico": 2131,
+  "operaciones_historico": 2208,
   "operaciones_vivo": 12,
   "aprendizaje": {
-    "operaciones": 2131,
+    "operaciones": 2208,
     "anios_fuera_de_muestra": 17,
-    "auc": 0.5203,
-    "auc_anios_sobre_050": 12,
-    "t_auc_vs_050": 1.36,
-    "p_valor": 0.2435,
-    "ventaja_mitad_alta_R": 0.037,
-    "t_ventaja": 0.54,
-    "r_al_anio_sin_filtrar": 13.37,
-    "r_al_anio_filtrando": 5.92,
+    "auc": 0.5223,
+    "auc_anios_sobre_050": 11,
+    "t_auc_vs_050": 1.71,
+    "p_valor": 0.1648,
+    "ventaja_mitad_alta_R": 0.0209,
+    "t_ventaja": 0.41,
+    "r_al_anio_sin_filtrar": 11.4,
+    "r_al_anio_filtrando": 5.41,
     "promocionado": false,
     "razones_para_no_promocionar": [
-      "AUC 0.5203 < 0.55",
-      "p = 0.2435 ≥ 0.05",
+      "AUC 0.5223 < 0.55",
+      "p = 0.1648 ≥ 0.05",
       "no es positivo en las dos mitades bloqueadas",
-      "filtrando se gana MENOS al año (+5.92 R frente a +13.37 R)"
+      "filtrando se gana MENOS al año (+5.41 R frente a +11.40 R)"
     ]
   },
   "vigilancia": {
     "operaciones_en_vivo": 12,
-    "r_op_esperado": 0.1143,
+    "r_op_esperado": 0.0786,
     "r_op_real": -0.2633,
-    "z": -1.08,
-    "acierto_esperado": 0.4,
+    "z": -0.96,
+    "acierto_esperado": 0.392,
     "acierto_real": 0.417,
-    "z_acierto": 0.12,
-    "operaciones_para_demostrar_la_ventaja": 690,
+    "z_acierto": 0.17,
+    "operaciones_para_demostrar_la_ventaja": 1515,
     "alerta": null,
     "veredicto": "compatible con lo medido"
   }

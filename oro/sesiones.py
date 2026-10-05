@@ -178,6 +178,9 @@ class PlanRuptura:
     # la compra es un lastre de -7.7 R/año y la venta tardía, de -11.9 R/año.
     solo_ventas: bool = False
     anular_si_rompe_arriba: bool = True
+    # Sale hoy el dato de empleo de EE. UU. a las 8:30 ET. Ese día van las dos
+    # órdenes aunque la estrategia normal sea solo venta.
+    dia_de_empleo: bool = False
 
     @property
     def ordenes(self) -> List["OrdenPendiente"]:
@@ -190,7 +193,10 @@ class PlanRuptura:
 
         Con una sola orden la pregunta no existe: no hay entre qué elegir.
         """
-        if self.solo_ventas:
+        if self.solo_ventas or self.dia_de_empleo:
+            # El sesgo asiático se midió para la estrategia vieja de dos
+            # órdenes. El día de empleo es otra cosa —el dato manda— y para
+            # él no hay medición de qué lado es "el bueno".
             return None
         return self.sesgo.direccion
 
@@ -327,6 +333,8 @@ def construir_plan(df, cfg: ConfiguracionSistema,
             return res
 
     onzas = dimensionar_posicion(riesgo, cfg)
+    from .calendario import es_dia_de_empleo
+    empleo = bool(c.dos_ordenes_en_dia_de_empleo and es_dia_de_empleo(dia))
     plan = PlanRuptura(
         dia=dia,
         rango=rango,
@@ -349,8 +357,12 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         coste_r=coste_r,
         r_objetivo=c.r_objetivo,
         sesgo=sesgo_asiatico(df, cfg, dia),
-        solo_ventas=c.solo_ventas,
+        # El día del dato de empleo van las dos órdenes: la rotura funciona en
+        # las dos direcciones (+0.6746 R/op sobre 159 días con relleno real,
+        # 19 de 21 años positivos). Ver `oro.calendario`.
+        solo_ventas=c.solo_ventas and not empleo,
         anular_si_rompe_arriba=c.anular_si_rompe_arriba,
+        dia_de_empleo=empleo,
     )
     res.plan = plan
     return res

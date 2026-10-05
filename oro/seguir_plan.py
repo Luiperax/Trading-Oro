@@ -28,7 +28,7 @@ from pathlib import Path
 from .cli import _construir_notificador
 from .config import cargar_configuracion
 from .plan_sesion import VELAS_EN_VIVO, _proveedor, _ruta_estado
-from .seguimiento import EstadoPlan, registro_de, seguir
+from .seguimiento import EstadoPlan, deslizamiento_de, registro_de, seguir
 from .sesiones import PlanRuptura
 
 RUTA_RUPTURAS = "oro_rupturas.jsonl"
@@ -122,7 +122,8 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     # —que es el 41 % de los días con plan y la pieza que sostiene la ventaja.
     if s.estado in (EstadoPlan.CERRADA, EstadoPlan.CADUCADO, EstadoPlan.AMBIGUA,
                     EstadoPlan.ANULADO):
-        _anotar(registro_de(plan, s, cfg.riesgo.coste_operacion))
+        _anotar(registro_de(plan, s, cfg.riesgo.coste_operacion
+                            + deslizamiento_de(plan, cfg)))
         datos["registrado"] = plan.dia.isoformat()
         print(f"Registrada la operación de {plan.dia}.")
     _guardar_estado(datos)
@@ -162,6 +163,7 @@ def _rehidratar(d: dict) -> dict:
         solo_ventas=d.get("solo_ventas", _cfg_ruptura().solo_ventas),
         anular_si_rompe_arriba=d.get("anular_si_rompe_arriba",
                                      _cfg_ruptura().anular_si_rompe_arriba),
+        dia_de_empleo=d.get("dia_de_empleo", False),
     )
 
 
@@ -194,6 +196,7 @@ def serializar(plan: PlanRuptura) -> dict:
         # clase, que son los del comportamiento antiguo.
         "solo_ventas": plan.solo_ventas,
         "anular_si_rompe_arriba": plan.anular_si_rompe_arriba,
+        "dia_de_empleo": plan.dia_de_empleo,
     }
 
 

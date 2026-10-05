@@ -251,6 +251,17 @@ def _añadir(s: Seguimiento, avisados: set, aviso: AvisoSeguimiento) -> None:
         s.avisos.append(aviso)
 
 
+def deslizamiento_de(plan: PlanRuptura, cfg) -> float:
+    """Lo que se pierde al entrar con una orden stop, medido con ticks.
+
+    El histórico y el registro en vivo lo toman de aquí, y no cada uno por su
+    lado: dos cálculos del mismo coste acaban divergiendo, y eso ya pasó en
+    este proyecto con el spread.
+    """
+    r = cfg.riesgo
+    return r.deslizamiento_empleo if plan.dia_de_empleo else r.deslizamiento_entrada
+
+
 def registro_de(plan: PlanRuptura, s: Seguimiento, coste: float) -> dict:
     """La ficha que se guarda para aprender: condiciones + resultado real.
 

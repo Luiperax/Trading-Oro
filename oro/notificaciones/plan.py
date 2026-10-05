@@ -71,15 +71,22 @@ def texto_confianza(plan: PlanRuptura) -> str:
     El orden de la frase importa: primero lo que NO es, porque es lo que todo
     el mundo asume al leerla, y después lo que sí.
     """
+    if plan.dia_de_empleo:
+        return ("Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York "
+                "y van LAS DOS órdenes. Ese día la rotura no es una rotura "
+                "cualquiera: es el mercado reaccionando al dato, y sigue en la "
+                "dirección en que sale, en las dos. Medido sobre 160 días de "
+                "empleo de 21 años, con el relleno real sacado tick a tick: "
+                "+0,58 R por operación (t = 4,13). Son unos 8 días al año y "
+                "aportan más de la mitad del rendimiento anual de la estrategia.")
     if plan.solo_ventas:
         # Con una sola orden no hay nada que elegir, y la pregunta que importa
         # no es «qué lado» sino «por qué solo este».
-        return ("Hoy solo va una orden, y a la baja. Medido sobre 4.646 días "
-                "con rotura de 21 años: la rotura a la baja da +0,103 R por "
-                "operación (t = 3,93, positiva en las dos mitades del histórico, "
-                "17 años a favor de 21) y la rotura al alza da -0,064 R "
-                "(t = -2,56, solo 4 años a favor de 21). No es que la compra "
-                "sea peor: es que resta.")
+        return ("Hoy solo va una orden, y a la baja. Medido sobre 21 años con "
+                "todos los costes reales (spread y deslizamiento sacados de los "
+                "ticks): la estrategia da +0,079 R por operación (t = 3,00, "
+                "+0,078 y +0,080 en las dos mitades del histórico). La rotura al "
+                "alza no se opera porque resta: solo 4 años a favor de 21.")
     if plan.favorita is None:
         return ("Hoy la sesión asiática ha cerrado casi donde abrió, así que no "
                 "aporta nada: trata las dos órdenes como iguales.")
@@ -97,12 +104,19 @@ def texto_confianza(plan: PlanRuptura) -> str:
 
 def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
+    if plan is not None and plan.dia_de_empleo:
+        return ("Cuidado con las 8:30: el precio salta de golpe y la orden se "
+                "llena en el primer precio que cruza el nivel, no en el nivel. "
+                "Medido en 83 días de empleo: mediana 0,10 $ peor, media 1,31 $, "
+                "y un día 34,55 $. Ya está descontado en la cifra de arriba. "
+                "Usa una orden OCO si tu bróker la tiene: a esa hora pueden "
+                "saltar las dos en segundos y no da tiempo a cancelar a mano.")
     if plan is not None and plan.solo_ventas:
-        return ("El límite: son +10,5 R al año, unos 157 € con 0,5 % de riesgo "
-                "sobre 3.000 €, y 4 de los 21 años fueron en pérdida (el peor, "
-                "-12,1 R). El coste está MEDIDO, no supuesto: 0,60 $ de spread real "
-                "sobre 3,2 millones de ticks. Pero 101 operaciones al año tardan "
-                "en demostrar nada: espera rachas negativas de 31 R.")
+        return ("El límite: son +8,3 R al año, unos 124 € con 0,5 % de riesgo "
+                "sobre 3.000 €, y 7 de los 21 años fueron en pérdida (el peor, "
+                "-19,6 R). Más de la mitad de eso sale de los ~8 días de empleo "
+                "al año; el resto de días la venta da +0,04 R, positiva pero no "
+                "demostrada por sí sola. Espera rachas negativas de 46 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
             "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
             "del rango, cierre de ayer) combinadas en un modelo entrenado con "
@@ -115,6 +129,24 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
 def pasos_plan(plan: PlanRuptura) -> list[str]:
     """Los pasos exactos, en el orden en que se teclean en el bróker."""
     c, v = plan.compra, plan.venta
+    if plan.dia_de_empleo:
+        return [
+            "Abre tu bróker y busca XAU/USD (oro). Hoy vas a dejar DOS órdenes "
+            "pendientes del tamaño que decidas: sale el dato de empleo de EE. UU.",
+            f"COMPRA tipo «BUY STOP» en {c.entrada:.2f}, con stop loss en "
+            f"{c.stop:.2f} y take profit en {c.objetivo:.2f}.",
+            f"VENTA tipo «SELL STOP» en {v.entrada:.2f}, con stop loss en "
+            f"{v.stop:.2f} y take profit en {v.objetivo:.2f}.",
+            "Ponlas como OCO (una cancela la otra) si tu bróker lo permite. A "
+            "las 8:30 de Nueva York el precio puede pasar por las dos en "
+            "segundos y no da tiempo a cancelar a mano.",
+            f"Si a las {hora_local(plan.valido_hasta)} no ha saltado ninguna, "
+            f"cancela las dos. Hoy no hay operación.",
+            f"A las {hora_cierre(plan)} CIERRA LA QUE ESTÉ ABIERTA, gane o "
+            f"pierda. No se queda de un día para otro.",
+            f"Cuando te dé {plan.rango.amplitud:.2f} $ de beneficio (1R), mueve "
+            f"el stop al precio de entrada. Desde ahí ya no puede perder.",
+        ]
     if plan.solo_ventas:
         return [
             "Abre tu bróker y busca XAU/USD (oro). Vas a dejar UNA orden "
@@ -139,7 +171,7 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
             f"es la salida, y no se queda de un día para otro.",
             f"Cuando la operación te dé {plan.rango.amplitud:.2f} $ de beneficio "
             f"(1R), mueve el stop al precio de entrada. Desde ahí ya no puede "
-            f"perder. Medido: sube la ventaja de +0,086 a +0,103 R por operación.",
+            f"perder. Es parte de la estrategia medida, no un extra.",
         ]
     return [
         "Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
@@ -204,7 +236,8 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         ]
     lineas += [
         "",
-        "POR QUÉ ESTE PLAN:" if plan.solo_ventas else "CUÁL DE LAS DOS ES LA DE FIAR:",
+        ("POR QUÉ ESTE PLAN:" if (plan.solo_ventas or plan.dia_de_empleo)
+         else "CUÁL DE LAS DOS ES LA DE FIAR:"),
         f"  {texto_confianza(plan)}",
         f"  {aviso_confianza(plan)}",
         "",
@@ -241,17 +274,18 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
     distintas: cuando estaban duplicados, cambiar la estrategia dejó el texto
     plano citando las cifras de la versión anterior.
     """
-    if plan.solo_ventas:
+    if plan.solo_ventas or plan.dia_de_empleo:
         return (
-            "Acierta el 40 % de las veces: la mayoría de los días pierde. Gana "
-            "porque las ganadoras valen +1,20 R de media y las perdedoras -0,62 R.",
-            "Medido sobre 2.131 roturas a la baja de 21 años reales, con el "
-            "spread REAL de cada año: +0,103 R por operación, 101 al año, 17 "
-            "años en positivo de 21.",
-            "El peor año perdió 12,1 R y la peor racha fue de 31 R. Con 0,5 % de "
-            "riesgo sobre 3.000 € eso son -181 € y -471 €, con +157 € de media al año.",
-            "No se opera la rotura al alza porque está medida y resta: -0,064 R "
-            "por operación, solo 4 años a favor de 21.",
+            "Acierta el 39 % de las veces: la mayoría de los días pierde. Gana "
+            "porque las ganadoras valen +1,22 R de media y las perdedoras -0,66 R.",
+            "Medido sobre 2.208 operaciones de 21 años con TODOS los costes "
+            "reales —spread de cada año y deslizamiento, sacados de los ticks—: "
+            "+0,079 R por operación, 14 años en positivo de 21.",
+            "El peor año perdió 19,6 R y la peor racha fue de 46 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -294 € y -688 €, con +124 € de media al año.",
+            "Los días de empleo (unos 8 al año) dan +0,58 R por operación y "
+            "aportan más de la mitad. El resto de días la venta da +0,04 R: "
+            "positiva, pero no demostrada por sí sola.",
         )
     return (
         "Acierta el 45 % de las veces: la mayoría de los días pierde. Gana "
@@ -296,6 +330,8 @@ def _titulo_ordenes(plan: PlanRuptura) -> str:
 
 def _regla_cancelar(plan: PlanRuptura) -> str:
     """La regla que hay que recordar sí o sí, en una línea."""
+    if plan.dia_de_empleo:
+        return "Día de empleo: salta una → cancela la otra (mejor con OCO)"
     if plan.solo_ventas:
         return f"Si sube de {plan.compra.entrada:.2f} → cancela la venta"
     return "Salta una → cancela la otra"
@@ -400,7 +436,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       {_cajas_ordenes(plan)}
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
        <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
-         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">{'Por qué este plan' if plan.solo_ventas else 'Cuál de las dos es la de fiar'}</div>
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">{'Por qué este plan' if (plan.solo_ventas or plan.dia_de_empleo) else 'Cuál de las dos es la de fiar'}</div>
          <div style="color:{_TEXTO};font-size:13px;line-height:1.5;">{_esc(texto_confianza(plan))}</div>
          <div style="color:{_MUTED};font-size:11px;line-height:1.5;margin-top:6px;">{_esc(aviso_confianza(plan))}</div>
        </td></tr>

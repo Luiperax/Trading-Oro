@@ -158,6 +158,22 @@ class ConfiguracionRiesgo:
     # súmala aquí: lo que importa es el coste total de ida y vuelta.
     coste_operacion: float = 0.60
 
+    # DESLIZAMIENTO AL ENTRAR, medido con ticks. Una orden stop no se llena en el
+    # nivel: se llena en el primer precio que lo cruza. En 80 días normales al
+    # azar: mediana 0.04 $, media 0.25 $ (0.033 R), máximo 10.32 $. En los 83
+    # días de empleo: mediana 0.10 $, media 1.31 $, máximo 34.55 $.
+    #
+    # Se suma al spread en cada ficha del registro. Sin él la estrategia
+    # parecía rendir +0.103 R por operación; con él, +0.065. Es el coste que
+    # faltaba y conviene que lo que el sistema apunta sea lo que pasa.
+    deslizamiento_entrada: float = 0.25
+
+    # El día del dato de empleo el precio atraviesa el nivel de golpe a las
+    # 8:30 ET y el relleno sale peor: media 1.31 $ medida en 83 días. Cobrarle a
+    # ese día el deslizamiento de un día normal inflaba su resultado de +0.67 a
+    # +0.75 R por operación.
+    deslizamiento_empleo: float = 1.30
+
 
 @dataclass(slots=True)
 class ConfiguracionCalidad:
@@ -201,7 +217,8 @@ class ConfiguracionRuptura:
 
     Ajustable por entorno: ORO_RUPTURA_ACTIVA, ORO_RUPTURA_R_OBJETIVO,
     ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO,
-    ORO_RUPTURA_SOLO_VENTAS, ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA.
+    ORO_RUPTURA_SOLO_VENTAS, ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA,
+    ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO.
     """
 
     # Interruptor general. Se apaga con ORO_RUPTURA_ACTIVA=0 sin tocar nada más.
@@ -221,14 +238,22 @@ class ConfiguracionRuptura:
     #
     # Reconstruido después con `python -m oro.historico`, que no reimplementa
     # nada: llama a `construir_plan` y `seguir`, las de producción, y descuenta
-    # el spread MEDIDO de cada año (ver `oro.spread`). 2.131 operaciones,
-    # +0.1030 R/op (t = 3.93), +10.45 R al año, 17 años positivos de 21, las dos
-    # mitades positivas (+0.1067 y +0.0990), peor año -12.1 R y peor racha
-    # -31.4 R. En las condiciones de 2025-2026 —1R de 31.5 $ y spread de
-    # 0.63 $— sale +0.0995 R/op.
+    # TODOS los costes medidos con ticks: el spread de cada año (`oro.spread`)
+    # y el deslizamiento de la orden stop (0.25 $ un día normal, 1.30 $ el día
+    # del dato de empleo). Con las dos órdenes el día de empleo:
     #
-    # Las cifras anteriores (+0.1143, t = 4.37) salían de suponer un coste de
-    # 0.30 $, que no se había medido nunca. El real es el doble.
+    #                           n      R/op       t    R/año
+    #     total              2208   +0.0786    3.00    +8.26
+    #     días de empleo      160   +0.5815    4.13    +4.43
+    #     resto (venta)      2048   +0.0393    1.52    +3.83
+    #
+    # Mitades +0.0778 / +0.0795, 14 años positivos de 21, peor año -19.6 R,
+    # peor racha -45.9 R. Más de la mitad del rendimiento sale de unos 8 días al
+    # año; el resto de días la venta es positiva pero NO está demostrada por sí
+    # sola (t = 1.52). Conviene saberlo.
+    #
+    # Las cifras viejas (+0.1143, t = 4.37) suponían 0.30 $ de coste y ningún
+    # deslizamiento. Ninguna de las dos cosas se había medido.
     #
     # Y LO DECISIVO: no vale «vender oro». Lo que funciona es la rotura a la
     # baja que ocurre PRIMERA. La misma rotura a la baja, cuando llega después
@@ -253,6 +278,21 @@ class ConfiguracionRuptura:
     # Al romperse el rango al alza, la orden de venta pendiente se ANULA. Ver
     # arriba: es lo que separa +10.78 R/año de -1.07 R/año.
     anular_si_rompe_arriba: bool = True
+
+    # LA EXCEPCIÓN: EL DÍA DEL DATO DE EMPLEO DE EE. UU. VAN LAS DOS ÓRDENES.
+    #
+    # El informe sale a las 8:30 ET, dentro de la ventana de disparo, y ese día
+    # la rotura es el mercado reaccionando al dato: sigue en la dirección en que
+    # sale, en las DOS. Medido con el relleno REAL sacado tick a tick:
+    #
+    #     días de empleo     n      R/op       t   1ª mitad  2ª mitad
+    #     venta             83   +0.5646    2.83    +0.533    +0.594
+    #     compra            76   +0.7947    4.01    +0.827    +0.764
+    #     las dos          159   +0.6746    4.79    19 años positivos de 21
+    #
+    # Añade +3.10 R al año en días que hoy se anulan. Detalle y cálculo de la
+    # fecha en `oro.calendario`.
+    dos_ordenes_en_dia_de_empleo: bool = True
 
     # La ventana cuyo máximo y mínimo forman el rango, en hora de NUEVA YORK:
     # 3:00-8:00, que es la mañana de Londres. Se probaron 2-8, 3-7 y 4-8: las
@@ -627,6 +667,10 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.ruta_modelo = entorno.texto("ORO_RUTA_MODELO", cfg.ruta_modelo)
     cfg.riesgo.trailing_r = _num("ORO_TRAILING_R", cfg.riesgo.trailing_r)
     cfg.riesgo.coste_operacion = _num("ORO_COSTE_OPERACION", cfg.riesgo.coste_operacion)
+    cfg.riesgo.deslizamiento_entrada = _num(
+        "ORO_DESLIZAMIENTO_ENTRADA", cfg.riesgo.deslizamiento_entrada)
+    cfg.riesgo.deslizamiento_empleo = _num(
+        "ORO_DESLIZAMIENTO_EMPLEO", cfg.riesgo.deslizamiento_empleo)
     cfg.riesgo.operaciones_max_dia = int(
         _num("ORO_OPERACIONES_MAX_DIA", cfg.riesgo.operaciones_max_dia)
     )
@@ -650,6 +694,9 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.ruptura.solo_ventas = _bool("ORO_RUPTURA_SOLO_VENTAS", cfg.ruptura.solo_ventas)
     cfg.ruptura.anular_si_rompe_arriba = _bool(
         "ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA", cfg.ruptura.anular_si_rompe_arriba
+    )
+    cfg.ruptura.dos_ordenes_en_dia_de_empleo = _bool(
+        "ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO", cfg.ruptura.dos_ordenes_en_dia_de_empleo
     )
     return cfg
 

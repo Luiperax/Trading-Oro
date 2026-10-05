@@ -95,6 +95,8 @@ jobs:
           # El más importante: tu spread real en $/oz por operación completa.
           # De él depende que este plan se envíe o no.
           ORO_COSTE_OPERACION: ${{ vars.ORO_COSTE_OPERACION }}
+          ORO_DESLIZAMIENTO_ENTRADA: ${{ vars.ORO_DESLIZAMIENTO_ENTRADA }}
+          ORO_DESLIZAMIENTO_EMPLEO: ${{ vars.ORO_DESLIZAMIENTO_EMPLEO }}
           ORO_CAPITAL: ${{ vars.ORO_CAPITAL }}
           ORO_RIESGO_POR_OPERACION: ${{ vars.ORO_RIESGO_POR_OPERACION }}
           ORO_TIMEFRAME: ${{ vars.ORO_TIMEFRAME }}
@@ -104,6 +106,7 @@ jobs:
           ORO_SENALES_ACTIVAS: ${{ vars.ORO_SENALES_ACTIVAS }}
           ORO_RUPTURA_SOLO_VENTAS: ${{ vars.ORO_RUPTURA_SOLO_VENTAS }}
           ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA: ${{ vars.ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA }}
+          ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO: ${{ vars.ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
           # Parámetros de esta estrategia (vacío = valores medidos por defecto).

@@ -997,3 +997,149 @@ curso, así que los avisos del seguimiento llegan hasta una hora más tarde (Yah
 servía la vela a medias). Se acepta porque un aviso tardío es un coste ocasional
 y un instrumento equivocado es un error permanente. `ORO_FUENTE_VIVO=yahoo` lo
 revierte.
+
+---
+
+# CFTC, FRED y el resto de fuentes macro, contra la estrategia actual
+
+Se pidió analizar el informe COT de la CFTC y FRED (Reserva Federal de St. Louis)
+y aprovechar lo que sirviera. La pregunta ahora es distinta de la de antes: no
+«¿anticipa X la dirección del oro?» (ya medido, no), sino «¿mejora X la VENTA en
+la rotura del rango de Londres?».
+
+## Las fuentes
+
+| fuente | acceso | qué da |
+|---|---|---|
+| **CFTC** (API Socrata) | ✓ | COT desagregado del oro, 1.060 semanas (2006-2026) |
+| **Tesoro de EE. UU.** | ✓ | tipos reales (TIPS) y nominales a 10 años, 5.443 días |
+| **CBOE** | ✓ | **GVZ** (volatilidad implícita del oro, desde 2009) y VIX |
+| **Fed** | ✓ | fechas de las reuniones del FOMC, 2006-2026 |
+| FRED (web) | ✗ | no responde desde el entorno de desarrollo |
+| FRED (API) | clave | responde pero exige `api_key` (gratuita) |
+| BLS | ✗ | 403 |
+
+Los datos de FRED que interesaban (tipos reales, inflación esperada, VIX) se
+sacaron de sus fuentes primarias. La API de FRED solo haría falta para una
+cosa que no da ninguna otra: las fechas del IPC (ver al final).
+
+## Ocho hipótesis declaradas antes de mirar
+
+Todas son condiciones conocidas antes de las 8:00 ET. Sin futuro: datos diarios
+del día anterior; COT desde el lunes siguiente a su publicación.
+
+| hipótesis | R/op sí | R/op no | dif | t | mitades |
+|---|---|---|---|---|---|
+| tipos reales subiendo (5 sesiones) | +0,154 | +0,057 | +0,097 | 1,84 | +0,210 / **−0,022** |
+| inflación esperada cayendo | +0,121 | +0,087 | +0,033 | 0,63 | +0,153 / −0,093 |
+| GVZ por encima de su mediana | +0,072 | +0,174 | −0,102 | −1,73 | −0,095 / −0,098 |
+| VIX por encima de su mediana | +0,082 | +0,121 | −0,040 | −0,76 | −0,038 / −0,041 |
+| fondos muy largos (COT) | +0,158 | +0,104 | +0,054 | 0,86 | +0,002 / +0,099 |
+| fondos vendiendo (COT) | +0,086 | +0,133 | −0,047 | −0,87 | +0,027 / −0,120 |
+| oro bajo su media de 50 | +0,116 | +0,093 | +0,023 | 0,43 | +0,038 / +0,005 |
+| GVZ subiendo | +0,096 | +0,146 | −0,050 | −0,85 | −0,108 / −0,011 |
+
+**Ninguna pasa** (Bonferroni para 8: |t| > 2,73). La mejor, los tipos reales,
+sale entera de la primera mitad. Y **ningún filtro mejora el R al año**: todos
+lo bajan.
+
+**Lo útil está en otra lectura: la estrategia es positiva a los DOS lados de
+las ocho condiciones.** No depende de los tipos, ni de la volatilidad, ni del
+posicionamiento de los fondos, ni de la tendencia. Su ventaja no es una
+apuesta macro disfrazada.
+
+## El dato de empleo: lo que sí aguanta
+
+El informe de empleo de EE. UU. (NFP) sale a las 8:30 ET, **dentro de la
+ventana en que salta la orden**. La fecha se calcula con la regla del propio
+BLS (tercer viernes tras la semana del día 12, con la excepción de enero) y
+acierta las 10 publicaciones reales con que se comprobó.
+
+Hipótesis 9 (declarada antes de mirar): la venta rinde distinto ese día.
+
+| | n | R/op | t | mitades |
+|---|---|---|---|---|
+| días de empleo | 83 | +0,724 | 3,52 | +0,663 / +0,632 |
+| resto | 2.048 | +0,078 | | |
+
+### La objeción de siempre, medida por fin: el deslizamiento
+
+Una sesión anterior vio esto mismo con dos órdenes (+0,53 R, t = 4,47) y lo
+**descartó**, suponiendo 2 $ de deslizamiento a las 8:30 sin poder medirlo.
+Con los ticks se mide el relleno REAL: el primer tick cuyo bid cruza el nivel.
+
+| | deslizamiento mediana | media | p90 | máx |
+|---|---|---|---|---|
+| 83 días de empleo | 0,10 $ | 1,31 $ | 2,30 $ | 34,55 $ |
+| 80 días normales (control) | 0,04 $ | 0,25 $ | 0,29 $ | 10,32 $ |
+
+Con el relleno real, la venta del día de empleo da **+0,565 R (t = 2,83)**. El
+primer tick que cruza el nivel cae a las **12:30 o 13:30 UTC**: las 8:30 ET
+exactas. El efecto es el dato mismo.
+
+Y el control destapó otra cosa: en días normales el deslizamiento medio es
+0,033 R por operación, un coste que la estrategia **no estaba cobrando**. Con él,
+la cifra de toda la estrategia baja de +0,103 a +0,065 R.
+
+### Hipótesis 11: ese día, también la compra
+
+Si el efecto es «el dato provoca un movimiento decidido», debería valer en las
+dos direcciones. Hoy, si el rango rompe al alza primero, la venta se anula.
+
+| compras en días de empleo | R/op | t | mitades |
+|---|---|---|---|
+| relleno exacto | +0,933 | 4,67 | |
+| **relleno real (ticks)** | **+0,857** | **4,31** | +0,903 / +0,813 |
+
+Pasa Bonferroni para 11 (2,84) con holgura. Juntando las dos direcciones, con
+relleno real y **un spread extra cobrado a la compra** por si dispararla con el
+ask adelanta falsas rupturas:
+
+| | valor |
+|---|---|
+| operaciones | 159 |
+| R/op | **+0,675** (t = 4,79) |
+| años positivos | **19 de 21** (t anual 4,00) |
+| sin los 3 mejores días | +0,574 (t = 4,39) |
+| sin los 10 mejores días | +0,350 (t = 3,32) |
+
+No lo sostienen unos pocos días extraordinarios.
+
+### Lo que cambia
+
+El día del dato de empleo **van las dos órdenes** (`oro.calendario`,
+`dos_ordenes_en_dia_de_empleo`). El correo lo dice, pide OCO —a las 8:30 pueden
+saltar las dos en segundos— y avisa del deslizamiento. El registro cobra a ese
+día su deslizamiento medido (1,30 $), no el de un día normal.
+
+## La estrategia, con todos los costes reales
+
+`python -m oro.historico`, código de producción, spread de cada año y
+deslizamiento medido:
+
+| | n | R/op | t | R/año |
+|---|---|---|---|---|
+| **total** | **2.208** | **+0,0786** | **3,00** | **+8,26** |
+| días de empleo (dos órdenes) | 160 | +0,5815 | 4,13 | +4,43 |
+| resto (solo venta) | 2.048 | +0,0393 | 1,52 | +3,83 |
+
+Mitades +0,0778 / +0,0795. 14 años positivos de 21. Peor año −19,6 R, peor
+racha −45,9 R. A 0,5 % de riesgo sobre 3.000 €: +124 €/año, peor año −294 €,
+peor racha −688 €.
+
+**Más de la mitad del rendimiento sale de unos 8 días al año.** El resto de
+días la venta es positiva pero no está demostrada por sí sola (t = 1,52).
+
+## Lo que no se pudo medir: el IPC
+
+El IPC de EE. UU. también sale a las 8:30 ET y mueve el oro tanto o más que el
+empleo, sobre todo desde 2021. Pero su fecha no sigue una regla calculable, la
+web del BLS da 403 y la API de FRED (que tiene el calendario de publicaciones)
+exige clave. Con una clave gratuita de FRED se podría medir igual que el
+empleo. Es la siguiente prueba natural.
+
+## La Fed (hipótesis 10)
+
+Las decisiones del FOMC salen a las 14:00 ET, con la operación ya abierta.
+60 operaciones: −0,105 R/op frente a +0,109 el resto, t = −1,13. Las mitades
+coinciden (−0,216 / −0,212) pero la muestra es pequeña y no pasa. No se toca.
