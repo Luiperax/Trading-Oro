@@ -67,7 +67,7 @@ modo_prueba**.
 
 | | estado | por qué |
 |---|---|---|
-| **Plan de ruptura** (venta del rango de Londres; las dos órdenes el día del dato de empleo) | **activo** | +0,079 R/op sobre 2.208 operaciones de 21 años con todos los costes medidos, t = 3,00, mitades +0,078 / +0,080 |
+| **Plan de ruptura** (venta del rango de Londres; las dos órdenes el día del dato de empleo) | **activo** | +0,082 R/op sobre 2.209 operaciones de 21 años con todos los costes medidos, t = 3,13, mitades +0,083 / +0,081 |
 | Motor de señales intradía | **apagado** | −0,090 R/op sobre 4.891 operaciones, 2 años positivos de 21, −157 €/año |
 
 El motor de señales se apagó en octubre de 2026 tras reconstruir el histórico
@@ -93,10 +93,10 @@ rompe el techo del rango antes, te llega un correo para cancelarla.
 
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
-Aviso honesto: **acierta el 39 % de las veces**, 7 de los 21 años medidos
-acabaron en pérdida y la peor racha fue de 46 R. Medido sobre 2.208 operaciones
+Aviso honesto: **acierta el 39 % de las veces**, 6 de los 21 años medidos
+acabaron en pérdida y la peor racha fue de 46 R. Medido sobre 2.209 operaciones
 de 2006 a 2026 con el mismo código que opera y con el spread y el deslizamiento
-REALES sacados de los ticks: +0,079 R por operación (t = 3,00), unos +8,3 R al
+REALES sacados de los ticks: +0,082 R por operación (t = 3,13), unos +8,6 R al
 año. Más de la mitad sale de los ~8 días al año en que se publica el dato de
 empleo de EE. UU.; esos días van dos órdenes.
 

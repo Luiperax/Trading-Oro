@@ -182,13 +182,13 @@ def test_el_correo_da_las_cifras_malas_tambien():
     plan, _ = _plan()
     for t in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "39 %" in t                       # acierta menos de la mitad.
-        assert "peor año" in t and "19,6 R" in t
+        assert "peor año" in t and "18,3 R" in t
         assert "46 R" in t                       # la peor racha.
         assert "21" in t                         # los años medidos.
         # Y que los costes están medidos, no supuestos: con 0,30 $ inventados y
         # sin deslizamiento la estrategia parecía rendir +0,114 R; con todo lo
         # real, +0,079.
-        assert "deslizamiento" in t and "+0,079" in t
+        assert "deslizamiento" in t and "+0,082" in t
         # Y que dice de dónde sale el rendimiento: no esconder que la mitad
         # viene de unos pocos días al año.
         assert "empleo" in t and "no demostrada por sí sola" in t

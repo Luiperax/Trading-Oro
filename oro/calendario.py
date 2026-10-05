@@ -41,10 +41,9 @@ falla es la excepción de enero — cuando la regla cae el 1-4 de enero, el BLS 
 retrasa una semana por las fiestas (pasó en 2015 y en 2020). Con esa excepción
 añadida, acierta las 9.
 
-Lo que NO puede saber: los retrasos por cierre del Gobierno federal (octubre de
-2013, octubre-noviembre de 2025). Esos días el sistema pondrá dos órdenes sin
-que salga el dato. El coste es pequeño —una compra en un día normal pierde de
-media 0,06 R— y no hay forma de anticiparlo sin una fuente de calendario.
+Lo que la regla NO puede saber son los retrasos por cierre del Gobierno
+federal. Para eso está el calendario de FRED (ver más abajo), que se usa cuando
+hay clave.
 """
 
 from __future__ import annotations
@@ -63,18 +62,20 @@ def dia_de_empleo(anio: int, mes: int) -> dt.date:
     # Primer viernes DESPUÉS de ese sábado, y dos semanas más: el tercero.
     viernes = sabado + dt.timedelta(days=(4 - sabado.weekday()) % 7 or 7)
     publicacion = viernes + dt.timedelta(weeks=2)
-    # Excepción de enero: si cae el 1-4, se retrasa una semana por las fiestas.
-    if publicacion.month == 1 and publicacion.day <= 4:
+    # Excepción de enero: si cae el 1-3, se retrasa una semana por las fiestas.
+    # (El día 4 NO: en 2008, 2013 y 2019 salió el 4 de enero. La primera
+    # versión decía 1-4 y fallaba esos tres años.)
+    if publicacion.month == 1 and publicacion.day <= 3:
         publicacion += dt.timedelta(weeks=1)
+    # Festivo de la independencia: si cae el 3 o el 4 de julio (viernes
+    # festivo o puente), se adelanta al jueves. Pasó en 2008, 2009, 2014, 2015,
+    # 2020, 2025 y 2026.
+    if publicacion.month == 7 and publicacion.day in (3, 4):
+        publicacion -= dt.timedelta(days=1)
     return publicacion
 
 
-def es_dia_de_empleo(fecha: dt.date) -> bool:
-    """¿Sale hoy el informe de empleo de EE. UU.?
-
-    Basta mirar el mes anterior al de la fecha y el de la propia fecha: la
-    publicación cae siempre a principios del mes siguiente al de referencia.
-    """
+def _por_regla(fecha: dt.date) -> bool:
     for delta in (1, 0):
         anio, mes = fecha.year, fecha.month - delta
         if mes == 0:
@@ -82,3 +83,63 @@ def es_dia_de_empleo(fecha: dt.date) -> bool:
         if dia_de_empleo(anio, mes) == fecha:
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# El calendario REAL, de FRED
+# ---------------------------------------------------------------------------
+# Comprobada contra el calendario de FRED (publicación 50, "Employment
+# Situation"), 2006-2026, la regla acierta 246 de 251 fechas. Las 5 que falla
+# son TODAS retrasos por cierre del Gobierno federal (22-oct y 8-nov de 2013,
+# 20-nov y 16-dic de 2025, 11-feb de 2026), que ninguna regla puede prever.
+#
+# Así que con clave de FRED (secreto ORO_FRED_CLAVE) se usa su calendario, y la
+# regla queda de respaldo si FRED no responde. FRED mete en esa publicación
+# también algunas revisiones (p. ej. la anual de agosto); se filtran quedándose
+# con la PRIMERA fecha de cada mes, que es siempre la del informe.
+_FRED = "https://api.stlouisfed.org/fred/release/dates"
+_cache: dict = {}
+
+
+def fechas_fred(clave: str, tiempo_espera: int = 20) -> set:
+    """Las fechas del informe de empleo según FRED. Vacío si no responde."""
+    if clave in _cache:
+        return _cache[clave]
+    import requests
+
+    fechas: set = set()
+    try:
+        r = requests.get(_FRED, timeout=tiempo_espera, params={
+            "release_id": 50, "api_key": clave, "file_type": "json",
+            "realtime_start": "2005-01-01", "realtime_end": "2030-12-31",
+            "include_release_dates_with_no_data": "true",
+            "limit": 1000, "sort_order": "asc"})
+        if r.status_code == 200:
+            primera: dict = {}
+            for x in r.json().get("release_dates", []):
+                f = dt.date.fromisoformat(x["date"])
+                if (f.year, f.month) not in primera or f < primera[(f.year, f.month)]:
+                    primera[(f.year, f.month)] = f
+            fechas = set(primera.values())
+    except Exception:  # noqa: BLE001 — sin FRED, la regla.
+        fechas = set()
+    _cache[clave] = fechas
+    return fechas
+
+
+def es_dia_de_empleo(fecha: dt.date) -> bool:
+    """¿Sale hoy el informe de empleo de EE. UU.?
+
+    Con ORO_FRED_CLAVE, según el calendario real de FRED (que sabe de los
+    cierres del Gobierno). Sin clave, o si FRED no responde, por la regla.
+    """
+    from . import entorno
+
+    clave = entorno.texto("ORO_FRED_CLAVE")
+    if clave:
+        fechas = fechas_fred(clave)
+        # Solo se fía de FRED si cubre esa fecha: un calendario vacío o que no
+        # llega hasta hoy no puede decir que hoy no hay dato.
+        if fechas and max(fechas) >= fecha:
+            return fecha in fechas
+    return _por_regla(fecha)

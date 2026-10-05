@@ -31,7 +31,12 @@ NY = ZoneInfo("America/New_York")
 REALES = {(2023, 8): "2023-09-01", (2023, 9): "2023-10-06", (2023, 12): "2024-01-05",
           (2024, 6): "2024-07-05", (2024, 8): "2024-09-06", (2022, 12): "2023-01-06",
           (2019, 12): "2020-01-10", (2020, 2): "2020-03-06", (2021, 4): "2021-05-07",
-          (2014, 12): "2015-01-09"}
+          (2014, 12): "2015-01-09",
+          # Enero el día 4: NO se retrasa (la primera versión fallaba estas tres).
+          (2007, 12): "2008-01-04", (2012, 12): "2013-01-04", (2018, 12): "2019-01-04",
+          # Festivo del 4 de julio: se adelanta al jueves.
+          (2008, 6): "2008-07-03", (2014, 6): "2014-07-03", (2020, 6): "2020-07-02",
+          (2025, 6): "2025-07-03"}
 
 
 @pytest.mark.parametrize("ref,publicacion", REALES.items())
@@ -50,11 +55,48 @@ def test_es_dia_de_empleo_reconoce_el_dia_y_solo_ese():
     assert not es_dia_de_empleo(dt.date(2020, 1, 3))
 
 
-def test_sale_siempre_en_viernes_salvo_festivo():
-    """La regla da viernes. Si alguna vez diera otro día, el cálculo está mal."""
+def test_sale_en_viernes_salvo_el_festivo_de_julio():
+    """La regla da viernes, salvo el jueves del 4 de julio."""
     for anio in range(2006, 2027):
         for mes in range(1, 13):
-            assert dia_de_empleo(anio, mes).weekday() == 4
+            d = dia_de_empleo(anio, mes)
+            assert d.weekday() == 4 or (d.month == 7 and d.weekday() == 3)
+
+
+def test_con_clave_de_fred_manda_su_calendario(monkeypatch):
+    """Los cierres del Gobierno (2013, 2025) solo los sabe FRED. Con su
+    calendario, el 20-nov-2025 es día de empleo aunque la regla diga que no."""
+    from oro import calendario
+
+    monkeypatch.setenv("ORO_FRED_CLAVE", "falsa")
+    monkeypatch.setattr(calendario, "fechas_fred",
+                        lambda clave: {dt.date(2025, 11, 20), dt.date(2026, 12, 4)})
+    assert es_dia_de_empleo(dt.date(2025, 11, 20))
+    assert not es_dia_de_empleo(dt.date(2025, 11, 7))
+
+
+def test_si_fred_no_responde_vuelve_a_la_regla(monkeypatch):
+    from oro import calendario
+
+    monkeypatch.setenv("ORO_FRED_CLAVE", "falsa")
+    monkeypatch.setattr(calendario, "fechas_fred", lambda clave: set())
+    assert es_dia_de_empleo(dt.date(2024, 9, 6))
+
+
+def test_ninguna_clave_de_fred_pegada_en_el_codigo():
+    """La clave es un secreto de GitHub (ORO_FRED_CLAVE). El repositorio es
+    público: una clave escrita en un fichero la tendría cualquiera."""
+    import pathlib
+    import re
+    import subprocess
+
+    raiz = pathlib.Path(__file__).resolve().parents[2]
+    ficheros = subprocess.run(["git", "ls-files", "*.py", "*.yml", "*.md", "*.json"],
+                              cwd=raiz, capture_output=True, text=True).stdout.split()
+    patron = re.compile(r"api_key[\"'=:\s]+[0-9a-f]{32}")
+    for f in ficheros:
+        texto = (raiz / f).read_text(encoding="utf-8", errors="ignore")
+        assert not patron.search(texto), f"parece una clave de FRED en {f}"
 
 
 def _plan(fecha: str, **ruptura):

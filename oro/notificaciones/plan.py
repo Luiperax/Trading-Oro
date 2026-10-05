@@ -77,15 +77,15 @@ def texto_confianza(plan: PlanRuptura) -> str:
                 "cualquiera: es el mercado reaccionando al dato, y sigue en la "
                 "dirección en que sale, en las dos. Medido sobre 160 días de "
                 "empleo de 21 años, con el relleno real sacado tick a tick: "
-                "+0,58 R por operación (t = 4,13). Son unos 8 días al año y "
+                "+0,64 R por operación (t = 4,58). Son unos 8 días al año y "
                 "aportan más de la mitad del rendimiento anual de la estrategia.")
     if plan.solo_ventas:
         # Con una sola orden no hay nada que elegir, y la pregunta que importa
         # no es «qué lado» sino «por qué solo este».
         return ("Hoy solo va una orden, y a la baja. Medido sobre 21 años con "
                 "todos los costes reales (spread y deslizamiento sacados de los "
-                "ticks): la estrategia da +0,079 R por operación (t = 3,00, "
-                "+0,078 y +0,080 en las dos mitades del histórico). La rotura al "
+                "ticks): la estrategia da +0,082 R por operación (t = 3,13, "
+                "+0,083 y +0,081 en las dos mitades del histórico). La rotura al "
                 "alza no se opera porque resta: solo 4 años a favor de 21.")
     if plan.favorita is None:
         return ("Hoy la sesión asiática ha cerrado casi donde abrió, así que no "
@@ -112,9 +112,9 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
                 "Usa una orden OCO si tu bróker la tiene: a esa hora pueden "
                 "saltar las dos en segundos y no da tiempo a cancelar a mano.")
     if plan is not None and plan.solo_ventas:
-        return ("El límite: son +8,3 R al año, unos 124 € con 0,5 % de riesgo "
-                "sobre 3.000 €, y 7 de los 21 años fueron en pérdida (el peor, "
-                "-19,6 R). Más de la mitad de eso sale de los ~8 días de empleo "
+        return ("El límite: son +8,6 R al año, unos 129 € con 0,5 % de riesgo "
+                "sobre 3.000 €, y 6 de los 21 años fueron en pérdida (el peor, "
+                "-18,3 R). Más de la mitad de eso sale de los ~8 días de empleo "
                 "al año; el resto de días la venta da +0,04 R, positiva pero no "
                 "demostrada por sí sola. Espera rachas negativas de 46 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
@@ -277,13 +277,13 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
     if plan.solo_ventas or plan.dia_de_empleo:
         return (
             "Acierta el 39 % de las veces: la mayoría de los días pierde. Gana "
-            "porque las ganadoras valen +1,22 R de media y las perdedoras -0,66 R.",
-            "Medido sobre 2.208 operaciones de 21 años con TODOS los costes "
+            "porque las ganadoras valen +1,23 R de media y las perdedoras -0,66 R.",
+            "Medido sobre 2.209 operaciones de 21 años con TODOS los costes "
             "reales —spread de cada año y deslizamiento, sacados de los ticks—: "
-            "+0,079 R por operación, 14 años en positivo de 21.",
-            "El peor año perdió 19,6 R y la peor racha fue de 46 R. Con 0,5 % de "
-            "riesgo sobre 3.000 € eso son -294 € y -688 €, con +124 € de media al año.",
-            "Los días de empleo (unos 8 al año) dan +0,58 R por operación y "
+            "+0,082 R por operación, 15 años en positivo de 21.",
+            "El peor año perdió 18,3 R y la peor racha fue de 46 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -274 € y -688 €, con +129 € de media al año.",
+            "Los días de empleo (unos 8 al año) dan +0,64 R por operación y "
             "aportan más de la mitad. El resto de días la venta da +0,04 R: "
             "positiva, pero no demostrada por sí sola.",
         )

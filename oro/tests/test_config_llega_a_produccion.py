@@ -22,7 +22,7 @@ _WORKFLOWS = _RAIZ / ".github" / "workflows"
 # Credenciales: van por `secrets`, no por `vars`, y no todas se usan en todos los
 # trabajos (el de aprendizaje no manda avisos de señal, por ejemplo).
 _CREDENCIALES = {
-    "ORO_SMTP_HOST", "ORO_SMTP_USUARIO", "ORO_SMTP_CLAVE", "ORO_SMTP_DESTINO",
+    "ORO_SMTP_HOST", "ORO_SMTP_USUARIO", "ORO_SMTP_CLAVE", "ORO_SMTP_DESTINO", "ORO_FRED_CLAVE",
     "ORO_TELEGRAM_TOKEN", "ORO_TELEGRAM_CHAT_ID", "ORO_WEBHOOK_URL",
 }
 # Opciones de ejecución local o del panel web, que no aplican a los workflows.

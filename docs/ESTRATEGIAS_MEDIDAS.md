@@ -1152,3 +1152,51 @@ empleo. Es la siguiente prueba natural.
 Las decisiones del FOMC salen a las 14:00 ET, con la operación ya abierta.
 60 operaciones: −0,105 R/op frente a +0,109 el resto, t = −1,13. Las mitades
 coinciden (−0,216 / −0,212) pero la muestra es pequeña y no pasa. No se toca.
+
+---
+
+# Con la clave de FRED: el IPC, y el calendario real del empleo
+
+## El IPC no pasa (hipótesis 12)
+
+Fechas reales del IPC desde la API de FRED (publicación 10), una por mes —se
+descarta la revisión anual de factores estacionales de febrero—. 259 días de
+IPC de 2006 a 2026. Mismo método que el empleo: código de producción con las
+dos órdenes y relleno real tick a tick.
+
+| | n | R/op real | t | mitades |
+|---|---|---|---|---|
+| venta | 78 | +0,031 | 0,25 | +0,106 / −0,084 |
+| compra | 98 | +0,164 | 1,14 | −0,081 / +0,381 |
+| las dos | 176 | +0,105 | 1,08 | +0,013 / +0,207 |
+
+Lejos de Bonferroni (2,87 para 12) y con las mitades llevándose la contraria.
+El IPC no se comporta como el empleo. Los días de IPC se tratan como un día
+normal.
+
+## El calendario del empleo, corregido
+
+La regla de fechas, comprobada contra el calendario de FRED (publicación 50,
+filtrada a la primera fecha de cada mes para quitar revisiones), acertaba 236 de
+257. Dos causas corregibles:
+
+* **Enero**: la excepción se aplica del 1 al 3, no del 1 al 4 (en 2008, 2013 y
+  2019 el informe salió el día 4).
+* **4 de julio**: si el viernes es festivo o puente, se adelanta al jueves
+  (2008, 2009, 2014, 2015, 2020, 2025, 2026).
+
+Con eso acierta **246 de 251**, y las 5 que falla son todas **retrasos por
+cierre del Gobierno federal** (2013 y 2025-26), que ninguna regla puede prever.
+Por eso, con el secreto `ORO_FRED_CLAVE`, el sistema usa el calendario real de
+FRED, y la regla queda de respaldo.
+
+Con el calendario real el efecto sale más fuerte —las fechas erróneas lo
+diluían—:
+
+| | n | R/op | t | R/año |
+|---|---|---|---|---|
+| **total** | 2.209 | **+0,0819** | **3,13** | **+8,62** |
+| días de empleo | 161 | +0,6387 | 4,58 | +4,90 |
+| resto (venta) | 2.048 | +0,0382 | 1,48 | +3,72 |
+
+Mitades +0,0830 / +0,0808, 15 años positivos de 21, peor año −18,3 R.
