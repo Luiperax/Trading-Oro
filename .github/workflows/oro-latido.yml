@@ -55,7 +55,7 @@ permissions:
 
 jobs:
   parte:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a Ubuntu 26 el 19-oct-2026 y quizá sin Python 3.11 precompilado
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

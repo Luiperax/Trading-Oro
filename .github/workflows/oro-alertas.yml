@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   revisar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a Ubuntu 26 el 19-oct-2026 y quizá sin Python 3.11 precompilado
     # La ventana de vigilancia dura ~290 min (ver oro/vigilar.py: es lo único
     # que ha entregado el plan del día a tiempo, porque es un proceso vivo).
     # Este tope evita que un ciclo colgado deje la máquina ocupada, y debe
