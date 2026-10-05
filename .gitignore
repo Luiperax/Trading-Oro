@@ -15,8 +15,15 @@ venv/
 #   - modelo_oro.pkl: modelo promocionado por el aprendizaje.
 #   - operaciones_oro.jsonl: histórico real de señales para reentrenar.
 #   - oro_estado.json: operaciones abiertas del vigilante.
+#   - oro_rupturas.jsonl: resultado real de cada plan de ruptura.
+#   - historico_ruptura.jsonl: las 2.131 operaciones reconstruidas de 21 años.
+#     Son 2,4 MB (0,2 comprimido) y se regeneran con `python -m oro.historico`,
+#     pero eso exige bajar 249 meses de Dukascopy: 20-40 minutos en Actions.
+#     Versionado, el aprendizaje arranca al instante y mide siempre lo mismo.
 !modelo_oro.pkl
 !operaciones_oro.jsonl
+!oro_rupturas.jsonl
+!historico_ruptura.jsonl
 
 # Sistema operativo
 .DS_Store

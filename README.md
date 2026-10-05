@@ -63,17 +63,44 @@ secretos de tu correo (`ORO_SMTP_HOST`, `ORO_SMTP_USUARIO`, `ORO_SMTP_CLAVE`,
 `ORO_SMTP_DESTINO`) y pruébalo en **Actions → «Alertas XAU/USD» → Run workflow →
 modo_prueba**.
 
+## Qué está encendido
+
+| | estado | por qué |
+|---|---|---|
+| **Plan de ruptura** (venta del rango de Londres) | **activo** | +0,114 R/op sobre 2.131 operaciones de 21 años, t = 4,37, 17 años positivos |
+| Motor de señales intradía | **apagado** | −0,090 R/op sobre 4.891 operaciones, 2 años positivos de 21, −157 €/año |
+
+El motor de señales se apagó en octubre de 2026 tras reconstruir el histórico
+entero. Se intentó arreglar antes: seis variantes de salida, todas negativas en
+bruto; un modelo entrenado con 21 años que ordena al revés (AUC 0,5054); y 93
+motivos de entrada de los que ninguno sobrevive a la corrección por pruebas
+múltiples. Se vuelve a encender con `ORO_SENALES_ACTIVAS=1`.
+
+> **Comprueba esto una vez.** Los precios salen de `GC=F`, el futuro de oro de
+> COMEX, porque Yahoo no sirve XAU/USD al contado en velas horarias. Si tu
+> bróker cotiza el **contado**, marcará unos 30-50 $ menos y los niveles del
+> correo no le valdrán. El correo lo avisa, pero el sistema no puede detectarlo
+> solo: ve un único feed.
+
 ## El plan del día (segunda estrategia)
 
 Además de las señales intradía, el sistema manda cada mañana un **plan de
 ruptura**: a las 14:00 de Madrid mide el rango que ha dejado la mañana de
-Londres y te da **dos órdenes pendientes** —una por encima y otra por debajo—
-para dejar puestas y olvidarte. La que salte es la operación del día.
+Londres y te da **una orden de venta pendiente** en el mínimo de ese rango, para
+dejarla puesta y olvidarte. Si salta, es la operación del día; si el precio
+rompe el techo del rango antes, te llega un correo para cancelarla.
 
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
-Aviso honesto: acierta el 44,7 % de las veces y entre 2017 y 2020 perdió cuatro
-años seguidos.
+Aviso honesto: **acierta el 40 % de las veces**, 4 de los 21 años medidos
+acabaron en pérdida y la peor racha fue de 23 R. Medido sobre 2.131 operaciones
+de 2006 a 2026 con el mismo código que opera: +0,114 R por operación
+(t = 4,37), unos +11,6 R al año.
+
+Antes dejaba **dos** órdenes, una a cada lado. Se midió el histórico completo y
+el lado de las compras resultó ser un lastre de −7,7 R al año, así que se quitó.
+El detalle está en
+[`docs/ESTRATEGIAS_MEDIDAS.md`](docs/ESTRATEGIAS_MEDIDAS.md).
 
 ## Documentación
 

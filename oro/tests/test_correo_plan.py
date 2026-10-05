@@ -24,6 +24,7 @@ NY = ZoneInfo("America/New_York")
 def plan():
     cfg = ConfiguracionSistema()
     cfg.riesgo.coste_operacion = 0.30
+    cfg.ruptura.solo_ventas = False   # el correo de dos órdenes; ver test_solo_ventas.py
     return construir_plan(_marco("2026-03-10", MANANA), cfg, ahora=AHORA).plan
 
 
@@ -105,6 +106,7 @@ def _plan_con_asia(sube: bool = True):
     from oro.tests.test_ruptura_sesion import ASIA_BAJA, ASIA_SUBE, JULIO, LONDRES
     cfg = ConfiguracionSistema()
     cfg.riesgo.coste_operacion = 0.30
+    cfg.ruptura.solo_ventas = False
     velas = {**(ASIA_SUBE if sube else ASIA_BAJA), **LONDRES}
     return construir_plan(_marco("2026-07-15", velas), cfg, ahora=JULIO).plan
 

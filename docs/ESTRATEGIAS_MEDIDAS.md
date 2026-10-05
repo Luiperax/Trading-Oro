@@ -562,3 +562,261 @@ La marca vuelve al correo —se pidió— pero redactada **en condicional**:
 50,0 % (z = 0,00) y presentarlo como predicción hacía que pareciera fallar el
 49 % de los días. Y el correo dice de dónde sale, incluido que el modelo de 8
 condiciones no funcionó.
+
+---
+
+# La auditoría de octubre de 2026 y la estrategia que salió de ella
+
+Se pidió una auditoría de lo que el programa había aprendido. Para contestarla
+hubo que bajar el histórico entero (**124.718 velas H1, 2006-2026, 249 meses de
+Dukascopy**) y reconstruir todas las operaciones que el sistema habría
+planteado. Lo que salió cambió la estrategia.
+
+## Lo que se encontró primero: el aprendizaje no podía aprender
+
+`oro/aprender.py` leía **solo** `operaciones_oro.jsonl` —las operaciones
+enviadas en vivo— y exigía 50 para empezar. Llevaba meses parado en
+«datos insuficientes» con 22, mientras había más de dos mil operaciones en el
+histórico calculables con las **mismas** funciones (`construir_features` es la
+misma en los dos caminos). No era una limitación: era un fallo de diseño.
+
+## El motor intradía de señales: pierde en 19 de 21 años
+
+Reconstruido con la configuración exacta de producción (`r_objetivos=(2.0,)`,
+`atr_stop_mult=1.5`, `trailing_desde_entrada=True`), **4.891 operaciones**:
+
+| | valor |
+|---|---|
+| R bruto medio | **−0,0314** (t = −2,43) |
+| R neto medio (coste 0,30 $) | **−0,0899** (t = −6,94) |
+| Años positivos | **2 de 21** |
+| R acumulado | **−439,5** |
+
+A 0,25 % de riesgo son **−157 €/año** sobre 3.000 €. Los dos años positivos son
+2025 y 2026: la ventana en la que se construyó y se ajustó el sistema.
+
+### No es el coste, y conviene no engañarse con eso
+
+La primera explicación —que el 1R en dólares era pequeño en los años antiguos y
+el spread pesaba más— **es falsa**, y la prueba que la separa es esta:
+
+| población | n | bruto | neto |
+|---|---|---|---|
+| 1R ≥ 10 $, todo el histórico | 673 | +0,0648 | +0,0458 |
+| **1R ≥ 10 $ pero antes de 2025** | **303** | **+0,0046** | **−0,0197** |
+
+Si fuera el coste, las operaciones de 1R grande de 2006-2024 también ganarían.
+No ganan (t = 0,09). Toda la ventaja vive en 2025-2026.
+
+### Ninguna salida lo rescata
+
+Seis variantes de salida sobre 2019, 2022 y 2024 (714 operaciones): producción
+−0,1141, sin trailing desde la entrada −0,1095, sin trailing −0,1095, objetivo
+3R −0,1000, objetivo 3R sin trailing −0,1117, stop 2,5×ATR −0,0579. **Todas
+negativas en bruto.** El problema son las entradas.
+
+### Ningún modelo lo filtra, con 21 años de datos
+
+Walk-forward entrenando con los años anteriores y puntuando el siguiente, 18
+veces, **4.294 operaciones fuera de muestra**:
+
+| cuartil de puntuación | n | R/op | acierto |
+|---|---|---|---|
+| peor | 1074 | **−0,0738** | 34,6 % |
+| 2º | 1073 | −0,1235 | 34,1 % |
+| 3º | 1073 | −0,0700 | 38,0 % |
+| **mejor** | 1074 | **−0,0900** | 35,0 % |
+
+AUC medio **0,5054**, t = 0,63 frente a 0,50, 10 de 18 años por encima. El
+cuartil «mejor» rinde menos que el «peor»: es la cuarta vez que esa inversión
+aparece en este proyecto.
+
+### Los motivos de entrada son adorno
+
+93 motivos distintos (el valor del indicador va dentro del texto, así que cada
+ADX y cada RSI es su propio motivo). De los 50 con n ≥ 100, **ninguno pasa
+Bonferroni** (|t| > 3,29; el mejor da 2,87). Y la prueba que lo cierra:
+
+| motivo | n | diferencia | t |
+|---|---|---|---|
+| «no es un mercado parado (ADX **28**)» | 152 | **−0,1724** | −2,77 |
+| «no es un mercado parado (ADX **29**)» | 141 | **+0,1826** | +2,20 |
+
+Enteros adyacentes, signos opuestos, los dos cerca de «significativo». Un
+efecto real no cambia de signo entre 28 y 29.
+
+## La ruptura de sesión: la contabilidad del coste estaba mal
+
+Reconstruidas sus **4.672 operaciones**. El bruto reproduce lo documentado
+(+0,0606 contra +0,0687; y para la variante con stop a BE, +0,0740 contra
++0,0768), así que la tubería de medición coincide. El neto no:
+
+| coste | global | t | 1ª mitad | 2ª mitad |
+|---|---|---|---|---|
+| 0 $ (bruto) | +0,0606 | 3,35 | +0,0874 | +0,0354 |
+| **0,30 $ (el del sistema)** | **+0,0133** | **0,74** | +0,0358 | **−0,0079** |
+| 0,60 $ (el citado antes) | **−0,0340** | −1,88 | −0,0158 | −0,0511 |
+
+La tabla de más arriba en este documento afirma +0,0552 con t = 3,01 y las dos
+mitades positivas **«netas de 0,60 $»**. Con 0,60 $ sale −0,0340. La fórmula
+usada aquí es `spread / amplitud_del_rango`, que es **la misma que usa el
+sistema en vivo** (`coste_r` en `oro_rupturas.jsonl`: 0,30/34,94 = 0,0086). Las
+cifras netas antiguas eran optimistas.
+
+## Lo que sí funciona, y es la estrategia que va puesta
+
+### Solo la rotura a la BAJA
+
+| lado | n | R/op | t | 1ª mitad | 2ª mitad | años + |
+|---|---|---|---|---|---|---|
+| **venta** | 2117 | **+0,1069** | **4,02** | +0,1339 | +0,0789 | 14/21 |
+| compra | 2529 | −0,0638 | −2,56 | −0,0549 | −0,0714 | 4/21 |
+
+Las compras no son más débiles: son un lastre de **−7,7 R al año**.
+
+### Y solo si es la PRIMERA rotura del día
+
+Esto es el hallazgo que define la estrategia. No vale «vender oro»: lo que
+funciona es la rotura a la baja que ocurre **primera**. La misma rotura, cuando
+llega después de que el rango se haya roto al alza, es un latigazo que se gira:
+
+| población de días | n | R/op | t | años + |
+|---|---|---|---|---|
+| rompe abajo primero (se opera) | 2117 | **+0,1069** | 4,02 | 14/21 |
+| rompe arriba y **luego** abajo (se anula) | 869 | **−0,2863** | **−8,73** | 2/21 |
+| las dos juntas | 2986 | −0,0075 | −0,35 | 10/21 |
+
+**Si la orden de venta se queda puesta cuando el rango rompe al alza, la
+ventaja no baja: desaparece** (−1,07 R/año en lugar de +10,78). De ahí que la
+anulación sea un aviso propio (`EstadoPlan.ANULADO`) y no una nota al pie.
+
+Esto explica además las 12 operaciones en vivo de septiembre: el sistema tomaba
+la que saltara primero, así que dio el lado malo 10 de 12 veces. Las 2 ventas
+promediaron +0,684 R y las 10 compras −0,453 R.
+
+### La salida
+
+Siete variantes declaradas antes de medir, sobre las 2.117 ventas:
+
+| salida | bruto | neto | t | 1ª | 2ª | R/año |
+|---|---|---|---|---|---|---|
+| sin objetivo, sin mover stop | +0,1419 | +0,0956 | 3,48 | +0,1227 | +0,0674 | +9,64 |
+| **sin objetivo + BE en 1R** | **+0,1533** | **+0,1069** | **4,02** | +0,1339 | +0,0789 | **+10,78** |
+| sin objetivo + BE en 1,5R | +0,1527 | +0,1064 | 3,92 | +0,1344 | +0,0772 | +10,72 |
+| sin objetivo + trailing 1R | +0,1628 | +0,1164 | 4,80 | +0,1390 | +0,0929 | +11,74 |
+| objetivo 6R + BE en 1R | +0,1534 | +0,1071 | 4,08 | +0,1376 | +0,0753 | +10,80 |
+| objetivo 3R + BE en 1R | +0,1451 | +0,0988 | 4,07 | +0,1279 | +0,0684 | +9,96 |
+| objetivo 2R | +0,1258 | +0,0795 | 3,44 | +0,0903 | +0,0682 | +8,01 |
+
+El trailing gana por 0,01 R y **no se elige**: su medición es optimista, porque
+coloca el stop con el pico de la misma vela y solo comprueba si salta en la
+siguiente. Dentro de una vela de una hora no se sabe el orden. Se queda el
+**break-even en 1R**, que es casi igual, es una sola acción para quien opera, y
+no depende de un supuesto que no se puede verificar con velas horarias.
+
+### Robustez
+
+11 perturbaciones de horario (rango 2-8, 4-8, 3-7, 3-9; validez 1h, 3h, 4h;
+cierre a las 14 y 15 ET; velas mínimas 3): **las 11 positivas**, 10 de ellas con
+las dos mitades positivas (solo falla rango 3-9). Quitando a la vez el mejor y
+el peor año quedan **+0,0989 R/op con t = 3,84** y 13 de 19 años a favor. Con 31
+pruebas acumuladas en el estudio, Bonferroni exige |t| > 3,25, y el resultado
+da 4,02.
+
+### Medido otra vez, con el código de producción
+
+`python -m oro.historico` no reimplementa nada: llama a `construir_plan` y
+`seguir`, las que deciden en vivo. **2.131 operaciones:**
+
+| | valor |
+|---|---|
+| R neto medio | **+0,1143** (t = 4,37) |
+| Mitades bloqueadas | +0,1270 (t = 3,32) / +0,1009 (t = 2,84) |
+| Años positivos | **17 de 21** |
+| R al año | **+11,59** |
+| Acierto | 40,0 % (ganadora +1,205 R, perdedora −0,612 R) |
+| Peor año | −8,3 R (2009) |
+| Peor racha | −23,0 R |
+| Días anulados | 2.182 de 5.370 con plan (41 %) |
+
+A 0,5 % de riesgo sobre 3.000 € son **+174 €/año**, con un peor año de −125 € y
+una peor racha de −345 €.
+
+## Un fallo propio que conviene dejar escrito
+
+Al optimizar el número de operaciones, «validez 8h + reentrada» dio +0,0811
+R/op con **t = 5,77** y 20 de 21 años positivos: cinco veces mejor que todo lo
+demás. Era un fallo. El **55,7 % de las segundas entradas tenían relleno
+imposible**: el precio ya estaba fuera del nivel, así que entrar a ese nivel
+exigía un precio que el mercado nunca dio. Corregido, los +27,75 R/año se
+quedan en +1,36 y el t desaparece.
+
+La regla que lo detectó: para una venta, la vela que dispara tiene que **abrir
+en o por encima** del nivel. Si abre por debajo, el relleno real es la apertura,
+no el nivel. Vale para cualquier medición de órdenes stop, y conviene aplicarla
+siempre que un resultado parezca demasiado bueno.
+
+## Limitaciones honestas de todo lo anterior
+
+* **El instrumento no es el mismo.** La investigación usa XAU/USD **al contado**
+  de Dukascopy; el motor en vivo usa Yahoo **`GC=F`, futuros de COMEX**. La base
+  medida en septiembre de 2026 fue de +40,17 $ y derivó de 48,63 a 31,70 en el
+  mes. Los rangos H1 del futuro son un 1,5 % más anchos (t = 5,08, mayores en el
+  72 % de las horas). Que la estrategia sea intradía es lo que lo hace
+  soportable: 0,7 $/día de convergencia sobre un 1R de 35 $ son 0,002 R en unas
+  horas. No hay forma gratuita de validar 20 años de futuros en H1 (Yahoo da
+  ~45 días), así que **ninguna ventaja de este sistema se ha medido nunca sobre
+  el instrumento que de verdad opera**.
+* **Los años antiguos tienen rangos diminutos.** En 2006 el rango de Londres
+  medía 1,13 $ y el coste en R llegaba al 26 %. En esos días la ejecución real
+  sería peor que la simulada (distancia mínima de stop, spread proporcionalmente
+  mayor). Filtrar por coste en R se midió y **empeora el R al año**, así que no
+  se filtra, pero el resultado de 2006-2010 hay que leerlo con esa reserva.
+* **101 operaciones al año no demuestran nada rápido.** Para distinguir
+  +0,114 R de cero al 80 % de potencia hacen falta ~690 operaciones, unos
+  **6 años**. La vigilancia de `oro/aprender.py` existe precisamente porque la
+  media tarda, mientras que el acierto y la forma de las salidas convergen
+  antes.
+
+---
+
+## Decisiones tomadas tras la auditoría
+
+### El motor de señales intradía queda APAGADO
+
+`ConfiguracionSistema.senales_activas = False`. No deja de ejecutarse el
+vigilante —en su bucle atiende también el seguimiento de la ruptura— pero no
+abre operaciones nuevas. Las razones están arriba: −0,0899 R netos por
+operación sobre 4.891 operaciones de 21 años, 2 años positivos de 21, −439,5 R
+acumulados, −157 €/año a 0,25 % de riesgo. Y lo que lo cierra: seis variantes
+de salida negativas **en bruto**, un walk-forward con AUC 0,5054 que ordena al
+revés, y 93 motivos de los que ninguno pasa Bonferroni.
+
+Se enciende otra vez con `ORO_SENALES_ACTIVAS=1`. Las operaciones que estuvieran
+abiertas se siguen gestionando y cerrando: la compuerta está solo en la entrada.
+
+### El instrumento que se opera no es el que se investigó, y ahora se dice
+
+Yahoo **no sirve XAU/USD al contado en velas horarias**: `XAUUSD=X`, `XAU=X` y
+`GCUSD=X` devuelven 404, y `^XAU` es el índice de mineras (cotiza a 361). El
+único feed horario gratuito es **`GC=F`, el futuro de oro de COMEX**.
+
+Toda la investigación de este documento está medida sobre el contado de
+Dukascopy. Eso no se puede arreglar —Yahoo da ~45 días de histórico horario de
+futuros— así que se **declara**:
+
+* `ConfiguracionSistema.simbolo_vivo` separa el símbolo de investigación
+  (`XAUUSD`, Dukascopy) del que se opera (`GC=F`, Yahoo). Antes `ProveedorYahoo`
+  usaba su propio `GC=F` por defecto y nadie le pasaba `cfg.simbolo`: la
+  configuración decía una cosa y el sistema hacía otra.
+* El correo del plan lleva una línea diciendo de dónde salen los precios y que,
+  si el bróker cotiza el contado, marcará 30-50 $ menos. **Es el fallo más caro
+  posible** —las órdenes se ejecutarían al instante en vez de esperar a la
+  ruptura— y el sistema no puede detectarlo, porque solo ve un feed.
+
+### Los avisos de la sesión van en tarjeta
+
+Salían en texto plano, todos con el mismo aspecto. El de CANCELAR es el que
+sostiene la ventaja (sin él, +10,78 R/año se quedan en −1,07), así que ahora
+lleva cabecera roja, el precio que anula la orden en grande y texto blanco
+—sobre `#F04438` el texto oscuro se queda por debajo del contraste legible.

@@ -69,12 +69,43 @@ def test_las_rutas_se_pueden_cambiar_por_entorno(monkeypatch):
     assert cfg.ruta_modelo == "/tmp/x_modelo.pkl"
 
 
-def test_el_aprendizaje_ignora_las_senales_sin_resultado(tmp_path):
-    from oro.aprender import _cargar_operaciones
+def test_el_aprendizaje_ignora_los_dias_sin_operacion(tmp_path):
+    """La misma invariante en el registro de la ruptura, que es el que aprende.
 
-    ruta = tmp_path / "mix.jsonl"
+    Aquí el riesgo es simétrico al de las señales sin cerrar: un día en que no
+    salta ninguna orden tiene ficha pero NO tiene resultado. Contarlo como 0 R
+    metería en la media cientos de días en que no se operó, y la estrategia
+    pasaría de +0,11 R por operación a prácticamente cero sin que nada hubiera
+    cambiado en el mercado.
+    """
+    from oro.aprender import _cerradas, _leer_jsonl
+
+    operada = {"dia": "2026-09-10", "direccion": "venta", "estado": "cerrada",
+               "r_neto": 0.84, "amplitud": 26.0}
+    sin_operar = [
+        {"dia": "2026-09-11", "estado": "caducado", "r_neto": None, "amplitud": 21.0},
+        {"dia": "2026-09-14", "estado": "anulado", "r_neto": None, "amplitud": 18.0},
+        {"dia": "2026-09-15", "estado": "ambigua", "r_neto": None, "amplitud": 30.0},
+    ]
+    # Y un día repetido: el registro en vivo puede escribirlo dos veces si se
+    # solapan dos ejecuciones del seguimiento.
+    ruta = tmp_path / "rupturas.jsonl"
+    filas = [operada, *sin_operar, dict(operada)]
+    ruta.write_text("\n".join(json.dumps(f) for f in filas), encoding="utf-8")
+
+    ops = _cerradas(_leer_jsonl(ruta))
+    assert len(ops) == 1, f"se colaron días sin operación o repetidos: {ops}"
+    assert ops[0]["r_neto"] == 0.84
+    # Una operación que acabó exactamente en 0.0 R SÍ cuenta.
+    assert len(_cerradas([dict(operada, r_neto=0.0)])) == 1
+
+
+def test_el_informe_intradia_sigue_filtrando_las_senales(tmp_path):
+    """El esquema intradía sigue leyéndose en `informe` y `diagnostico`, así que
+    su filtro tiene que seguir en pie aunque el aprendizaje ya no lo use."""
     con_feat = dict(CERRADA, features={"rsi_14": 40.0})
     filas = [con_feat] + [dict(SENAL, momento=f"2026-09-0{i}T10:00:00+00:00")
                           for i in range(1, 4)]
+    ruta = tmp_path / "mix.jsonl"
     ruta.write_text("\n".join(json.dumps(f) for f in filas), encoding="utf-8")
-    assert len(_cargar_operaciones(ruta)) == 1
+    assert len([f for f in _cargar(ruta) if es_operacion_cerrada(f)]) == 1

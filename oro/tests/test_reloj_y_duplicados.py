@@ -33,8 +33,12 @@ _FIN_FIJO = datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc)   # 10:00 en Nueva
 def _runner(en_vivo: bool):
     prov = ProveedorSintetico(velas=1200, semilla=7, fin=_FIN_FIJO)
     prov.en_vivo = en_vivo
+    # Las guardas del motor de señales se siguen probando aunque el motor vaya
+    # apagado en producción: si se vuelve a encender, tienen que funcionar.
+    cfg = cargar_configuracion()
+    cfg.senales_activas = True
     return RunnerVivo(
-        cargar_configuracion(), proveedor=prov,
+        cfg, proveedor=prov,
         analizador=AnalizadorSentimiento(fuente_titulares=lambda: [],
                                          fuente_eventos=lambda: []),
         usar_sentimiento=False,

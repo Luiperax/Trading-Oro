@@ -29,6 +29,7 @@ def _a_las(hora: int, minuto: int = 0) -> datetime:
 def _plan(**ruptura):
     cfg = ConfiguracionSistema()
     cfg.riesgo.coste_operacion = 0.30
+    cfg.ruptura.solo_ventas = False   # el camino de dos órdenes; ver test_solo_ventas.py
     for k, v in ruptura.items():
         setattr(cfg.ruptura, k, v)
     velas = {**ASIA_SUBE, **LONDRES}
@@ -209,6 +210,11 @@ def entorno(tmp_path, monkeypatch):
     monkeypatch.setenv("ORO_PLAN_ESTADO", str(tmp_path / "plan.json"))
     monkeypatch.setenv("ORO_RUTA_RUPTURAS", str(tmp_path / "rupturas.jsonl"))
     monkeypatch.setenv("ORO_COSTE_OPERACION", "0.30")
+    # El camino de DOS órdenes. Estas pruebas de punta a punta recorren el día
+    # completo con la compra, y hay que seguir cubriéndolo porque el
+    # interruptor existe. El día completo con una sola orden está en
+    # test_solo_ventas.py.
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_VENTAS", "0")
     espia = _Espia()
     monkeypatch.setattr(plan_sesion, "_construir_notificador", lambda: espia)
     monkeypatch.setattr(seguir_plan, "_construir_notificador", lambda: espia)

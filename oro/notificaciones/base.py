@@ -516,8 +516,13 @@ class Notificador(ABC):
         """
         from .plan import mensaje_de_plan, mensaje_html_de_plan
 
-        titulo = (f"⚡ PLAN XAU/USD — deja 2 órdenes: compra {plan.compra.entrada:.2f} "
-                  f"/ venta {plan.venta.entrada:.2f}")
+        if plan.solo_ventas:
+            titulo = (f"⚡ PLAN XAU/USD — deja 1 orden: venta "
+                      f"{plan.venta.entrada:.2f} (anula si sube de "
+                      f"{plan.compra.entrada:.2f})")
+        else:
+            titulo = (f"⚡ PLAN XAU/USD — deja 2 órdenes: compra "
+                      f"{plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}")
         return self.enviar(titulo, mensaje_de_plan(plan), Evento.PLAN_RUPTURA,
                            html=mensaje_html_de_plan(plan))
 

@@ -38,6 +38,11 @@ def _marco(dia: str, precios: dict[int, tuple[float, float]]) -> pd.DataFrame:
 def _cfg(**ruptura) -> ConfiguracionSistema:
     cfg = ConfiguracionSistema()
     cfg.riesgo.coste_operacion = 0.30
+    # Las dos órdenes, salvo que la prueba pida otra cosa. El sistema va con
+    # `solo_ventas=True`, pero el camino de dos órdenes sigue existiendo y hay
+    # que seguir comprobándolo: estas pruebas son las que lo cubren. Lo de una
+    # sola orden está en test_solo_ventas.py.
+    cfg.ruptura.solo_ventas = False
     for k, v in ruptura.items():
         setattr(cfg.ruptura, k, v)
     return cfg

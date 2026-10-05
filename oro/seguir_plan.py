@@ -105,7 +105,8 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     if s.avisos:
         notificador = _construir_notificador()
         for aviso in s.avisos:
-            if notificador.enviar(aviso.titulo, aviso.cuerpo, aviso.tipo):
+            if notificador.enviar(aviso.titulo, aviso.cuerpo, aviso.tipo,
+                                  html=aviso.html()):
                 avisados.add(aviso.clave)
             else:
                 print(f"⚠️  AVISO NO ENVIADO ({aviso.clave}): se reintentará.")
@@ -115,7 +116,12 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     # `seguir` ya cierra la operación al llegar la hora, así que aquí basta con
     # mirar el estado: no hace falta repetir la condición de la hora, que sería
     # una segunda fuente de verdad sobre lo mismo.
-    if s.estado in (EstadoPlan.CERRADA, EstadoPlan.CADUCADO, EstadoPlan.AMBIGUA):
+    # ANULADO también cierra el día: el rango se rompió al alza y la venta ya no
+    # vale. Si no se registrara, el día siguiente se volvería a seguir el mismo
+    # plan, y además no quedaría constancia de que se mandó el aviso de cancelar
+    # —que es el 41 % de los días con plan y la pieza que sostiene la ventaja.
+    if s.estado in (EstadoPlan.CERRADA, EstadoPlan.CADUCADO, EstadoPlan.AMBIGUA,
+                    EstadoPlan.ANULADO):
         _anotar(registro_de(plan, s, cfg.riesgo.coste_operacion))
         datos["registrado"] = plan.dia.isoformat()
         print(f"Registrada la operación de {plan.dia}.")
@@ -148,7 +154,21 @@ def _rehidratar(d: dict) -> dict:
         sesgo=SesgoAsiatico(
             direccion=Direccion(sg["direccion"]) if sg["direccion"] else None,
             cuerpo=sg["cuerpo"], rango=sg["rango"]),
+        # Si faltan —plan guardado antes de que existieran— se toma la
+        # configuración, NO el valor por defecto de la clase. El defecto de
+        # `solo_ventas` es False, así que un plan viejo volvería operando
+        # compras y sin anular nada: el seguimiento haría justo lo contrario de
+        # la estrategia y no fallaría nada, que es la peor forma de fallar.
+        solo_ventas=d.get("solo_ventas", _cfg_ruptura().solo_ventas),
+        anular_si_rompe_arriba=d.get("anular_si_rompe_arriba",
+                                     _cfg_ruptura().anular_si_rompe_arriba),
     )
+
+
+def _cfg_ruptura():
+    from .config import cargar_configuracion
+
+    return cargar_configuracion().ruptura
 
 
 def serializar(plan: PlanRuptura) -> dict:
@@ -169,6 +189,11 @@ def serializar(plan: PlanRuptura) -> dict:
         "sesgo": {"direccion": plan.sesgo.direccion.value if plan.sesgo.direccion
                   else None,
                   "cuerpo": plan.sesgo.cuerpo, "rango": plan.sesgo.rango},
+        # Sin esto el seguimiento operaría la compra y no anularía nunca la
+        # venta: el plan volvería del JSON con los valores por defecto de la
+        # clase, que son los del comportamiento antiguo.
+        "solo_ventas": plan.solo_ventas,
+        "anular_si_rompe_arriba": plan.anular_si_rompe_arriba,
     }
 
 
