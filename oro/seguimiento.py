@@ -211,7 +211,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
                         f"Mueve el stop loss a {orden.entrada:.2f}, tu precio de "
                         f"entrada: a partir de ahí ya no puede perder dinero. "
                         f"Medido sobre 2.131 roturas a la baja de 21 años, este "
-                        f"movimiento sube la ventaja de +0,096 a +0,114 R por "
+                        f"movimiento sube la ventaja de +0,086 a +0,103 R por "
                         f"operación.")))
 
     # --- 3) ¿Toca cerrar a mano? ---

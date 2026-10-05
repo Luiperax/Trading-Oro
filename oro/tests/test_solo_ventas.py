@@ -182,9 +182,12 @@ def test_el_correo_da_las_cifras_malas_tambien():
     plan, _ = _plan()
     for t in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "40 %" in t                       # acierta menos de la mitad.
-        assert "peor año" in t and "8,3 R" in t
-        assert "23 R" in t                       # la peor racha.
+        assert "peor año" in t and "12,1 R" in t
+        assert "31 R" in t                       # la peor racha.
         assert "21" in t                         # los años medidos.
+        # Y que el coste está medido, no supuesto: es la diferencia entre
+        # +0,114 R (el número viejo, con 0,30 $ inventados) y +0,103 R.
+        assert "MEDIDO" in t and "0,60 $" in t
 
 
 def test_el_asunto_dice_una_orden_y_el_nivel_de_anulacion():

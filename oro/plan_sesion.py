@@ -77,11 +77,25 @@ def _anotar_dia(dia: date, plan=None) -> None:
         print(f"⚠️  No se pudo guardar el estado del plan ({e}).")
 
 
+# Velas que se piden en vivo. Las 400 de antes eran del motor de señales
+# intradía, que necesita 200 de calentamiento para la EMA. La ruptura solo mira
+# el día de sesión en curso —sesgo asiático (0-3 ET), rango de Londres (3-8 ET)
+# y sesión (8-16 ET)— y está medido sobre el código real que con 8 velas ya da
+# el MISMO plan y el MISMO resultado que con el marco entero. Pedir 400 hacía
+# inviable cualquier fuente que vaya hora a hora.
+VELAS_EN_VIVO = 48
+
+
 def _proveedor(sintetico: bool):
     cfg = cargar_configuracion()
     if sintetico:
         from .datos import ProveedorSintetico
         return ProveedorSintetico(velas=2000, semilla=7)
+    if cfg.fuente_vivo == "dukascopy":
+        # XAU/USD al contado, armado desde los ticks de la última hora cerrada.
+        # Mismo instrumento que la investigación y con el spread real.
+        from .datos.dukascopy_vivo import ProveedorDukascopyVivo
+        return ProveedorDukascopyVivo(simbolo=cfg.simbolo)
     from .datos import ProveedorYahoo
     return ProveedorYahoo(simbolo=cfg.simbolo_vivo, timeframe=cfg.timeframe)
 
@@ -118,7 +132,7 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
 
     # 3) Construirlo.
     proveedor = _proveedor(sintetico)
-    df = proveedor.historico(400)
+    df = proveedor.historico(VELAS_EN_VIVO)
     resultado = construir_plan(df, cfg, ahora=ahora)
     if not resultado.hay_plan:
         print("Hoy no hay plan de ruptura:")

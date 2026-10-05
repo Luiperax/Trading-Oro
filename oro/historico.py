@@ -40,6 +40,7 @@ from typing import Iterator, Optional
 from .config import ConfiguracionSistema, cargar_configuracion
 from .dominio.mercado import dia_sesion, hora_mercado
 from .seguimiento import registro_de, seguir
+from .spread import spread_de
 from .sesiones import construir_plan
 
 
@@ -85,8 +86,14 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None) -> list[dict]:
         plan = res.plan
         # Y ahora sí, el día entero, para ver qué pasó con el plan.
         s = seguir(plan, velas, ahora=plan.cierre_forzoso)
-        ficha = registro_de(plan, s, cfg.riesgo.coste_operacion)
+        # El coste de CADA AÑO, no el de hoy. Un coste fijo para 21 años es
+        # falso en los dos extremos: cobrarle a 2016 el spread de 2026 (0.63 $
+        # frente a 0.295 real) baja el resultado histórico de +0.1029 a +0.0680
+        # R por operación e inventa una estrategia peor de lo que fue.
+        coste = spread_de(dia.year)
+        ficha = registro_de(plan, s, coste)
         ficha["origen"] = "historico"
+        ficha["spread_usado"] = round(coste, 3)
         fichas.append(ficha)
     return fichas
 

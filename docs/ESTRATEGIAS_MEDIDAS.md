@@ -820,3 +820,103 @@ Salían en texto plano, todos con el mismo aspecto. El de CANCELAR es el que
 sostiene la ventaja (sin él, +10,78 R/año se quedan en −1,07), así que ahora
 lleva cabecera roja, el precio que anula la orden en grande y texto blanco
 —sobre `#F04438` el texto oscuro se queda por debajo del contraste legible.
+
+---
+
+# El coste, por fin medido (octubre de 2026)
+
+`coste_operacion` valía **0,30 $ porque alguien lo puso**. El coste es la
+restricción que decide todas las estrategias de este proyecto —está en cada R
+que el sistema registra y en cada conclusión de este documento— así que un coste
+inventado invalida lo demás.
+
+## Lo que se buscó
+
+Se probaron todas las fuentes gratuitas de oro al contado en velas horarias:
+
+| fuente | resultado |
+|---|---|
+| Yahoo `XAUUSD=X`, `XAU=X`, `GCUSD=X` | **404** |
+| Yahoo `^XAU` | es el índice de **mineras** (cotiza a 361) |
+| Yahoo `GC=F`, `MGC=F` | funcionan, pero son **futuros** de COMEX |
+| Stooq `xauusd` | devuelve HTML, no CSV: bloqueado |
+| Binance `PAXGUSDT` | **451** (bloqueo legal), y PAXG no es oro al contado |
+| exchangerate.host, frankfurter | solo diario |
+| **Dukascopy ticks** | **contado, con bid y ask reales** |
+
+## Lo que da Dukascopy y nadie más
+
+Ficheros de ticks por hora, `…/XAUUSD/AAAA/MM/DD/HHh_ticks.bi5`, con **bid y ask
+reales** y 10.000-17.000 ticks por hora. Sondeado el 5-oct-2026: la hora que
+cerró a las 11:00 estuvo disponible **a los 2,2 minutos**. (El fichero MENSUAL
+de velas H1 no existe para el mes en curso: 503 tras 12 reintentos. Por eso hay
+que armar las velas desde los ticks.)
+
+## El spread real
+
+3.189.713 ticks, 230 horas, 20 días de mercado:
+
+| hora UTC | hora ET | mediana $ | |
+|---|---|---|---|
+| 0 | 20 | 0,802 | |
+| 7-11 | 3-7 | 0,575 | ventana del rango |
+| **12-13** | **8-9** | **0,595** | **ventana de disparo** |
+| 14 | 10 | 0,605 | |
+| **19-20** | **15-16** | **0,680** | **cierre de sesión** |
+| 22 | 18 | 0,810 | |
+
+**El doble de lo que se asumía.** `coste_operacion` pasa a **0,60 $**, y
+`python -m oro.spread` lo vuelve a medir cuando haga falta.
+
+### Y por años, porque un coste fijo también es falso hacia atrás
+
+| periodo | spread $ | puntos básicos |
+|---|---|---|
+| 2007-2011 | 0,45-0,55 | 2,7-6,9 |
+| 2013-2016 | 0,29-0,30 | 2,1-2,6 |
+| 2018-2022 | 0,22-0,39 | 1,7-2,2 |
+| 2024 | 0,373 | 1,53 |
+| 2025 | 0,550 | 1,64 |
+| **2026** | **0,630** | **1,35** |
+
+En dólares sube con el oro; en puntos básicos no ha parado de mejorar. La tabla
+vive en `oro.spread.SPREAD_POR_ANIO` y `oro/historico.py` la usa: cobrarle a
+2016 el spread de 2026 dejaría el histórico en +0,0680 R/op en vez de +0,1030.
+
+## Qué le hace a la estrategia
+
+| modelo de coste | R/op | t | 1ª mitad | 2ª mitad | R/año |
+|---|---|---|---|---|---|
+| 0,30 $ fijo (lo que se suponía) | +0,1143 | 4,37 | +0,1270 | +0,1009 | +11,59 |
+| **spread real de cada año** | **+0,1030** | **3,93** | +0,1067 | +0,0990 | **+10,45** |
+| 1,5 spreads | +0,0742 | 2,83 | +0,0713 | +0,0771 | +7,53 |
+| 2 spreads (cota) | +0,0454 | 1,73 | +0,0360 | +0,0553 | +4,60 |
+| 3 spreads | −0,0122 | −0,46 | −0,0348 | +0,0116 | −1,24 |
+
+**Aguanta el coste real y aguanta el doble; a tres spreads muere.** Las cotas
+importan porque el nivel del rango se mide sobre BID: la venta entra a bid (sin
+coste) y el cierre compra a ask (un spread), pero el STOP se dispara cuando el
+ASK llega al máximo, o sea **antes** de lo que ve la simulación. Esa media parte
+no está en el modelo de un spread.
+
+En las condiciones de hoy —1R de 31,5 $ y spread de 0,63 $— sale **+0,0995 R por
+operación**: el coste pesa 0,020 R, un tercio de la media histórica (0,0575 R),
+porque el rango de Londres es mucho más ancho que cuando el oro valía 1.200 $.
+
+## La fuente en vivo: disponible, no activada
+
+`oro/datos/dukascopy_vivo.py` arma velas H1 del contado desde los ticks.
+`ORO_FUENTE_VIVO=dukascopy` lo enciende. **No va puesto**, por dos razones:
+
+1. Cambiar la fuente mueve los niveles del correo unos 40 $, y cuál es el bueno
+   depende de qué cotice el bróker de quien opera. Desde el sistema no se puede
+   saber: solo ve un feed.
+2. Dukascopy no publica la hora EN CURSO, así que el seguimiento reaccionaría
+   hasta una hora más tarde. Yahoo sirve la vela a medias. Para el aviso de
+   cancelar —el que sostiene la ventaja— eso importa.
+
+Lo que sí se arregló para poder usarlo: se pedían **400 velas** en vivo, que era
+el calentamiento del motor intradía (EMA 200). La ruptura solo mira el día de
+sesión, y está medido sobre el código real que **con 8 velas sale el mismo plan
+y el mismo resultado**. Ahora se piden 48. Con 400, una fuente que va hora a
+hora necesita 628 peticiones y más de media hora por ciclo.

@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .cli import _construir_notificador
 from .config import cargar_configuracion
-from .plan_sesion import _proveedor, _ruta_estado
+from .plan_sesion import VELAS_EN_VIVO, _proveedor, _ruta_estado
 from .seguimiento import EstadoPlan, registro_de, seguir
 from .sesiones import PlanRuptura
 
@@ -91,7 +91,7 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
               f"{dia_sesion(ahora)}: no se sigue un plan de otro día.")
         return 0
 
-    df = _proveedor(sintetico).historico(400)
+    df = _proveedor(sintetico).historico(VELAS_EN_VIVO)
     avisados = set(datos.get("avisados", []))
     s = seguir(plan, df, ahora=ahora, avisados=avisados)
     print(f"{plan.dia}: estado {s.estado.value}"

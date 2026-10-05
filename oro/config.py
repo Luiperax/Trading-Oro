@@ -114,9 +114,49 @@ class ConfiguracionRiesgo:
     # spread de 1.45 $, el coste (0.195 R) es SEIS VECES la ventaja bruta
     # (0.0298 R), y ningún cambio de parámetros cierra un factor de seis.
     #
-    # Ajustable por ORO_COSTE_OPERACION. Mídelo en tu plataforma en horario
-    # normal (no en la reapertura, que es el peor momento del día).
-    coste_operacion: float = 0.30
+    # YA NO ES UN NÚMERO ELEGIDO: ESTÁ MEDIDO.
+    #
+    # Valía 0.30 $ porque alguien lo puso, y el coste es la restricción que
+    # decide todas las estrategias de este proyecto. Medido ahora sobre los
+    # ticks de Dukascopy, que dan bid y ask reales —3.189.713 ticks de 230 horas
+    # y 20 días de mercado—, el spread de XAU/USD es:
+    #
+    #     hora UTC   hora ET   mediana $
+    #        0          20       0.802
+    #        7-11       3-7      0.575
+    #        12-13      8-9      0.595    <- ventana en que salta la orden
+    #        14         10       0.605
+    #        19-20      15-16    0.680    <- cierre de la sesión
+    #        22         18       0.810
+    #
+    # O sea: el doble de lo que se asumía. Se pone 0.60, que es la mediana en la
+    # ventana de disparo. Vuelve a medirse con `python -m oro.spread`.
+    #
+    # Y por años, muestreado en esas mismas horas (el fijo tampoco valía para el
+    # pasado): 0.46 $ en 2007-2011, 0.29 en 2013-2016, 0.22-0.39 en 2018-2022,
+    # 0.55 en 2025 y 0.63 en 2026. En puntos básicos ha mejorado sin parar
+    # (6.9 pb en 2007, 1.35 pb en 2026): el spread sube en dólares solo porque
+    # sube el oro.
+    #
+    # QUÉ LE HACE A LA ESTRATEGIA. Recalculada la ruptura con el spread real de
+    # cada año en vez del 0.30 fijo:
+    #
+    #     modelo de coste              R/op       t   1ª mitad  2ª mitad  R/año
+    #     0.30 $ fijo (lo anterior)  +0.1143   4.37    +0.1270   +0.1009  +11.59
+    #     spread REAL de cada año    +0.1029   3.93    +0.1067   +0.0990  +10.45
+    #     1.5 spreads                +0.0742   2.83    +0.0713   +0.0771   +7.53
+    #     2 spreads (cota)           +0.0454   1.73    +0.0360   +0.0553   +4.60
+    #     3 spreads                  -0.0122  -0.46    -0.0348   +0.0116   -1.24
+    #
+    # Aguanta el coste real y aguanta el doble; a tres spreads muere. Las cotas
+    # importan porque el nivel del rango se mide sobre BID: la venta entra a bid
+    # (sin coste) y el cierre compra a ask (un spread), pero el STOP se dispara
+    # cuando el ASK llega al máximo, o sea antes de lo que ve la simulación. Esa
+    # segunda media parte no está contada en el modelo de un spread.
+    #
+    # Ajustable por ORO_COSTE_OPERACION. Si tu bróker te cobra comisión aparte,
+    # súmala aquí: lo que importa es el coste total de ida y vuelta.
+    coste_operacion: float = 0.60
 
 
 @dataclass(slots=True)
@@ -180,11 +220,15 @@ class ConfiguracionRuptura:
     # Las compras no son más débiles: son un lastre medido de -7.7 R al año.
     #
     # Reconstruido después con `python -m oro.historico`, que no reimplementa
-    # nada: llama a `construir_plan` y `seguir`, las de producción. 2.131
-    # operaciones, +0.1143 R/op (t = 4.37), +11.59 R al año, 17 años positivos
-    # de 21, las dos mitades positivas (+0.1270 y +0.1009), peor año -8.3 R y
-    # peor racha -23.0 R. Esa es la cifra que vale, porque la mide el código
-    # que de verdad decide.
+    # nada: llama a `construir_plan` y `seguir`, las de producción, y descuenta
+    # el spread MEDIDO de cada año (ver `oro.spread`). 2.131 operaciones,
+    # +0.1030 R/op (t = 3.93), +10.45 R al año, 17 años positivos de 21, las dos
+    # mitades positivas (+0.1067 y +0.0990), peor año -12.1 R y peor racha
+    # -31.4 R. En las condiciones de 2025-2026 —1R de 31.5 $ y spread de
+    # 0.63 $— sale +0.0995 R/op.
+    #
+    # Las cifras anteriores (+0.1143, t = 4.37) salían de suponer un coste de
+    # 0.30 $, que no se había medido nunca. El real es el doble.
     #
     # Y LO DECISIVO: no vale «vender oro». Lo que funciona es la rotura a la
     # baja que ocurre PRIMERA. La misma rotura a la baja, cuando llega después
@@ -351,6 +395,24 @@ class ConfiguracionSistema:
     # propio `GC=F` por defecto y nadie le pasaba `cfg.simbolo`, así que la
     # configuración decía XAUUSD y el sistema operaba otra cosa.
     simbolo_vivo: str = "GC=F"
+
+    # DE DÓNDE SALEN LOS PRECIOS EN VIVO: "yahoo" o "dukascopy".
+    #
+    # "yahoo" (lo que va puesto) sirve GC=F, el futuro de COMEX, y sirve también
+    # la vela EN CURSO a medias, así que el seguimiento reacciona dentro de la
+    # hora.
+    #
+    # "dukascopy" sirve XAU/USD AL CONTADO —el mismo instrumento sobre el que
+    # está medida toda la investigación— y además bid y ask reales. Medido el
+    # 5-oct-2026: los ticks de una hora aparecen 2,2 minutos después de que la
+    # hora cierre. Lo que NO da es la hora en curso, así que el seguimiento
+    # reaccionaría hasta una hora más tarde, y el aviso de cancelar es
+    # justamente el que sostiene la ventaja.
+    #
+    # No se cambia solo: el cambio mueve los niveles del correo unos 40 $, y
+    # cuál es el bueno depende de qué cotice el bróker de quien opera. Desde
+    # aquí eso no se puede saber. Ver `oro.datos.dukascopy_vivo`.
+    fuente_vivo: str = "yahoo"
     capital: float = 3_000.0             # capital de la cuenta (divisa base). Configurable por ORO_CAPITAL.
     # Marco temporal de trabajo. H1 (1 hora) para operativa INTRADÍA (abrir y
     # cerrar el mismo día). Nota honesta: los marcos intradía tienen un borde más
@@ -540,6 +602,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
     # un instrumento sin nombre.
     cfg.simbolo = entorno.texto("ORO_SIMBOLO", cfg.simbolo)
     cfg.simbolo_vivo = entorno.texto("ORO_SIMBOLO_VIVO", cfg.simbolo_vivo)
+    cfg.fuente_vivo = entorno.texto("ORO_FUENTE_VIVO", cfg.fuente_vivo).lower()
     cfg.timeframe = _marco(entorno.texto("ORO_TIMEFRAME"), cfg.timeframe)
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion

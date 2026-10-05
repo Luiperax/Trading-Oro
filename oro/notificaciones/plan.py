@@ -75,8 +75,8 @@ def texto_confianza(plan: PlanRuptura) -> str:
         # Con una sola orden no hay nada que elegir, y la pregunta que importa
         # no es «qué lado» sino «por qué solo este».
         return ("Hoy solo va una orden, y a la baja. Medido sobre 4.646 días "
-                "con rotura de 21 años: la rotura a la baja da +0,114 R por "
-                "operación (t = 4,37, positiva en las dos mitades del histórico, "
+                "con rotura de 21 años: la rotura a la baja da +0,103 R por "
+                "operación (t = 3,93, positiva en las dos mitades del histórico, "
                 "17 años a favor de 21) y la rotura al alza da -0,064 R "
                 "(t = -2,56, solo 4 años a favor de 21). No es que la compra "
                 "sea peor: es que resta.")
@@ -98,11 +98,11 @@ def texto_confianza(plan: PlanRuptura) -> str:
 def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
     if plan is not None and plan.solo_ventas:
-        return ("El límite: son +11,6 R al año, unos 174 € con 0,5 % de riesgo "
+        return ("El límite: son +10,5 R al año, unos 157 € con 0,5 % de riesgo "
                 "sobre 3.000 €, y 4 de los 21 años fueron en pérdida (el peor, "
-                "-8,3 R). La ventaja sobrevive a 11 perturbaciones de horario y "
-                "a quitar el mejor y el peor año, pero 101 operaciones al año "
-                "tardan en demostrar nada: espera rachas negativas de 23 R.")
+                "-12,1 R). El coste está MEDIDO, no supuesto: 0,60 $ de spread real "
+                "sobre 3,2 millones de ticks. Pero 101 operaciones al año tardan "
+                "en demostrar nada: espera rachas negativas de 31 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
             "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
             "del rango, cierre de ayer) combinadas en un modelo entrenado con "
@@ -139,7 +139,7 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
             f"es la salida, y no se queda de un día para otro.",
             f"Cuando la operación te dé {plan.rango.amplitud:.2f} $ de beneficio "
             f"(1R), mueve el stop al precio de entrada. Desde ahí ya no puede "
-            f"perder. Medido: sube la ventaja de +0,096 a +0,114 R por operación.",
+            f"perder. Medido: sube la ventaja de +0,086 a +0,103 R por operación.",
         ]
     return [
         "Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
@@ -244,11 +244,12 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
     if plan.solo_ventas:
         return (
             "Acierta el 40 % de las veces: la mayoría de los días pierde. Gana "
-            "porque las ganadoras valen +1,21 R de media y las perdedoras -0,61 R.",
-            "Medido sobre 2.131 roturas a la baja de 21 años reales: +0,114 R "
-            "por operación, 101 operaciones al año, 17 años en positivo de 21.",
-            "El peor año perdió 8,3 R y la peor racha fue de 23 R. Con 0,5 % de "
-            "riesgo sobre 3.000 € eso son -125 € y -345 €, con +174 € de media al año.",
+            "porque las ganadoras valen +1,20 R de media y las perdedoras -0,62 R.",
+            "Medido sobre 2.131 roturas a la baja de 21 años reales, con el "
+            "spread REAL de cada año: +0,103 R por operación, 101 al año, 17 "
+            "años en positivo de 21.",
+            "El peor año perdió 12,1 R y la peor racha fue de 31 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -181 € y -471 €, con +157 € de media al año.",
             "No se opera la rotura al alza porque está medida y resta: -0,064 R "
             "por operación, solo 4 años a favor de 21.",
         )
