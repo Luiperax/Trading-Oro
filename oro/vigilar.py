@@ -154,15 +154,37 @@ def _atender_ruptura(ruta_estado: str) -> None:
     Un fallo aqui no puede tumbar el vigilante: lo unico verdaderamente critico
     es gestionar las operaciones abiertas.
     """
-    antes = _dia_del_plan()
+    antes = _huella_ruptura()
     for nombre, modulo in (("plan", "plan_sesion"), ("seguimiento", "seguir_plan")):
         try:
             __import__(f"oro.{modulo}", fromlist=["ejecutar"]).ejecutar()
         except Exception as e:  # noqa: BLE001
             print(f"  ! error en {nombre} de ruptura:", type(e).__name__, str(e)[:100])
-    if _dia_del_plan() != antes:
+    # Se guarda si cambió CUALQUIER cosa, no solo el día del plan. Antes solo
+    # se subía el plan recién enviado; los avisos mandados por la tarde
+    # (break-even, cancelar, cerrar) y la ficha de la operación esperaban al
+    # final de la ventana. Si el runner moría antes, la ejecución siguiente no
+    # sabía que ya se habían mandado y los repetía, o no registraba el día.
+    if _huella_ruptura() != antes:
         if _guardar_en_repo(ruta_estado):
-            print("  ✔ plan de ruptura guardado en el repositorio (a salvo).")
+            print("  ✔ estado de la ruptura guardado en el repositorio (a salvo).")
+
+
+def _huella_ruptura():
+    """Contenido actual del estado del plan y del registro de rupturas."""
+    import os
+    from pathlib import Path
+
+    from .plan_sesion import _ruta_estado
+    from .seguir_plan import RUTA_RUPTURAS
+
+    huella = []
+    for ruta in (_ruta_estado(), Path(os.getenv("ORO_RUTA_RUPTURAS", RUTA_RUPTURAS))):
+        try:
+            huella.append(ruta.read_text(encoding="utf-8") if ruta.exists() else None)
+        except OSError:
+            huella.append(None)
+    return tuple(huella)
 
 
 def _dia_del_plan():

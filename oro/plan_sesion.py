@@ -57,7 +57,53 @@ def _ultimo_dia_enviado() -> date | None:
         return None
 
 
-def _anotar_dia(dia: date, plan=None) -> None:
+def fuente_actual(sintetico: bool = False) -> str:
+    """De dónde salen las velas con la configuración actual, como texto.
+
+    Se guarda con el plan y el seguimiento la compara antes de seguirlo. El
+    5-oct-2026 el plan lo calculó el código anterior sobre el futuro de COMEX
+    (GC=F) y el seguimiento nuevo lo siguió con el contado, 43 $ más abajo: vio
+    una venta «abierta» que nunca existió y mandó un aviso falso de
+    break-even. Unos niveles solo tienen sentido contra el precio del que
+    salieron.
+    """
+    if sintetico:
+        return "sintetico"
+    cfg = cargar_configuracion()
+    if cfg.fuente_vivo == "dukascopy":
+        return f"dukascopy:{cfg.simbolo.upper()}"
+    return f"yahoo:{cfg.simbolo_vivo}"
+
+
+def horas_que_faltan(df, cfg, dia: date) -> list[datetime]:
+    """Horas de la mañana de Londres de ``dia`` que NO están en ``df``.
+
+    ``construir_plan`` admite el rango con ``velas_minimas`` de las cinco
+    horas, y con datos históricos es lo correcto: si falta una hora es que no
+    existe. En vivo no: Dukascopy pierde ficheros sueltos de forma transitoria
+    (en Actions, dos o tres horas por ciclo, distintas cada vez), y un rango con
+    una hora perdida sale más estrecho de lo real. La orden quedaría más cerca
+    del precio y saltaría con ruido. Esa hora aparece al reintentar.
+    """
+    import pandas as pd
+
+    from .sesiones import _a_las
+
+    c = cfg.ruptura
+    idx = df.index if getattr(df.index, "tz", None) else df.index.tz_localize("UTC")
+    presentes = set(idx)
+    esperadas = [_a_las(dia, h) for h in range(c.rango_desde_et, c.rango_hasta_et)]
+    return [h for h in esperadas if pd.Timestamp(h) not in presentes]
+
+
+# Hasta cuándo se espera a que aparezcan las horas perdidas del rango, en horas
+# de Nueva York. El vigilante lo reintenta cada tres minutos; pasado esto se
+# manda con lo que haya, porque la ventana de disparo se está consumiendo y
+# `construir_plan` sigue exigiendo `velas_minimas`.
+ESPERA_HUECOS_HASTA_ET = 9
+
+
+def _anotar_dia(dia: date, plan=None, fuente: str | None = None) -> None:
     """Guarda el día enviado y el PLAN entero.
 
     El plan se guarda porque `oro.seguir_plan` lo necesita para seguir la
@@ -70,6 +116,8 @@ def _anotar_dia(dia: date, plan=None) -> None:
     datos = {"ultimo_plan": dia.isoformat(), "avisados": []}
     if plan is not None:
         datos["plan"] = serializar(plan)
+    if fuente is not None:
+        datos["fuente"] = fuente
     try:
         if p.parent != Path(""):
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -82,9 +130,14 @@ def _anotar_dia(dia: date, plan=None) -> None:
 # intradía, que necesita 200 de calentamiento para la EMA. La ruptura solo mira
 # el día de sesión en curso —sesgo asiático (0-3 ET), rango de Londres (3-8 ET)
 # y sesión (8-16 ET)— y está medido sobre el código real que con 8 velas ya da
-# el MISMO plan y el MISMO resultado que con el marco entero. Pedir 400 hacía
-# inviable cualquier fuente que vaya hora a hora.
-VELAS_EN_VIVO = 48
+# el MISMO plan y el MISMO resultado que con el marco entero.
+#
+# 24 y no 48: con Dukascopy son horas de calendario y cada una es una petición.
+# A las 16:00 de Nueva York, 24 horas atrás siguen cubriendo las 0:00 del día
+# de sesión, y un lunes a las 8:00 llegan hasta el domingo a mediodía, antes de
+# que abra el mercado. Pedir 48 era pedir el doble para tirar la mitad, y el
+# servidor corta con 429 cuando se le pide mucho seguido.
+VELAS_EN_VIVO = 24
 
 
 _DUKASCOPY = None
@@ -162,6 +215,20 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
               "ruptura: es el fallo más caro de esta estrategia, y es peor que "
               "quedarse un día sin plan.")
         return 1
+
+    faltan = [] if sintetico else horas_que_faltan(df, cfg, dia)
+    if faltan:
+        lista = ", ".join(h.strftime("%H:00") for h in faltan)
+        if hora < ESPERA_HUECOS_HASTA_ET and not forzar:
+            print(f"⚠️  Faltan {len(faltan)} hora(s) de la mañana de Londres "
+                  f"({lista} UTC). Un rango incompleto sale más estrecho de lo "
+                  f"real y pondría la orden demasiado cerca: no se manda todavía, "
+                  f"se reintenta en la próxima pasada.")
+            return 1
+        print(f"⚠️  Siguen faltando {len(faltan)} hora(s) del rango ({lista} UTC) "
+              f"y son más de las {ESPERA_HUECOS_HASTA_ET}:00 en Nueva York: se "
+              f"calcula con las que hay.")
+
     resultado = construir_plan(df, cfg, ahora=ahora)
     if not resultado.hay_plan:
         print("Hoy no hay plan de ruptura:")
@@ -184,7 +251,7 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
         print("⚠️  EL PLAN NO SE PUDO ENVIAR. No se marca como enviado: se "
               "reintentará. Revisa los secretos ORO_SMTP_* / ORO_TELEGRAM_*.")
         return 1
-    _anotar_dia(plan.dia, plan)
+    _anotar_dia(plan.dia, plan, fuente_actual(sintetico))
     print("✔ Plan enviado.")
     return 0
 

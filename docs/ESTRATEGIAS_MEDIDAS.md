@@ -1200,3 +1200,37 @@ diluían—:
 | resto (venta) | 2.048 | +0,0382 | 1,48 | +3,72 |
 
 Mitades +0,0830 / +0,0808, 15 años positivos de 21, peor año −18,3 R.
+
+## 5-oct-2026: el primer día con el contado, y lo que falló
+
+El plan de ese día lo calculó el código anterior sobre el futuro de COMEX
+(GC=F: venta en 4.177,90) y, al cambiar la fuente a media tarde, el seguimiento
+lo siguió con el contado de Dukascopy, unos 30-40 $ más abajo. Leído contra el
+contado, el nivel 4.177,90 estaba «roto» desde por la mañana: vio una venta
+abierta que no existía y mandó un **aviso falso de break-even**. Se neutralizó a
+mano antes de que se registrara como operación.
+
+Con el contado, el plan correcto habría sido: rango de Londres
+4.149,17-4.170,14, venta en 4.149,17 con stop en 4.170,14, disparada a las 9:00
+de Nueva York, llegó a 1R (break-even) y cerró a las 16:00 en 4.139,28:
+**+0,47 R** en bruto.
+
+Tres cosas cambiadas para que no vuelva a pasar:
+
+* **El plan guarda de qué precio salió** (`dukascopy:XAUUSD`, `yahoo:GC=F`) y el
+  seguimiento se niega a seguir un plan de otra fuente: no lo registra y avisa
+  una vez de que ese día no habrá avisos.
+* **Las horas perdidas de Dukascopy.** Medido: el servidor contesta **429**
+  (demasiadas peticiones) a casi todo durante más de un minuto cuando se le
+  piden unas decenas de horas seguidas. Ahora se piden 24 horas en vez de 48,
+  con 3 hilos, esperando de verdad tras un 429, sin insistir en las horas que
+  el horario dice cerradas, y con una segunda pasada para las que fallan. Una
+  hora de mercado abierto que falla ya no se memoriza nunca como vacía.
+* **El plan no se manda con el rango incompleto.** Si falta una hora de la
+  mañana de Londres se espera a la pasada siguiente (el vigilante pasa cada
+  tres minutos); a partir de las 9:00 de Nueva York se manda con lo que haya.
+  Un rango con una hora perdida sale más estrecho y pone la orden donde salta
+  con ruido.
+
+Y el vigilante sube el estado al repositorio en cuanto cambia cualquier cosa
+—también los avisos de la tarde y la ficha del día—, no solo al mandar el plan.

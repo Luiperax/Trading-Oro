@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .cli import _construir_notificador
 from .config import cargar_configuracion
-from .plan_sesion import VELAS_EN_VIVO, _proveedor, _ruta_estado
+from .plan_sesion import VELAS_EN_VIVO, _proveedor, _ruta_estado, fuente_actual
 from .seguimiento import EstadoPlan, deslizamiento_de, registro_de, seguir
 from .sesiones import PlanRuptura
 
@@ -89,6 +89,33 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     if plan.dia != dia_sesion(ahora):
         print(f"El plan guardado es de {plan.dia} y hoy la sesión es "
               f"{dia_sesion(ahora)}: no se sigue un plan de otro día.")
+        return 0
+
+    # ¿Las velas de ahora son del mismo precio que las del plan? Si no, todo lo
+    # que diga el seguimiento es falso: ve órdenes disparadas que no lo están,
+    # o no ve las que sí. Pasó el 5-oct-2026 (plan en GC=F, seguimiento en el
+    # contado: un break-even de una venta que no existía). Un plan sin fuente
+    # es de antes de esta comprobación y no se sabe de dónde salió.
+    fuente_plan = datos.get("fuente")
+    if fuente_plan != fuente_actual(sintetico):
+        print(f"⚠️  El plan de {plan.dia} salió de «{fuente_plan or 'desconocida'}» "
+              f"y ahora las velas son de «{fuente_actual(sintetico)}». No se "
+              f"sigue: sus niveles no existen en este precio. No se registra.")
+        clave = f"{plan.dia.isoformat()}:fuente-distinta"
+        if clave not in datos.get("avisados", []):
+            titulo = "⚠️ XAU/USD: hoy no puedo seguir tu orden"
+            origen = fuente_plan or "desconocido"
+            cuerpo = (f"El plan de hoy se calculó con otro precio ({origen}) y "
+                      f"el sistema ahora lee "
+                      f"{fuente_actual(sintetico)}. No te mandaré avisos de "
+                      f"break-even ni de cierre de este plan: gestiona tú la orden "
+                      f"según el correo de la mañana (stop, break-even a 1R y "
+                      f"cierre a las 16:00 de Nueva York).")
+            if _construir_notificador().enviar(titulo, cuerpo):
+                datos["avisados"] = sorted({*datos.get("avisados", []), clave})
+        datos["registrado"] = plan.dia.isoformat()
+        datos["descartado"] = "fuente distinta"
+        _guardar_estado(datos)
         return 0
 
     df = _proveedor(sintetico).historico(VELAS_EN_VIVO)

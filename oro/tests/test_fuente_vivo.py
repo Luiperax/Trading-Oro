@@ -121,6 +121,74 @@ def test_una_hora_reciente_sin_publicar_no_se_memoriza_como_vacia(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda s: None)
     p = ProveedorDukascopyVivo(intentos=1)
     reciente = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0)
-    antigua = reciente - dt.timedelta(days=3)
+    p.mercado_cerrado = lambda h: False
     assert p._ticks_de(reciente) is None and reciente not in p._memoria
-    assert p._ticks_de(antigua) is None and antigua in p._memoria
+
+
+def test_una_hora_de_mercado_abierto_fallida_no_se_memoriza_nunca(monkeypatch):
+    """Antes se memorizaba como vacía si tenía más de 3 horas. Con el proveedor
+    del vigilante viviendo cinco horas, una descarga fallida de la mañana de
+    Londres dejaba el hueco fijo toda la tarde. Solo se memoriza el vacío de
+    una hora que el horario dice cerrada."""
+    import datetime as dt
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    pedidas = []
+
+    class R:
+        status_code, content = 404, b""
+
+    monkeypatch.setattr("requests.get", lambda url, **k: pedidas.append(url) or R())
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    p = ProveedorDukascopyVivo(intentos=3)
+    U = dt.timezone.utc
+    martes_londres = dt.datetime(2026, 9, 29, 9, tzinfo=U)      # abierto
+    sabado = dt.datetime(2026, 10, 3, 12, tzinfo=U)             # cerrado
+    assert p._ticks_de(martes_londres) is None
+    assert martes_londres not in p._memoria
+    assert len(pedidas) == 3                   # con el mercado abierto se insiste
+    pedidas.clear()
+    assert p._ticks_de(sabado) is None and sabado in p._memoria
+    assert len(pedidas) == 1                   # cerrado: se pregunta una vez
+
+
+def test_horario_del_contado():
+    """Cierra el viernes a las 17:00 de Nueva York, abre el domingo a las 18:00
+    y para una hora cada día a las 17:00. En hora de Nueva York, así que vale
+    igual en verano y en invierno."""
+    import datetime as dt
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo as P
+
+    U = dt.timezone.utc
+    # Verano (EDT, UTC-4).
+    assert not P.mercado_cerrado(dt.datetime(2026, 10, 2, 20, tzinfo=U))  # vie 16 ET
+    assert P.mercado_cerrado(dt.datetime(2026, 10, 2, 21, tzinfo=U))      # vie 17 ET
+    assert P.mercado_cerrado(dt.datetime(2026, 10, 3, 12, tzinfo=U))      # sábado
+    assert P.mercado_cerrado(dt.datetime(2026, 10, 4, 21, tzinfo=U))      # dom 17 ET
+    assert not P.mercado_cerrado(dt.datetime(2026, 10, 4, 22, tzinfo=U))  # dom 18 ET
+    assert P.mercado_cerrado(dt.datetime(2026, 10, 6, 21, tzinfo=U))      # parada diaria
+    assert not P.mercado_cerrado(dt.datetime(2026, 10, 6, 7, tzinfo=U))   # Londres
+    # Invierno (EST, UTC-5): la parada pasa a las 22 UTC.
+    assert not P.mercado_cerrado(dt.datetime(2026, 12, 1, 21, tzinfo=U))
+    assert P.mercado_cerrado(dt.datetime(2026, 12, 1, 22, tzinfo=U))
+
+
+def test_un_429_espera_de_verdad(monkeypatch):
+    """El servidor contesta 429 a casi todo durante más de un minuto cuando se
+    le pide mucho seguido. Reintentar al segundo solo alarga el castigo."""
+    import datetime as dt
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    esperas = []
+
+    class R:
+        status_code, content = 429, b""
+
+    monkeypatch.setattr("requests.get", lambda *a, **k: R())
+    monkeypatch.setattr("time.sleep", esperas.append)
+    p = ProveedorDukascopyVivo(intentos=3)
+    p._ticks_de(dt.datetime(2026, 9, 29, 9, tzinfo=dt.timezone.utc))
+    assert esperas and min(esperas) >= 5

@@ -50,6 +50,7 @@ import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -61,6 +62,7 @@ URL = ("https://datafeed.dukascopy.com/datafeed/{sim}/{anio}/{mes:02d}/{dia:02d}
        "{hora:02d}h_ticks.bi5")
 
 _REGISTRO = struct.Struct(">3I2f")
+_NUEVA_YORK = ZoneInfo("America/New_York")
 PUNTO = {"XAUUSD": 1000.0, "XAGUSD": 1000.0, "EURUSD": 100000.0}
 
 
@@ -75,7 +77,7 @@ class ProveedorDukascopyVivo(ProveedorDatos):
     en_vivo = True
 
     def __init__(self, simbolo: str = "XAUUSD", intentos: int = 6,
-                 tiempo_espera: int = 30, hilos: int = 4) -> None:
+                 tiempo_espera: int = 20, hilos: int = 3) -> None:
         self._simbolo = simbolo.upper()
         self._punto = PUNTO.get(self._simbolo, 1000.0)
         self._intentos = max(1, intentos)
@@ -85,8 +87,34 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         # que una ejecución que pida 400 velas varias veces (el vigilante la
         # pide cada tres minutos) baja cada fichero una sola vez.
         self._memoria: dict[dt.datetime, Optional[pd.DataFrame]] = {}
+        # Horas de mercado abierto que faltaron en la última llamada a
+        # `historico`, tras la segunda pasada. Para diagnóstico.
+        self.horas_perdidas: list[dt.datetime] = []
 
     # -- descarga ----------------------------------------------------------
+    @staticmethod
+    def mercado_cerrado(hora: dt.datetime) -> bool:
+        """¿Esa hora UTC cae con el oro al contado cerrado por horario?
+
+        El contado cierra el viernes a las 17:00 de Nueva York, abre el domingo
+        a las 18:00 y para una hora cada día entre las 17:00 y las 18:00. Se
+        calcula en hora de Nueva York para que los cambios de hora no muevan
+        nada. En esas horas no hay fichero y no tiene sentido insistir: era lo
+        que hacía que un ciclo del vigilante tardara 23 minutos los lunes, con
+        el fin de semana entero reintentado seis veces hora a hora.
+        """
+        if hora.tzinfo is None:
+            hora = hora.replace(tzinfo=dt.timezone.utc)
+        local = hora.astimezone(_NUEVA_YORK)
+        dia, h = local.weekday(), local.hour       # lunes = 0 … domingo = 6
+        if dia == 5:                               # sábado
+            return True
+        if dia == 4 and h >= 17:                   # viernes desde el cierre
+            return True
+        if dia == 6 and h < 18:                    # domingo antes de abrir
+            return True
+        return h == 17                             # la parada diaria
+
     def _ticks_de(self, hora: dt.datetime) -> Optional[pd.DataFrame]:
         """Los ticks de esa hora UTC, o ``None`` si no hay (fin de semana…)."""
         if hora in self._memoria:
@@ -95,37 +123,49 @@ class ProveedorDukascopyVivo(ProveedorDatos):
 
         url = URL.format(sim=self._simbolo, anio=hora.year, mes=hora.month - 1,
                          dia=hora.day, hora=hora.hour)
-        # Se reintenta SIEMPRE, también en las horas antiguas. Bajar la
-        # insistencia por antigüedad parecía una optimización razonable y dejó
-        # un hueco en la hora 08 del 5-oct en la primera prueba: en una serie
-        # temporal un hueco no falla, miente. Lo que hace viable insistir es
-        # pedir pocas horas (ver `historico`), no pedirlas mal.
-        datos = None
-        intentos = self._intentos
+        # Con el mercado cerrado se pregunta UNA vez: si por lo que sea hay
+        # fichero (festivos con horario raro, un cambio de horario del bróker),
+        # se usa; si no, no se pierde medio minuto reintentando lo que no
+        # existe. Con el mercado abierto se insiste: 404 puede ser «aún no
+        # publicado» y 503 es la intermitencia conocida del servidor, y un
+        # hueco que se cuela en una serie temporal no falla, miente.
+        cerrado = self.mercado_cerrado(hora)
+        intentos = 1 if cerrado else self._intentos
+        datos, codigos = None, []
         for intento in range(intentos):
             try:
                 r = requests.get(url, timeout=self._tiempo_espera,
                                  headers={"User-Agent": "Mozilla/5.0 oro/0.1"})
+                codigos.append(r.status_code)
                 if r.status_code == 200 and r.content:
                     datos = r.content
                     break
-                # 404 puede ser "mercado cerrado" o "aún no publicado"; 503 es
-                # la intermitencia del servidor. Los dos se reintentan: sin eso
-                # se cuelan huecos silenciosos, que en una serie temporal es el
-                # peor error posible porque no falla, solo miente.
             except Exception as exc:  # noqa: BLE001
+                codigos.append(type(exc).__name__)
                 log.debug("Dukascopy ticks %s: %s", hora, exc)
             if intento + 1 < intentos:
-                time.sleep(min(2 ** intento, 8))
+                # 429 es «demasiadas peticiones». Medido el 5-oct-2026: tras
+                # pedir unas decenas de horas seguidas el servidor contesta 429
+                # a casi todo durante más de un minuto, y sin cabecera
+                # Retry-After. Reintentar al segundo solo alarga el castigo;
+                # hay que esperar de verdad.
+                if codigos and codigos[-1] == 429:
+                    time.sleep(min(5 * 2 ** intento, 30))
+                else:
+                    time.sleep(min(2 ** intento, 8))
         if datos is None:
-            # Una hora RECIENTE sin fichero es casi siempre "aún no publicado"
-            # (aparece ~2 minutos después de cerrar). Si se memorizara como
-            # vacía, un proveedor que vive cinco horas —el del vigilante— no la
-            # volvería a pedir nunca y el seguimiento se quedaría ciego desde
-            # ese momento. Las antiguas sí se memorizan: son mercado cerrado.
-            edad = (dt.datetime.now(dt.timezone.utc) - hora).total_seconds() / 3600
-            if edad > 3:
+            # Solo se memoriza el vacío cuando es seguro que no hay nada: hora
+            # cerrada por horario y el servidor respondió (no se cayó). Una hora
+            # de mercado abierto que no llegó NO se memoriza nunca. Antes sí
+            # (si tenía más de 3 horas), y como el proveedor del vigilante vive
+            # cinco horas, una descarga fallida dejaba ese hueco fijo toda la
+            # tarde: el rango de Londres salía más estrecho en cada pasada.
+            if cerrado and codigos and all(isinstance(c, int) for c in codigos):
                 self._memoria[hora] = None
+            elif not cerrado:
+                log.warning("Dukascopy %s %s: sin fichero tras %d intento(s) (%s).",
+                         self._simbolo, hora.strftime("%d-%m %Hh"), len(codigos),
+                         ",".join(str(c) for c in codigos))
             return None
         df = self._decodificar(datos, hora)
         self._memoria[hora] = df
@@ -205,22 +245,41 @@ class ProveedorDukascopyVivo(ProveedorDatos):
                 f"pedir {velas}: cada hora es una petición. El máximo es "
                 f"{self.MAX_HORAS}. Para históricos largos está "
                 f"`ProveedorDukascopy`, que baja ficheros mensuales.")
-        horas = self._horas(self.MAX_HORAS)
-        filas, indice, vacias = [], [], []
+        # Se piden ``velas`` horas de CALENDARIO, no ``velas`` velas: cada hora
+        # es una petición, y el servidor corta con 429 si se le piden muchas
+        # seguidas. Un lunes salen menos velas que horas (el fin de semana no
+        # tiene), y no importa: lo que se necesita es el día de sesión en curso.
+        horas = self._horas(max(velas, 6))
         with ThreadPoolExecutor(max_workers=self._hilos) as ex:
-            for hora, ticks in zip(horas, ex.map(self._ticks_de, horas)):
-                if ticks is None or ticks.empty:
-                    vacias.append(hora)
-                    continue
-                filas.append(self._vela(ticks))
-                indice.append(hora)
+            obtenidas = dict(zip(horas, ex.map(self._ticks_de, horas)))
+            # Segunda pasada para las horas de mercado ABIERTO que no llegaron.
+            # Los fallos de este servidor son sueltos y distintos en cada
+            # ciclo: lo que falla ahora suele llegar un momento después. La
+            # hora en curso menos uno se excluye porque puede no estar
+            # publicada todavía y eso no es un fallo.
+            reciente = horas[-1]
+            perdidas = [h for h, t in obtenidas.items()
+                        if (t is None or t.empty) and h != reciente
+                        and not self.mercado_cerrado(h)]
+            if perdidas:
+                obtenidas.update(zip(perdidas, ex.map(self._ticks_de, perdidas)))
+        filas, indice, vacias = [], [], []
+        for hora in horas:
+            ticks = obtenidas[hora]
+            if ticks is None or ticks.empty:
+                vacias.append(hora)
+                continue
+            filas.append(self._vela(ticks))
+            indice.append(hora)
+        self.horas_perdidas = [h for h in vacias if h != reciente
+                               and not self.mercado_cerrado(h)]
         if not filas:
             raise RuntimeError(
                 f"Dukascopy no devolvió ticks de {self._simbolo} en las últimas "
-                f"{self.MAX_HORAS} horas.")
+                f"{len(horas)} horas.")
         df = pd.DataFrame(filas, index=pd.DatetimeIndex(indice)).sort_index()
         df = df[~df.index.duplicated(keep="last")]
-        self._avisar_de_huecos(df, vacias)
+        self._avisar_de_huecos(df, [h for h in vacias if not self.mercado_cerrado(h)])
         self.validar(df)
         return df.tail(velas).copy()
 
@@ -245,7 +304,7 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         """La vela H1 de una hora concreta (UTC, en punto), o ``None``.
 
         Una sola petición. La usa el árbitro del LBMA, que necesita la vela de
-        la subasta de días concretos y no las últimas 48 horas seguidas.
+        la subasta de días concretos y no las últimas horas seguidas.
         """
         if hora.tzinfo is None:
             hora = hora.replace(tzinfo=dt.timezone.utc)

@@ -373,21 +373,41 @@ def test_el_vigilante_manda_el_plan_y_lo_sigue(monkeypatch):
     assert llamadas == ["plan", "seguimiento"]
 
 
-def test_al_mandar_el_plan_se_guarda_en_el_repositorio_al_instante(monkeypatch):
+def test_al_mandar_el_plan_se_guarda_en_el_repositorio_al_instante(monkeypatch, tmp_path):
     """El bucle dura casi cinco horas. Si la máquina muere entre que se manda el
     plan y que termina, el repositorio no se entera y la ejecución siguiente lo
-    manda OTRA VEZ. Por eso se sube en cuanto cambia el día del plan."""
-    import datetime as _dt
-
+    manda OTRA VEZ. Por eso se sube en cuanto cambia el estado."""
     from oro import plan_sesion, seguir_plan, vigilar
 
-    monkeypatch.setattr(plan_sesion, "ejecutar", lambda *a, **k: 0)
+    ruta = tmp_path / "plan.json"
+    monkeypatch.setenv("ORO_PLAN_ESTADO", str(ruta))
+    monkeypatch.setattr(plan_sesion, "ejecutar",
+                        lambda *a, **k: ruta.write_text('{"ultimo_plan": "2026-09-15"}') and 0)
     monkeypatch.setattr(seguir_plan, "ejecutar", lambda *a, **k: 0)
-    dias = iter([None, _dt.date(2026, 9, 15)])       # antes y después
-    monkeypatch.setattr(vigilar, "_dia_del_plan", lambda: next(dias))
     guardados = []
     monkeypatch.setattr(vigilar, "_guardar_en_repo",
-                        lambda ruta: guardados.append(ruta) or True)
+                        lambda r: guardados.append(r) or True)
+    vigilar._atender_ruptura("estado.json")
+    assert guardados == ["estado.json"]
+
+
+def test_un_aviso_de_la_tarde_tambien_se_guarda_al_instante(monkeypatch, tmp_path):
+    """Antes solo se subía el plan recién mandado. Un break-even avisado a las
+    16:00 esperaba al final de la ventana, y si el runner moría antes, la
+    ejecución siguiente lo volvía a mandar."""
+    from oro import plan_sesion, seguir_plan, vigilar
+
+    ruta = tmp_path / "plan.json"
+    ruta.write_text('{"ultimo_plan": "2026-09-15", "avisados": []}')
+    monkeypatch.setenv("ORO_PLAN_ESTADO", str(ruta))
+    monkeypatch.setattr(plan_sesion, "ejecutar", lambda *a, **k: 0)
+    monkeypatch.setattr(
+        seguir_plan, "ejecutar",
+        lambda *a, **k: ruta.write_text(
+            '{"ultimo_plan": "2026-09-15", "avisados": ["2026-09-15:break-even"]}') and 0)
+    guardados = []
+    monkeypatch.setattr(vigilar, "_guardar_en_repo",
+                        lambda r: guardados.append(r) or True)
     vigilar._atender_ruptura("estado.json")
     assert guardados == ["estado.json"]
 
@@ -470,3 +490,92 @@ def test_la_ventana_del_vigilante_cubre_la_del_plan():
     tope = int(re.search(r"timeout-minutes:\s*(\d+)", texto).group(1))
     assert minutos < tope <= 360, (
         f"tope del trabajo {tope} min frente a una ventana de {minutos:.0f} min")
+
+
+# ---- El 5-oct-2026: un plan de un precio, seguido con otro ----
+
+def test_el_plan_guarda_de_que_precio_salio(entorno):
+    import json
+
+    from oro import plan_sesion
+
+    espia, tmp, monkeypatch = entorno
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **LONDRES}))
+    assert plan_sesion.ejecutar(ahora=_a_las(8)) == 0
+    estado = json.loads((tmp / "plan.json").read_text())
+    assert estado["fuente"] == plan_sesion.fuente_actual()
+
+
+def test_un_plan_de_otra_fuente_no_se_sigue(entorno):
+    """El plan salió de GC=F y el seguimiento leía el contado, 43 $ más abajo:
+    vio una venta «abierta» que no existía y mandó un break-even falso. Ahora no
+    se sigue, no se registra y se avisa UNA vez de que hoy no hay seguimiento."""
+    import json
+
+    from oro import plan_sesion, seguir_plan
+
+    espia, tmp, monkeypatch = entorno
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **LONDRES}))
+    plan_sesion.ejecutar(ahora=_a_las(8))
+    ruta = tmp / "plan.json"
+    estado = json.loads(ruta.read_text())
+    estado["fuente"] = "yahoo:GC=F"
+    ruta.write_text(json.dumps(estado))
+
+    # Velas que, leídas contra ese plan, dispararían la compra y el 1R.
+    _servir(monkeypatch, _con_sesion({8: (4030, 4015), 9: (4051, 4040)}))
+    assert seguir_plan.ejecutar(ahora=_a_las(10)) == 0
+    assert seguir_plan.ejecutar(ahora=_a_las(11)) == 0
+    assert not any(e is Evento.MOVER_STOP for _, e in espia.avisos)
+    assert len(espia.avisos) == 1 and "no puedo seguir" in espia.avisos[0][0]
+    assert not (tmp / "rupturas.jsonl").exists()
+    assert json.loads(ruta.read_text())["registrado"] == "2026-07-15"
+
+
+def test_un_plan_sin_fuente_tampoco_se_sigue(entorno):
+    """Un plan sin fuente es de antes de la comprobación: justo el del 5-oct."""
+    import json
+
+    from oro import plan_sesion, seguir_plan
+
+    espia, tmp, monkeypatch = entorno
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **LONDRES}))
+    plan_sesion.ejecutar(ahora=_a_las(8))
+    ruta = tmp / "plan.json"
+    estado = json.loads(ruta.read_text())
+    del estado["fuente"]
+    ruta.write_text(json.dumps(estado))
+    _servir(monkeypatch, _con_sesion({8: (4030, 4015), 9: (4051, 4040)}))
+    seguir_plan.ejecutar(ahora=_a_las(10))
+    assert not any(e is Evento.MOVER_STOP for _, e in espia.avisos)
+
+
+# ---- Horas perdidas del rango en vivo ----
+
+def test_si_falta_una_hora_del_rango_no_se_manda_todavia(entorno):
+    """Con 4 de 5 horas `construir_plan` lo admitiría, y con datos históricos es
+    lo correcto. En vivo la hora perdida suele ser una descarga fallida que
+    llega al reintentar, y sin ella el rango sale más estrecho de lo real."""
+    from oro import plan_sesion
+
+    espia, tmp, monkeypatch = entorno
+    sin_la_6 = {k: v for k, v in LONDRES.items() if k != 6}   # la del máximo
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **sin_la_6}))
+    assert plan_sesion.ejecutar(ahora=_a_las(8)) == 1
+    assert espia.planes == []
+
+    # Llega en la pasada siguiente: entonces sí, con el rango completo.
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **LONDRES}))
+    assert plan_sesion.ejecutar(ahora=_a_las(8, 3)) == 0
+    assert len(espia.planes) == 1
+    assert espia.planes[0].rango.alto == 4024
+
+
+def test_si_la_hora_no_aparece_a_las_9_se_manda_con_lo_que_hay(entorno):
+    from oro import plan_sesion
+
+    espia, tmp, monkeypatch = entorno
+    sin_la_3 = {k: v for k, v in LONDRES.items() if k != 3}
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **sin_la_3}))
+    assert plan_sesion.ejecutar(ahora=_a_las(9, 5)) == 0
+    assert len(espia.planes) == 1
