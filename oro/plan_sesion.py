@@ -87,6 +87,9 @@ def _anotar_dia(dia: date, plan=None) -> None:
 VELAS_EN_VIVO = 48
 
 
+_DUKASCOPY = None
+
+
 def _proveedor(sintetico: bool):
     cfg = cargar_configuracion()
     if sintetico:
@@ -95,8 +98,16 @@ def _proveedor(sintetico: bool):
     if cfg.fuente_vivo == "dukascopy":
         # XAU/USD al contado, armado desde los ticks de la última hora cerrada.
         # Mismo instrumento que la investigación y con el spread real.
-        from .datos.dukascopy_vivo import ProveedorDukascopyVivo
-        return ProveedorDukascopyVivo(simbolo=cfg.simbolo)
+        #
+        # UNO POR PROCESO. El vigilante llama al plan y al seguimiento cada tres
+        # minutos durante cinco horas; con un proveedor nuevo en cada llamada
+        # serían 48 peticiones cada vez, unas 4.800 por ejecución, para horas
+        # cerradas que no cambian nunca. Así cada hora se pide una vez.
+        global _DUKASCOPY
+        if _DUKASCOPY is None or _DUKASCOPY._simbolo != cfg.simbolo.upper():
+            from .datos.dukascopy_vivo import ProveedorDukascopyVivo
+            _DUKASCOPY = ProveedorDukascopyVivo(simbolo=cfg.simbolo)
+        return _DUKASCOPY
     from .datos import ProveedorYahoo
     return ProveedorYahoo(simbolo=cfg.simbolo_vivo, timeframe=cfg.timeframe)
 

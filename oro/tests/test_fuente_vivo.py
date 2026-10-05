@@ -94,3 +94,33 @@ def test_el_proveedor_al_contado_se_declara_apto_para_vivo():
 
     assert ProveedorDukascopyVivo.en_vivo is True
     assert ProveedorDukascopy.en_vivo is False
+
+
+def test_el_proveedor_al_contado_es_uno_por_proceso(monkeypatch):
+    """El vigilante pide datos cada 3 minutos durante 5 horas. Con un
+    proveedor nuevo cada vez, ~4.800 peticiones por ejecución para horas que
+    no cambian."""
+    from oro import plan_sesion
+
+    monkeypatch.setenv("ORO_FUENTE_VIVO", "dukascopy")
+    monkeypatch.setattr(plan_sesion, "_DUKASCOPY", None)
+    assert plan_sesion._proveedor(False) is plan_sesion._proveedor(False)
+
+
+def test_una_hora_reciente_sin_publicar_no_se_memoriza_como_vacia(monkeypatch):
+    """Si se memorizara, un proveedor que vive cinco horas no volvería a pedir
+    esa hora nunca y el seguimiento se quedaría ciego."""
+    import datetime as dt
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    class R:
+        status_code, content = 404, b""
+
+    monkeypatch.setattr("requests.get", lambda *a, **k: R())
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    p = ProveedorDukascopyVivo(intentos=1)
+    reciente = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0)
+    antigua = reciente - dt.timedelta(days=3)
+    assert p._ticks_de(reciente) is None and reciente not in p._memoria
+    assert p._ticks_de(antigua) is None and antigua in p._memoria

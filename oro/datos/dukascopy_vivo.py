@@ -118,7 +118,14 @@ class ProveedorDukascopyVivo(ProveedorDatos):
             if intento + 1 < intentos:
                 time.sleep(min(2 ** intento, 8))
         if datos is None:
-            self._memoria[hora] = None
+            # Una hora RECIENTE sin fichero es casi siempre "aún no publicado"
+            # (aparece ~2 minutos después de cerrar). Si se memorizara como
+            # vacía, un proveedor que vive cinco horas —el del vigilante— no la
+            # volvería a pedir nunca y el seguimiento se quedaría ciego desde
+            # ese momento. Las antiguas sí se memorizan: son mercado cerrado.
+            edad = (dt.datetime.now(dt.timezone.utc) - hora).total_seconds() / 3600
+            if edad > 3:
+                self._memoria[hora] = None
             return None
         df = self._decodificar(datos, hora)
         self._memoria[hora] = df
