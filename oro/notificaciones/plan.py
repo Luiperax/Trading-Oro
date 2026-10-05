@@ -388,7 +388,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
    </table>
   </td></tr>
   <tr><td style="text-align:center;padding:12px 14px;color:#4a5568;font-size:11px;">
-     ⏱ Las órdenes valen hasta las <b>{hora_local(plan.valido_hasta)}</b> ({_esc(zona)}).
+     ⏱ {'La orden vale' if plan.solo_ventas else 'Las órdenes valen'} hasta las <b>{hora_local(plan.valido_hasta)}</b> ({_esc(zona)}).
      Ciérrala a mano a las <b>{hora_cierre(plan)}</b>, gane o pierda.<br>
      Sistema XAU/USD · plan generado automáticamente</td></tr>
  </table>
