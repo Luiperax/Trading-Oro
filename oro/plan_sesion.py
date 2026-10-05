@@ -30,7 +30,7 @@ from pathlib import Path
 
 from .cli import _construir_notificador
 from .config import cargar_configuracion
-from .referencia import comprobar_marco
+from .referencia import comprobar_fuente
 from .dominio.mercado import dia_sesion, hora_mercado
 from .sesiones import construir_plan
 
@@ -139,7 +139,11 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
     # de COMEX mientras el correo pedía operar XAU/USD, y nadie se enteró
     # porque el sistema solo ve un feed y un feed no puede contradecirse a sí
     # mismo. El LBMA Gold Price es el árbitro de fuera.
-    vale, explicacion = comprobar_marco(df)
+    # Con datos sintéticos el precio es inventado: no hay oro que contrastar.
+    if sintetico:
+        vale, explicacion = True, "Datos sintéticos: sin árbitro."
+    else:
+        vale, explicacion = comprobar_fuente(proveedor)
     print(f"  {explicacion}")
     if not vale:
         print("⚠️  NO SE MANDA EL PLAN. Unas órdenes con el instrumento "

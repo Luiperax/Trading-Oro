@@ -4,11 +4,14 @@ ESTA PRUEBA EXISTE POR UN FALLO REAL
 ------------------------------------
 Durante semanas el sistema calculó los niveles sobre GC=F —el futuro de COMEX—
 mientras el correo decía «busca XAU/USD (oro)», que es el contado. 43 $ de
-diferencia. Nadie se enteró porque el sistema solo veía un feed, y un feed solo
-no puede contradecirse a sí mismo.
+diferencia, y nadie se enteró porque el sistema solo veía un feed.
 
-El LBMA Gold Price del World Gold Council es el patrón oficial del contado.
-Contrastado a la misma hora: Dukascopy +3,34 $ de media, GC=F +43,08 $.
+El criterio: el LBMA Gold Price (subasta de las 10:30 de Londres) tiene que caer
+dentro de la vela horaria que contiene la subasta. Medido: con el contado, 32 de
+32 días; con el futuro, 0 de 16.
+
+Y un fallo propio: la primera versión pedía 5 días de un marco que en vivo solo
+tiene 48 horas. No se habría activado nunca.
 """
 
 from __future__ import annotations
@@ -18,84 +21,103 @@ import datetime as dt
 import pandas as pd
 import pytest
 
-from oro.referencia import MINIMO_DIAS, TOLERANCIA, comprobar_marco
+from oro.referencia import comprobar_fuente, hora_de_la_subasta
 
 
-def _marco(precios, hora=9):
-    """Velas horarias a la hora del fix, un día por precio."""
-    idx, filas = [], []
-    d = dt.date(2026, 9, 1)
-    for p in precios:
-        while d.weekday() >= 5:
-            d += dt.timedelta(days=1)
-        idx.append(dt.datetime(d.year, d.month, d.day, hora, tzinfo=dt.timezone.utc))
-        filas.append({"open": p, "high": p, "low": p, "close": p, "volume": 1.0})
-        d += dt.timedelta(days=1)
-    return pd.DataFrame(filas, index=pd.DatetimeIndex(idx))
+FIXES = {dt.date(2026, 9, 28): 4144.40, dt.date(2026, 9, 30): 4188.75,
+         dt.date(2026, 10, 1): 4159.85, dt.date(2026, 10, 2): 4186.60}
 
 
 @pytest.fixture()
 def fixes(monkeypatch):
-    """Un fix de 4.000 $ todos los días, para medir el desvío sin ruido."""
-    base = {}
-    d = dt.date(2026, 9, 1)
-    for _ in range(40):
-        base[d] = 4000.0
-        d += dt.timedelta(days=1)
-    monkeypatch.setattr("oro.referencia.serie_fix", lambda **kw: base)
-    return base
+    monkeypatch.setattr("oro.referencia.serie_fix", lambda **kw: FIXES)
 
 
-def test_el_contado_cuadra(fixes):
-    """+3-4 $ es la deriva de los 30 minutos entre la subasta y el cierre de la
-    vela: tiene que pasar."""
-    vale, msg = comprobar_marco(_marco([4003.0, 3997.0, 4004.5, 3996.0,
-                                        4002.0, 4005.0, 3999.0]))
+class _PorHora:
+    """Proveedor que contesta vela a vela, como Dukascopy en vivo."""
+
+    def __init__(self, desplazamiento: float, ancho: float = 12.0):
+        self.d, self.ancho, self.peticiones = desplazamiento, ancho, 0
+
+    def vela_de(self, hora):
+        self.peticiones += 1
+        fix = FIXES.get(hora.date())
+        if fix is None:
+            return None
+        centro = fix + self.d
+        return {"low": centro - self.ancho / 2, "high": centro + self.ancho / 2}
+
+
+class _Marco:
+    """Proveedor que solo sabe devolver un marco, como Yahoo."""
+
+    def __init__(self, desplazamiento: float):
+        idx, filas = [], []
+        for dia, fix in FIXES.items():
+            h = hora_de_la_subasta(dia)
+            idx.append(h)
+            c = fix + desplazamiento
+            filas.append({"open": c, "high": c + 6, "low": c - 6, "close": c, "volume": 1})
+        self.df = pd.DataFrame(filas, index=pd.DatetimeIndex(idx))
+
+    def historico(self, n):
+        return self.df
+
+
+def test_el_contado_pasa(fixes):
+    vale, msg = comprobar_fuente(_PorHora(desplazamiento=+2.0))
     assert vale, msg
     assert "contado" in msg
 
 
 def test_el_futuro_de_comex_se_detecta(fixes):
     """+43 $ es la prima del contrato. Esto es lo que había que cazar."""
-    vale, msg = comprobar_marco(_marco([4043.0, 4041.0, 4046.0, 4038.0,
-                                        4044.0, 4042.0, 4045.0]))
+    vale, msg = comprobar_fuente(_PorHora(desplazamiento=+43.0))
     assert not vale
     assert "NO ES ORO AL CONTADO" in msg
-    # Y dice dónde mirar, que si no el aviso no sirve de nada.
     assert "GC=F" in msg and "ORO_FUENTE_VIVO" in msg
 
 
-def test_la_deriva_diaria_no_dispara_el_aviso(fixes):
-    """El oro se mueve 40 $ en una sesión. Si cada día suelto disparara el
-    aviso, el sistema no mandaría plan nunca y el árbitro sería inservible.
-    Lo que delata un cambio de instrumento es la MEDIA, no un día."""
-    vale, msg = comprobar_marco(_marco([4040.0, 3960.0, 4035.0, 3968.0,
-                                        4030.0, 3972.0, 4001.0]))
-    assert vale, msg
+def test_funciona_tambien_con_un_proveedor_de_marco(fixes):
+    """Yahoo no sabe dar una vela suelta; se le pide el marco una sola vez."""
+    assert comprobar_fuente(_Marco(+1.0))[0] is True
+    assert comprobar_fuente(_Marco(+43.0))[0] is False
+
+
+def test_con_un_solo_dia_ya_decide(fixes):
+    """El criterio de la vela separa con un solo día (32/32 frente a 0/16).
+    Es lo que permite que funcione en vivo, donde no hay cinco días a mano."""
+    vale, _ = comprobar_fuente(_PorHora(+43.0), dias=1)
+    assert vale is False
+
+
+def test_pide_pocas_velas(fixes):
+    """Cada vela de Dukascopy es una petición. El árbitro no puede costar más
+    que el propio plan."""
+    p = _PorHora(+2.0)
+    comprobar_fuente(p, dias=3)
+    assert p.peticiones <= 9
 
 
 def test_sin_referencia_se_sigue_adelante(monkeypatch):
-    """Una web caída no puede dejar al sistema sin mandar el plan: el árbitro
-    es una comprobación, no una dependencia."""
+    """Una web caída no puede dejar al sistema sin mandar el plan."""
     monkeypatch.setattr("oro.referencia.serie_fix", lambda **kw: {})
-    vale, msg = comprobar_marco(_marco([4000.0] * 7))
-    assert vale
-    assert "sin árbitro" in msg
+    vale, msg = comprobar_fuente(_PorHora(+43.0))
+    assert vale and "sin árbitro" in msg
 
 
-def test_con_pocos_dias_no_se_pronuncia(fixes):
-    """Con dos días la deriva puede más que la prima que se busca. Más vale
-    decir que no se sabe que dar un veredicto que no se sostiene."""
-    vale, msg = comprobar_marco(_marco([4050.0, 4048.0]))
-    assert vale
-    assert "Sin árbitro" in msg or "falta" in msg
+def test_sin_velas_a_esa_hora_no_se_pronuncia(fixes):
+    class Vacio:
+        def vela_de(self, hora):
+            return None
+    vale, msg = comprobar_fuente(Vacio())
+    assert vale and "Sin árbitro" in msg
 
 
-def test_la_tolerancia_separa_las_dos_fuentes_medidas():
-    """15 $ está entre los +3,34 medidos del contado y los +43,08 del futuro,
-    con holgura por los dos lados."""
-    assert 3.34 < TOLERANCIA < 43.08
-    assert MINIMO_DIAS >= 5
+def test_la_hora_de_la_subasta_sigue_el_cambio_de_hora_britanico():
+    """10:30 de Londres son las 09:30 UTC en verano y las 10:30 en invierno."""
+    assert hora_de_la_subasta(dt.date(2026, 7, 15)).hour == 9
+    assert hora_de_la_subasta(dt.date(2026, 12, 15)).hour == 10
 
 
 def test_el_plan_no_se_manda_si_el_arbitro_dice_que_no():
@@ -106,7 +128,6 @@ def test_el_plan_no_se_manda_si_el_arbitro_dice_que_no():
     from oro import plan_sesion
 
     fuente = inspect.getsource(plan_sesion.ejecutar)
-    assert "comprobar_marco" in fuente
-    i = fuente.find("comprobar_marco")
+    i = fuente.find("comprobar_fuente")
     j = fuente.find("notificar_plan")
     assert 0 < i < j, "el árbitro tiene que correr ANTES de mandar el correo"

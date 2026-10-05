@@ -35,3 +35,15 @@ def _aislar_ficheros(tmp_path, monkeypatch):
     modelo) se crean y se descartan allí.
     """
     monkeypatch.chdir(tmp_path)
+
+
+
+@pytest.fixture(autouse=True)
+def _sin_lbma_en_red(monkeypatch):
+    """Las pruebas no salen a gold.org.
+
+    El árbitro del LBMA se llama al construir el plan, así que sin esto cada
+    prueba de punta a punta haría una petición de red: lenta, y dependiente de
+    que la web responda. Las pruebas del árbitro ponen su propia serie.
+    """
+    monkeypatch.setattr("oro.referencia.serie_fix", lambda **kw: {})

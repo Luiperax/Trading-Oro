@@ -975,20 +975,29 @@ cierre de la vela. Los 43 $ del futuro son la prima del contrato.
 (oro)», que es el contado por definición, mientras los niveles salían del
 futuro. Las dos cosas no pueden ser correctas.
 
-### Cómo se usa: comparando una MEDIA, no un día
+### Cómo se usa: ¿cae el fix dentro de la vela en que se subastó?
 
-Un día suelto no distingue nada: el fix puede ser de hace tres jornadas y el oro
-se mueve 40 $ en una sesión normal, así que la deriva tapa por completo una
-prima de 43 $. Lo que la delata es la media sobre varios días —la deriva cambia
-de signo y se cancela, la prima no—. De ahí `oro/referencia.py`, con tolerancia
-de 15 $ (entre los +3,34 medidos y los +43,08) y un mínimo de 5 días.
+La subasta se hace a precios que se negocian en ese momento, así que el fix
+tiene que caer dentro del máximo y el mínimo de la vela horaria que contiene
+las 10:30 de Londres:
+
+| fuente | el fix cae dentro de la vela |
+|---|---|
+| Dukascopy contado | **32 de 32 días** |
+| Yahoo `GC=F` futuro | **0 de 16 días** (fuera por 35,66 $ de media) |
+
+Separación perfecta y con **un solo día** ya decide. El árbitro pide él mismo
+las 3 velas que necesita (3 peticiones) en vez de mirar el marco del plan.
+
+*Fallo propio, cazado antes de que llegara a producción:* la primera versión
+comparaba una media de 5 días sobre el marco que carga el plan. Ese marco son
+48 horas —unos 2 días—, así que en vivo no habría tenido nunca 5 días y **no se
+habría activado jamás**, dando siempre por bueno el precio sin decirlo.
 
 Si el árbitro dice que no, **no se manda el plan**. Un día sin plan es mucho
-mejor que un plan con niveles que en la pantalla del bróker no existen: esas
-órdenes no esperan a la ruptura, se ejecutan al instante.
-
-Y si la web de gold.org no responde, se sigue adelante avisando de que esta vez
-no hubo árbitro. Es una comprobación, no una dependencia.
+mejor que un plan con niveles que en la pantalla del bróker no existen. Si la
+web de gold.org no responde, se sigue adelante avisando de que esta vez no hubo
+árbitro: es una comprobación, no una dependencia.
 
 ## La fuente en vivo pasa a ser el contado
 

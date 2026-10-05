@@ -234,6 +234,17 @@ class ProveedorDukascopyVivo(ProveedorDatos):
                         "real.", len(dentro),
                         ", ".join(h.strftime("%d-%m %Hh") for h in dentro[:6]))
 
+    def vela_de(self, hora: dt.datetime) -> Optional[dict]:
+        """La vela H1 de una hora concreta (UTC, en punto), o ``None``.
+
+        Una sola petición. La usa el árbitro del LBMA, que necesita la vela de
+        la subasta de días concretos y no las últimas 48 horas seguidas.
+        """
+        if hora.tzinfo is None:
+            hora = hora.replace(tzinfo=dt.timezone.utc)
+        ticks = self._ticks_de(hora.astimezone(dt.timezone.utc))
+        return self._vela(ticks) if ticks is not None and not ticks.empty else None
+
     def ultima(self) -> Optional[pd.Series]:
         """La última vela cerrada. ``None`` si no hay ninguna reciente."""
         df = self.historico(2)
