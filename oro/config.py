@@ -317,7 +317,40 @@ class ConfiguracionRuptura:
 
 @dataclass(slots=True)
 class ConfiguracionSistema:
+    # El símbolo del instrumento para la INVESTIGACIÓN (Dukascopy, XAU/USD al
+    # contado). No es el que se opera en vivo: ver `simbolo_vivo`.
     simbolo: str = "XAUUSD"
+
+    # EL SÍMBOLO QUE DE VERDAD SE OPERA, y no es el mismo.
+    #
+    # El feed en vivo gratuito es Yahoo, y Yahoo NO sirve XAU/USD al contado en
+    # velas horarias (XAUUSD=X, XAU=X y GCUSD=X dan 404; ^XAU es el índice de
+    # mineras). Lo único disponible es `GC=F`: el futuro de oro de COMEX.
+    #
+    # Medido en septiembre de 2026 sobre 477 horas comunes, el futuro cotizó
+    # 40,17 $ por encima del contado de media, y la base se movió de 48,63 el
+    # día 1 a 31,70 el día 30. Sus rangos H1 son un 1,5 % más anchos (t = 5,08,
+    # mayores en el 72 % de las horas).
+    #
+    # Consecuencias, y conviene tenerlas claras:
+    #
+    #   · TODA la investigación de este proyecto está medida sobre el contado de
+    #     Dukascopy, así que ninguna ventaja se ha validado nunca sobre el
+    #     instrumento que realmente se opera. No hay forma de arreglarlo gratis:
+    #     Yahoo da ~45 días de histórico horario de futuros.
+    #   · Que la estrategia sea INTRADÍA es lo que lo hace soportable. La base
+    #     converge ~0,7 $/día; en las pocas horas que dura una operación son
+    #     0,002 R sobre un 1R de 35 $. Si la posición durmiera, la convergencia
+    #     se comería las compras sistemáticamente.
+    #   · Si el bróker de quien opera cotiza el CONTADO, los niveles del correo
+    #     no existen en su pantalla. El correo lo avisa (ver
+    #     `oro.notificaciones.plan.aviso_instrumento`), porque desde aquí no se
+    #     puede detectar: el sistema solo ve un feed.
+    #
+    # Antes esto no estaba escrito en ningún sitio: `ProveedorYahoo` usaba su
+    # propio `GC=F` por defecto y nadie le pasaba `cfg.simbolo`, así que la
+    # configuración decía XAUUSD y el sistema operaba otra cosa.
+    simbolo_vivo: str = "GC=F"
     capital: float = 3_000.0             # capital de la cuenta (divisa base). Configurable por ORO_CAPITAL.
     # Marco temporal de trabajo. H1 (1 hora) para operativa INTRADÍA (abrir y
     # cerrar el mismo día). Nota honesta: los marcos intradía tienen un borde más
@@ -325,6 +358,39 @@ class ConfiguracionSistema:
     # overnight). Configurable por ORO_TIMEFRAME.
     timeframe: str = "H1"
     zona_horaria: str = "UTC"
+
+    # EL MOTOR DE SEÑALES INTRADÍA ESTÁ APAGADO. No es una decisión de gusto.
+    #
+    # Reconstruidas sus 4.891 operaciones sobre 21 años (2006-2026) con esta
+    # misma configuración —`r_objetivos=(2.0,)`, `atr_stop_mult=1.5`,
+    # `trailing_desde_entrada=True`— y la cuenta sale así:
+    #
+    #     R bruto medio            -0.0314   (t = -2.43)
+    #     R neto medio (0.30 $)    -0.0899   (t = -6.94)
+    #     años positivos                2 de 21
+    #     R acumulado                -439.5
+    #
+    # A 0.25 % de riesgo son -157 € al año sobre 3.000 €, todos los años menos
+    # dos. Y esos dos son 2025 y 2026: la ventana en la que se construyó y se
+    # ajustó el sistema.
+    #
+    # Antes de apagarlo se intentó arreglarlo, y está medido que no se puede:
+    #
+    #   · seis variantes de salida (sin trailing, sin trailing desde la entrada,
+    #     objetivo 3R, stop 2.5xATR…): las seis negativas en BRUTO;
+    #   · walk-forward por años sobre 4.294 operaciones fuera de muestra:
+    #     AUC 0.5054, y el cuartil "mejor" rinde -0.0900 R frente a -0.0738 del
+    #     "peor", o sea que ordena al revés;
+    #   · sus 93 motivos de entrada: ninguno pasa Bonferroni, y "ADX 28" da
+    #     -0.1724 R mientras "ADX 29" da +0.1826. Un efecto real no cambia de
+    #     signo entre dos enteros consecutivos.
+    #
+    # El vigilante SIGUE ejecutándose: en el mismo bucle atiende el seguimiento
+    # de la ruptura, que es la estrategia que sí tiene ventaja. Lo único que no
+    # hace es abrir operaciones nuevas del motor de señales.
+    #
+    # Para volver a encenderlo: ORO_SENALES_ACTIVAS=1.
+    senales_activas: bool = False
 
     riesgo: ConfiguracionRiesgo = field(default_factory=ConfiguracionRiesgo)
     calidad: ConfiguracionCalidad = field(default_factory=ConfiguracionCalidad)
@@ -473,6 +539,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
     # Con la variable VACÍA esto dejaba el símbolo en "" y el proveedor pedía
     # un instrumento sin nombre.
     cfg.simbolo = entorno.texto("ORO_SIMBOLO", cfg.simbolo)
+    cfg.simbolo_vivo = entorno.texto("ORO_SIMBOLO_VIVO", cfg.simbolo_vivo)
     cfg.timeframe = _marco(entorno.texto("ORO_TIMEFRAME"), cfg.timeframe)
     cfg.riesgo.riesgo_por_operacion = _num(
         "ORO_RIESGO_POR_OPERACION", cfg.riesgo.riesgo_por_operacion
@@ -501,6 +568,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.ruptura.sesgo_cuerpo_minimo = _num(
         "ORO_RUPTURA_SESGO_CUERPO_MINIMO", cfg.ruptura.sesgo_cuerpo_minimo
     )
+    cfg.senales_activas = _bool("ORO_SENALES_ACTIVAS", cfg.senales_activas)
     cfg.ruptura.solo_ventas = _bool("ORO_RUPTURA_SOLO_VENTAS", cfg.ruptura.solo_ventas)
     cfg.ruptura.anular_si_rompe_arriba = _bool(
         "ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA", cfg.ruptura.anular_si_rompe_arriba

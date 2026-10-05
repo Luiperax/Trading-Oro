@@ -55,7 +55,8 @@ class RunnerVivo:
         usar_sentimiento: bool = True,
     ) -> None:
         self.cfg = cfg or cargar_configuracion()
-        self.proveedor = proveedor or ProveedorYahoo(timeframe=self.cfg.timeframe)
+        self.proveedor = proveedor or ProveedorYahoo(
+            simbolo=self.cfg.simbolo_vivo, timeframe=self.cfg.timeframe)
         self.notificador = notificador or NotificadorConsola()
         self.analizador = analizador or AnalizadorSentimiento()
         self.motor = MotorSenales(self.cfg, modelo=modelo)
@@ -153,7 +154,17 @@ class RunnerVivo:
         # Tope de pérdida diaria: si ya se ha perdido el máximo del día, no más operaciones.
         cap_perdida_r = (r_cfg.riesgo_diario_max / r_cfg.riesgo_por_operacion
                          if r_cfg.riesgo_por_operacion > 0 else 1e9)
-        if self._perdida_r_hoy >= cap_perdida_r:
+        if not self.cfg.senales_activas:
+            # Apagado a propósito, con la medición delante (ver
+            # `ConfiguracionSistema.senales_activas`): -0.0899 R por operación
+            # neto sobre 4.891 operaciones de 21 años y solo 2 años positivos.
+            # Las operaciones que YA estén abiertas se siguen gestionando y
+            # cerrando arriba: apagar la entrada no es abandonar una posición.
+            resultado.motivo_sin_entrada = (
+                "El motor de señales intradía está apagado (ORO_SENALES_ACTIVAS=0). "
+                "Medido sobre 21 años pierde 0.09 R por operación y solo tuvo 2 "
+                "años positivos de 21. El plan de ruptura sigue activo.")
+        elif self._perdida_r_hoy >= cap_perdida_r:
             resultado.motivo_sin_entrada = (
                 f"Tope de pérdida diaria alcanzado ({self._perdida_r_hoy:.1f}R ≥ "
                 f"{cap_perdida_r:.1f}R). No se abren más operaciones hoy.")

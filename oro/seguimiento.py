@@ -57,6 +57,22 @@ class AvisoSeguimiento:
     titulo: str
     cuerpo: str
     r: float
+    # El dato que hay que ver SIN leer, en grande dentro de la tarjeta: el precio
+    # que anula la orden, o los R que lleva la operación. Vacío = sin caja.
+    destacado: str = ""
+
+    def html(self) -> str:
+        """La tarjeta del correo. Antes iban en texto plano, todos iguales.
+
+        El aviso de CANCELAR es el que sostiene la estrategia —si no se actúa, la
+        orden acaba ejecutándose en la población que pierde 0,29 R de media— y
+        tiene que distinguirse de un vistazo del resto.
+        """
+        from .notificaciones.plan import _COLOR_AVISO, mensaje_html_de_aviso
+
+        return mensaje_html_de_aviso(
+            self.titulo, self.cuerpo, self.destacado,
+            _COLOR_AVISO.get(self.tipo.value, _COLOR_AVISO["_"]))
 
 
 @dataclass(slots=True)
@@ -122,6 +138,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:anulado", tipo=Evento.CIERRE,
                 momento=momento, precio=float(v["close"]), r=0.0,
+                destacado=f"ha subido de {plan.compra.entrada:.2f}",
                 titulo="🚫 CANCELA la orden de venta de XAU/USD",
                 cuerpo=(f"El rango se ha roto por ARRIBA ({plan.compra.entrada:.2f}) "
                         f"antes que por abajo. Cancela la orden de venta "
@@ -147,6 +164,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:caducado", tipo=Evento.CIERRE,
                 momento=plan.valido_hasta, precio=0.0, r=0.0,
+                destacado="hoy no hay operación",
                 titulo=("🚫 CANCELA la orden de XAU/USD" if plan.solo_ventas
                         else "🚫 CANCELA las dos órdenes de XAU/USD"),
                 cuerpo=("Se ha acabado la ventana y el precio no ha salido del "
@@ -187,6 +205,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:break-even", tipo=Evento.MOVER_STOP,
                 momento=momento, precio=float(v["close"]), r=s.r_maximo,
+                destacado=f"stop → {orden.entrada:.2f}",
                 titulo="🛡 MUEVE EL STOP a la entrada (XAU/USD)",
                 cuerpo=(f"La operación te lleva {s.r_maximo:.1f}R de beneficio. "
                         f"Mueve el stop loss a {orden.entrada:.2f}, tu precio de "
@@ -210,6 +229,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             clave=f"{plan.dia}:cierre", tipo=Evento.CIERRE,
             momento=plan.cierre_forzoso, precio=ultimo,
             r=signo * (ultimo - orden.entrada) / riesgo,
+            destacado=f"{signo * (ultimo - orden.entrada) / riesgo:+.2f} R",
             titulo="⏱ CIERRA la operación de XAU/USD, gane o pierda",
             cuerpo=(f"Se acaba la sesión. Cierra la posición a mercado: la "
                     f"estrategia no deja operaciones abiertas de un día para "

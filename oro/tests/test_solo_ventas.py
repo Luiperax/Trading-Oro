@@ -341,3 +341,119 @@ def test_dia_completo_rompe_al_alza_y_solo_llega_la_cancelacion(entorno):
     assert len(fichas) == 1
     assert fichas[0]["estado"] == "anulado"
     assert fichas[0]["r_neto"] is None
+
+
+def test_los_avisos_llevan_tarjeta_y_el_dato_en_grande():
+    """El aviso de cancelar es el que sostiene la ventaja y hay que leerlo
+    deprisa en el móvil. Iba en texto plano, igual de gris que los demás."""
+    import re
+
+    plan, _ = _plan()
+    df = _con_sesion({8: (4035, 4020)})
+    s = seguir(plan, df, ahora=_a_las(9))
+    aviso = s.avisos[0]
+
+    assert aviso.destacado == "ha subido de 4024.00"
+    html = aviso.html()
+    assert "4024.00" in html
+    assert "max-width:460px" in html
+    # Rojo en la cabecera: es un aviso de cancelar, no de que algo va bien.
+    assert "#F04438" in html
+    # Solo tablas y estilos en línea, como el resto de correos.
+    assert "<style" not in html and "class=" not in html
+    for etiqueta in ("table", "tr", "td", "div"):
+        abre = len(re.findall(rf"<{etiqueta}[ >]", html))
+        cierra = len(re.findall(rf"</{etiqueta}>", html))
+        assert abre == cierra, f"{etiqueta}: {abre} abren y {cierra} cierran"
+
+
+def test_el_aviso_de_mover_el_stop_va_en_verde_con_el_precio():
+    plan, _ = _plan()
+    df = _con_sesion({8: (4010, 3990), 9: (3995, 3965)})
+    s = seguir(plan, df, ahora=_a_las(11))
+    mover = [a for a in s.avisos if a.destacado.startswith("stop →")]
+    assert mover, "no se mandó el aviso de break-even"
+    html = mover[0].html()
+    assert "3998.00" in html          # el precio de entrada.
+    assert "#12B76A" in html          # verde: la operación va a favor.
+
+
+def test_el_correo_del_aviso_se_envia_con_html(entorno):
+    """Si se enviara sin html, el canal de correo mandaría solo texto plano y la
+    tarjeta no serviría de nada."""
+    from oro import plan_sesion, seguir_plan
+
+    espia, tmp, monkeypatch = entorno
+    recibido = {}
+
+    def enviar(titulo, cuerpo, evento=None, html=None):
+        recibido.update(titulo=titulo, html=html)
+        return True
+
+    espia.enviar = enviar
+    _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **LONDRES}))
+    assert plan_sesion.ejecutar(ahora=_a_las(8)) == 0
+    _servir(monkeypatch, _con_sesion({8: (4035, 4020)}))
+    assert seguir_plan.ejecutar(ahora=_a_las(9)) == 0
+
+    assert "CANCELA" in recibido["titulo"]
+    assert recibido["html"] is not None
+    assert "4024.00" in recibido["html"]
+
+
+def test_la_cabecera_roja_lleva_el_texto_en_blanco():
+    """Sobre #F04438 el texto oscuro se queda por debajo del contraste legible,
+    y este es justo el correo que hay que leer de un vistazo en el móvil."""
+    from oro.notificaciones.plan import _ORO, _ROJO, mensaje_html_de_aviso
+
+    def cabecera(color):
+        h = mensaje_html_de_aviso("T", "cuerpo", "dato", color)
+        return h.split("border-radius:18px 18px 0 0")[1].split("</td></tr>")[0]
+
+    assert "#ffffff" in cabecera(_ROJO)
+    assert "#0b0e14" in cabecera(_ORO)      # sobre dorado, al revés.
+    assert "#ffffff" not in cabecera(_ORO)
+
+
+def test_el_correo_dice_de_que_instrumento_salen_los_precios():
+    """El fallo más caro posible y el único que el sistema no puede detectar.
+
+    El feed en vivo es GC=F, el FUTURO de COMEX, porque Yahoo no sirve XAU/USD
+    al contado en velas horarias. En septiembre de 2026 el futuro cotizó 40,17 $
+    por encima del contado. Si el bróker de quien opera cotiza el contado, los
+    niveles del correo no existen en su pantalla y la orden se ejecutaría al
+    instante en vez de esperar a la ruptura. Desde aquí no se puede saber: el
+    sistema solo ve un feed. Así que se dice.
+    """
+    from oro.notificaciones.plan import (aviso_instrumento, mensaje_de_plan,
+                                         mensaje_html_de_plan)
+
+    plan, _ = _plan()
+    assert "GC=F" in (aviso_instrumento() or "")
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "GC=F" in texto
+        assert "CONTADO" in texto or "contado" in texto
+
+
+def test_sin_desajuste_de_instrumento_el_correo_no_mete_ruido(monkeypatch):
+    """Si algún día el feed fuera el contado, el aviso sobra."""
+    from oro.notificaciones.plan import aviso_instrumento, mensaje_de_plan
+
+    monkeypatch.setenv("ORO_SIMBOLO_VIVO", "XAUUSD")
+    assert aviso_instrumento() is None
+    plan, _ = _plan()
+    assert "GC=F" not in mensaje_de_plan(plan)
+
+
+def test_el_proveedor_en_vivo_recibe_el_simbolo_configurado():
+    """`ProveedorYahoo` tenía su propio GC=F por defecto y nadie le pasaba el
+    símbolo: la configuración decía XAUUSD y el sistema operaba otra cosa."""
+    import inspect
+
+    from oro import plan_sesion
+    from oro.vivo import runner
+
+    for fuente in (inspect.getsource(plan_sesion._proveedor),
+                   inspect.getsource(runner.RunnerVivo.__init__)):
+        assert "simbolo_vivo" in fuente, (
+            "el proveedor en vivo no recibe el símbolo configurado")

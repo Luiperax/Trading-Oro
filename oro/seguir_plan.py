@@ -105,7 +105,8 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     if s.avisos:
         notificador = _construir_notificador()
         for aviso in s.avisos:
-            if notificador.enviar(aviso.titulo, aviso.cuerpo, aviso.tipo):
+            if notificador.enviar(aviso.titulo, aviso.cuerpo, aviso.tipo,
+                                  html=aviso.html()):
                 avisados.add(aviso.clave)
             else:
                 print(f"⚠️  AVISO NO ENVIADO ({aviso.clave}): se reintentará.")

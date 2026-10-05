@@ -209,6 +209,11 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         f"  {aviso_confianza(plan)}",
         "",
         f"Riesgo si salta el stop: {riesgo_por_onza(plan):.2f} $ por onza.",
+    ]
+    nota = aviso_instrumento()
+    if nota:
+        lineas += ["", f"DE DÓNDE SALEN LOS PRECIOS: {nota}"]
+    lineas += [
         "",
         f"Válido hasta las {hora_local(plan.valido_hasta)} ({zona}). "
         + ("Después, cancélala." if plan.solo_ventas else "Después, cancela las dos."),
@@ -253,6 +258,34 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
         "Medido sobre 19,6 años reales: 14 años en positivo de 20, con una "
         "racha mala de 2017 a 2020 que perdió cuatro años seguidos.",
     )
+
+
+def aviso_instrumento() -> str | None:
+    """De qué instrumento salen los precios, para poder contrastarlo una vez.
+
+    El sistema calcula sobre el feed gratuito de Yahoo, que por defecto es
+    `GC=F`: el FUTURO de oro de COMEX, no el contado. Medido en septiembre de
+    2026, el futuro cotizó de media 40,17 $ por encima del XAU/USD al contado
+    (y la base se movió de 48,63 a 31,70 dentro del mes). La mayoría de los
+    brókeres minoristas cotizan el contado.
+
+    Si los dos no coinciden, los niveles del correo no existen en la pantalla
+    del bróker y la orden se ejecutaría al instante en vez de esperar a la
+    ruptura. Es el fallo más caro posible y no se puede detectar desde aquí: el
+    sistema solo ve un feed. Así que se dice, y quien opera lo comprueba una vez.
+
+    Devuelve ``None`` si el símbolo configurado ya es el contado.
+    """
+    from ..config import cargar_configuracion
+
+    simbolo = (cargar_configuracion().simbolo_vivo or "").upper()
+    if simbolo in ("XAUUSD", "XAU/USD", "GOLD", "XAUUSD=X"):
+        return None
+    return (f"Los precios salen de {simbolo or 'GC=F'} (futuro de oro de COMEX: "
+            f"es el único feed horario gratuito). Si tu bróker cotiza XAU/USD al "
+            f"CONTADO, marcará unos 30-50 $ menos y estos niveles no le valdrán. "
+            f"Compruébalo una vez contra tu pantalla antes de poner la primera "
+            f"orden.")
 
 
 def _titulo_ordenes(plan: PlanRuptura) -> str:
@@ -337,6 +370,12 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
         f'<div style="color:{_MUTED};font-size:12px;">Riesgo si salta el stop: '
         f'{riesgo_por_onza(plan):.2f} $ por onza.</div>')
 
+    _nota = aviso_instrumento()
+    nota_instrumento = (
+        f'<div style="color:{_MUTED};font-size:11px;line-height:1.5;'
+        f'margin-top:8px;border-top:1px solid {_BORDE};padding-top:8px;">'
+        f'{_esc(_nota)}</div>' if _nota else "")
+
     honestidad = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:12px;padding:3px 0;'
         f'line-height:1.5;">• {_esc(t)}</td></tr>'
@@ -367,7 +406,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       </table>
       <div style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:12px 16px;margin-bottom:18px;">
         <div style="color:{_ORO};font-size:13px;font-weight:700;">{_esc(_regla_cancelar(plan))}</div>
-        {aviso_riesgo}
+        {aviso_riesgo}{nota_instrumento}
       </div>
 
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
@@ -396,3 +435,65 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
 
 
 __all__ = ["riesgo_por_onza", "pasos_plan", "mensaje_de_plan", "mensaje_html_de_plan"]
+
+
+# ---------------------------------------------------------------------------
+# Los avisos del seguimiento, en tarjeta
+# ---------------------------------------------------------------------------
+# El color de la cabecera dice QUÉ tipo de aviso es antes de leer una palabra:
+# rojo = hay que cancelar o cerrar algo, verde = la operación va a favor.
+_COLOR_AVISO = {
+    "cierre": _ROJO,
+    "mover_stop": _VERDE,
+    "tp_alcanzado": _VERDE,
+    "ampliar_objetivo": _VERDE,
+    "_": _ORO,
+}
+
+
+
+def mensaje_html_de_aviso(titulo: str, cuerpo: str, destacado: str = "",
+                          color: str = _ORO) -> str:
+    """La misma tarjeta del plan, para los avisos de la sesión.
+
+    Salían en texto plano, y el de CANCELAR es el que sostiene la estrategia:
+    si no se actúa, la orden se ejecuta en la población que pierde 0,29 R de
+    media y la ventaja entera desaparece. Un correo que hay que leer deprisa en
+    el móvil, entre otros muchos, no puede ser el más gris de todos.
+
+    ``destacado`` es el dato que hay que ver sin leer: el precio que anula la
+    orden, o los R que lleva la operación.
+    """
+    # Texto oscuro sobre el dorado, blanco sobre el rojo y el verde: sobre
+    # #F04438 el texto oscuro queda por debajo del contraste legible, y este es
+    # justo el correo que hay que leer de un vistazo.
+    tinta = "#0b0e14" if color == _ORO else "#ffffff"
+    caja = ""
+    if destacado:
+        caja = (f'<div style="background:#0e131c;border:1px dashed {color};'
+                f'border-radius:12px;padding:14px 16px;margin-bottom:16px;'
+                f'text-align:center;">'
+                f'<div style="color:{color};font-size:26px;font-weight:800;'
+                f'letter-spacing:.5px;">{_esc(destacado)}</div></div>')
+    return f"""\
+<div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
+ <table role="presentation" align="center" width="100%" style="max-width:460px;margin:0 auto;border-collapse:collapse;">
+  <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;">
+   <table role="presentation" width="100%" style="border-collapse:collapse;">
+    <tr><td style="background:{color};border-radius:18px 18px 0 0;padding:16px 24px;">
+      <div style="color:{tinta};font-size:12px;letter-spacing:3px;opacity:.75;">◆ XAU/USD · ORO</div>
+      <div style="color:{tinta};font-size:20px;font-weight:800;margin-top:2px;">{_esc(titulo)}</div>
+    </td></tr>
+    <tr><td style="padding:22px 24px;">
+      {caja}
+      <div style="color:{_TEXTO};font-size:14px;line-height:1.6;">{_esc(cuerpo)}</div>
+    </td></tr>
+    <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;">
+      <div style="color:{_MUTED};font-size:11px;line-height:1.5;">
+        ⚠️ Herramienta de análisis, no asesoramiento financiero. Opera bajo tu responsabilidad.
+      </div>
+    </td></tr>
+   </table>
+  </td></tr>
+ </table>
+</div>"""

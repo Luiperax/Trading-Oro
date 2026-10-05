@@ -135,7 +135,14 @@ def _runner_offline(**kw):
     an = AnalizadorSentimiento(min_titulares_senal=1,
                                fuente_titulares=lambda: [Titular("Gold rises on inflation", _ahora(), "t")],
                                fuente_eventos=lambda: [])
-    return RunnerVivo(cargar_configuracion(),
+    # El motor de señales va APAGADO en producción (pierde 0.09 R por operación
+    # sobre 21 años). Estas pruebas comprueban sus guardas —tope diario, tope de
+    # pérdida, una posición a la vez—, que siguen siendo correctas y tienen que
+    # seguir funcionando si algún día se vuelve a encender. Así que se enciende
+    # aquí, explícitamente.
+    cfg = cargar_configuracion()
+    cfg.senales_activas = True
+    return RunnerVivo(cfg,
                       proveedor=ProveedorSintetico(velas=6000, semilla=3),
                       analizador=an, **kw)
 
@@ -198,6 +205,7 @@ def test_estado_persiste_entre_ejecuciones(tmp_path):
 
     ruta = tmp_path / "estado.json"
     cfg = cargar_configuracion()
+    cfg.senales_activas = True
     r1 = RunnerVivo(cfg, proveedor=ProveedorSintetico(velas=1000, semilla=1),
                     analizador=AnalizadorSentimiento(fuente_titulares=lambda: [], fuente_eventos=lambda: []),
                     usar_sentimiento=False)

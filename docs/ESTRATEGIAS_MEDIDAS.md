@@ -777,3 +777,46 @@ siempre que un resultado parezca demasiado bueno.
   **6 años**. La vigilancia de `oro/aprender.py` existe precisamente porque la
   media tarda, mientras que el acierto y la forma de las salidas convergen
   antes.
+
+---
+
+## Decisiones tomadas tras la auditoría
+
+### El motor de señales intradía queda APAGADO
+
+`ConfiguracionSistema.senales_activas = False`. No deja de ejecutarse el
+vigilante —en su bucle atiende también el seguimiento de la ruptura— pero no
+abre operaciones nuevas. Las razones están arriba: −0,0899 R netos por
+operación sobre 4.891 operaciones de 21 años, 2 años positivos de 21, −439,5 R
+acumulados, −157 €/año a 0,25 % de riesgo. Y lo que lo cierra: seis variantes
+de salida negativas **en bruto**, un walk-forward con AUC 0,5054 que ordena al
+revés, y 93 motivos de los que ninguno pasa Bonferroni.
+
+Se enciende otra vez con `ORO_SENALES_ACTIVAS=1`. Las operaciones que estuvieran
+abiertas se siguen gestionando y cerrando: la compuerta está solo en la entrada.
+
+### El instrumento que se opera no es el que se investigó, y ahora se dice
+
+Yahoo **no sirve XAU/USD al contado en velas horarias**: `XAUUSD=X`, `XAU=X` y
+`GCUSD=X` devuelven 404, y `^XAU` es el índice de mineras (cotiza a 361). El
+único feed horario gratuito es **`GC=F`, el futuro de oro de COMEX**.
+
+Toda la investigación de este documento está medida sobre el contado de
+Dukascopy. Eso no se puede arreglar —Yahoo da ~45 días de histórico horario de
+futuros— así que se **declara**:
+
+* `ConfiguracionSistema.simbolo_vivo` separa el símbolo de investigación
+  (`XAUUSD`, Dukascopy) del que se opera (`GC=F`, Yahoo). Antes `ProveedorYahoo`
+  usaba su propio `GC=F` por defecto y nadie le pasaba `cfg.simbolo`: la
+  configuración decía una cosa y el sistema hacía otra.
+* El correo del plan lleva una línea diciendo de dónde salen los precios y que,
+  si el bróker cotiza el contado, marcará 30-50 $ menos. **Es el fallo más caro
+  posible** —las órdenes se ejecutarían al instante en vez de esperar a la
+  ruptura— y el sistema no puede detectarlo, porque solo ve un feed.
+
+### Los avisos de la sesión van en tarjeta
+
+Salían en texto plano, todos con el mismo aspecto. El de CANCELAR es el que
+sostiene la ventaja (sin él, +10,78 R/año se quedan en −1,07), así que ahora
+lleva cabecera roja, el precio que anula la orden en grande y texto blanco
+—sobre `#F04438` el texto oscuro se queda por debajo del contraste legible.

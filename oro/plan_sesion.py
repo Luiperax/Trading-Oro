@@ -83,7 +83,7 @@ def _proveedor(sintetico: bool):
         from .datos import ProveedorSintetico
         return ProveedorSintetico(velas=2000, semilla=7)
     from .datos import ProveedorYahoo
-    return ProveedorYahoo(timeframe=cfg.timeframe)
+    return ProveedorYahoo(simbolo=cfg.simbolo_vivo, timeframe=cfg.timeframe)
 
 
 def ejecutar(forzar: bool = False, sintetico: bool = False,
