@@ -920,3 +920,80 @@ el calentamiento del motor intradía (EMA 200). La ruptura solo mira el día de
 sesión, y está medido sobre el código real que **con 8 velas sale el mismo plan
 y el mismo resultado**. Ahora se piden 48. Con 400, una fuente que va hora a
 hora necesita 628 peticiones y más de media hora por ciclo.
+
+---
+
+# TradingView y gold.org, probadas
+
+Se pidió probar las dos como alternativas. Esto es lo que dieron.
+
+## TradingView: no
+
+| endpoint | resultado |
+|---|---|
+| `scanner.tradingview.com/forex/scan` (GET) | 200, **6.333 pares — ninguno es XAU/USD** (los dos «XAU» son UGX/AUD y EUR/AUD) |
+| el mismo con POST y tickers de oro | `{"totalCount":0,"data":[]}` |
+| `symbol-search.tradingview.com` | **403** |
+| `api.tradingview.com/history` | sin respuesta |
+
+No hay API pública gratuita, el scanner no lleva oro al contado, y sus
+condiciones de uso prohíben el scraping y la redistribución. Aunque se pudiera
+forzar, un workflow que depende de un endpoint no documentado es exactamente la
+fragilidad que ya costó semanas de correos perdidos en este proyecto.
+
+## gold.org / Goldhub: sí, pero no para operar
+
+La API real es `fsapi.gold.org/api/goldprice/v13/chart/main` (se saca del HTML
+de la página de precios). Da 16 series: `lbma_am_usd`, `lbma_pm_usd`, las mismas
+en GBP y EUR, `sge_am_cny` (Shanghái), `lme_*`, `mcx_*` (India). 383 puntos de
+los últimos 3 años.
+
+**Es diario.** Para una estrategia que opera roturas de rangos horarios no sirve
+como fuente de precios, y nunca va a servir.
+
+### Pero vale para algo que al proyecto le hacía falta
+
+El LBMA Gold Price es el **precio de referencia oficial del oro al contado**:
+el que se fija en subasta dos veces al día y contra el que se liquida medio
+mercado. Eso lo convierte en un árbitro de fuera, y este proyecto acababa de
+descubrir que lo necesitaba: durante semanas calculó los niveles sobre el futuro
+de COMEX mientras el correo pedía operar XAU/USD, y nadie se enteró porque el
+sistema solo veía un feed y un feed no puede contradecirse a sí mismo.
+
+Comparando a la MISMA hora (la vela de las 09:00 UTC, que contiene la subasta AM
+de las 10:30 de Londres):
+
+| fuente | diferencia media | \|dif\| mediana | n |
+|---|---|---|---|
+| **Dukascopy contado** | **+3,34 $** | 3,99 $ | 21 |
+| Yahoo `GC=F` (futuro) | **+43,08 $** | 44,62 $ | 16 |
+
+Los 3-4 $ del contado son la deriva de los 30 minutos entre la subasta y el
+cierre de la vela. Los 43 $ del futuro son la prima del contrato.
+
+**Eso zanja la pregunta que quedaba abierta.** El correo dice «busca XAU/USD
+(oro)», que es el contado por definición, mientras los niveles salían del
+futuro. Las dos cosas no pueden ser correctas.
+
+### Cómo se usa: comparando una MEDIA, no un día
+
+Un día suelto no distingue nada: el fix puede ser de hace tres jornadas y el oro
+se mueve 40 $ en una sesión normal, así que la deriva tapa por completo una
+prima de 43 $. Lo que la delata es la media sobre varios días —la deriva cambia
+de signo y se cancela, la prima no—. De ahí `oro/referencia.py`, con tolerancia
+de 15 $ (entre los +3,34 medidos y los +43,08) y un mínimo de 5 días.
+
+Si el árbitro dice que no, **no se manda el plan**. Un día sin plan es mucho
+mejor que un plan con niveles que en la pantalla del bróker no existen: esas
+órdenes no esperan a la ruptura, se ejecutan al instante.
+
+Y si la web de gold.org no responde, se sigue adelante avisando de que esta vez
+no hubo árbitro. Es una comprobación, no una dependencia.
+
+## La fuente en vivo pasa a ser el contado
+
+`fuente_vivo` queda en **`dukascopy`**. Lo que se pierde: no publica la hora en
+curso, así que los avisos del seguimiento llegan hasta una hora más tarde (Yahoo
+servía la vela a medias). Se acepta porque un aviso tardío es un coste ocasional
+y un instrumento equivocado es un error permanente. `ORO_FUENTE_VIVO=yahoo` lo
+revierte.

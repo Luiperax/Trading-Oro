@@ -30,6 +30,7 @@ from pathlib import Path
 
 from .cli import _construir_notificador
 from .config import cargar_configuracion
+from .referencia import comprobar_marco
 from .dominio.mercado import dia_sesion, hora_mercado
 from .sesiones import construir_plan
 
@@ -133,6 +134,19 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
     # 3) Construirlo.
     proveedor = _proveedor(sintetico)
     df = proveedor.historico(VELAS_EN_VIVO)
+
+    # ¿Esto es oro al contado? Durante semanas los niveles salieron del FUTURO
+    # de COMEX mientras el correo pedía operar XAU/USD, y nadie se enteró
+    # porque el sistema solo ve un feed y un feed no puede contradecirse a sí
+    # mismo. El LBMA Gold Price es el árbitro de fuera.
+    vale, explicacion = comprobar_marco(df)
+    print(f"  {explicacion}")
+    if not vale:
+        print("⚠️  NO SE MANDA EL PLAN. Unas órdenes con el instrumento "
+              "equivocado se ejecutarían al instante en vez de esperar a la "
+              "ruptura: es el fallo más caro de esta estrategia, y es peor que "
+              "quedarse un día sin plan.")
+        return 1
     resultado = construir_plan(df, cfg, ahora=ahora)
     if not resultado.hay_plan:
         print("Hoy no hay plan de ruptura:")

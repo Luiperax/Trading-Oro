@@ -76,11 +76,12 @@ bruto; un modelo entrenado con 21 años que ordena al revés (AUC 0,5054); y 93
 motivos de entrada de los que ninguno sobrevive a la corrección por pruebas
 múltiples. Se vuelve a encender con `ORO_SENALES_ACTIVAS=1`.
 
-> **Comprueba esto una vez.** Los precios salen de `GC=F`, el futuro de oro de
-> COMEX, porque Yahoo no sirve XAU/USD al contado en velas horarias. Si tu
-> bróker cotiza el **contado**, marcará unos 30-50 $ menos y los niveles del
-> correo no le valdrán. El correo lo avisa, pero el sistema no puede detectarlo
-> solo: ve un único feed.
+Los precios salen de **XAU/USD al contado** (ticks de Dukascopy), que es el
+mismo instrumento sobre el que está medida toda la investigación y el mismo que
+cotiza tu bróker. Hasta octubre de 2026 salían del **futuro** de COMEX y estaban
+43 $ por encima; se detectó contrastándolos con el LBMA Gold Price, el precio de
+referencia oficial del oro, y ahora esa comprobación se hace **antes de mandar
+cada plan**: si los precios no son oro al contado, no se manda nada.
 
 ## El plan del día (segunda estrategia)
 

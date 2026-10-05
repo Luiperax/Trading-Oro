@@ -19,12 +19,13 @@ import pytest
 from oro.config import ConfiguracionSistema, cargar_configuracion
 
 
-def test_la_fuente_por_defecto_no_cambia_sola():
-    """Cambiar esto mueve los niveles del correo ~40 $. Tiene que ser una
-    decisión, no un efecto colateral de otro cambio."""
-    assert ConfiguracionSistema().fuente_vivo == "yahoo"
-    assert ConfiguracionSistema().simbolo_vivo == "GC=F"
-    # Y el símbolo de investigación sigue siendo el contado.
+def test_la_fuente_por_defecto_es_el_contado():
+    """Contrastadas las dos contra el LBMA Gold Price, el patrón OFICIAL del oro
+    al contado: Dukascopy va +3,34 $ de media y GC=F +43,08 $. Y el correo pide
+    operar XAU/USD, que es el contado por definición."""
+    assert ConfiguracionSistema().fuente_vivo == "dukascopy"
+    # El símbolo de investigación es el mismo, que es justamente el objetivo:
+    # investigar y operar el mismo instrumento.
     assert ConfiguracionSistema().simbolo == "XAUUSD"
 
 
@@ -41,9 +42,9 @@ def test_se_puede_cambiar_por_entorno(monkeypatch):
 
 def test_una_variable_vacia_deja_la_fuente_de_siempre(monkeypatch):
     """Una Variable de Actions sin definir llega VACÍA. Si eso cambiara la
-    fuente, los niveles del correo se moverían 40 $ sin que nadie lo pidiera."""
+    fuente, los niveles del correo se moverían 43 $ sin que nadie lo pidiera."""
     monkeypatch.setenv("ORO_FUENTE_VIVO", "")
-    assert cargar_configuracion().fuente_vivo == "yahoo"
+    assert cargar_configuracion().fuente_vivo == "dukascopy"
 
 
 def test_se_piden_pocas_velas_porque_la_ruptura_no_necesita_mas():

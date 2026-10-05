@@ -409,10 +409,25 @@ class ConfiguracionSistema:
     # reaccionaría hasta una hora más tarde, y el aviso de cancelar es
     # justamente el que sostiene la ventaja.
     #
-    # No se cambia solo: el cambio mueve los niveles del correo unos 40 $, y
-    # cuál es el bueno depende de qué cotice el bróker de quien opera. Desde
-    # aquí eso no se puede saber. Ver `oro.datos.dukascopy_vivo`.
-    fuente_vivo: str = "yahoo"
+    # VA EN "dukascopy", y esto es lo que lo decidió. Contrastadas las dos
+    # fuentes contra el LBMA Gold Price —el precio de referencia OFICIAL del
+    # oro al contado, que publica el World Gold Council— a la misma hora:
+    #
+    #     Dukascopy contado  vs fix:   +3.34 $ de media  (|dif| mediana  3.99)
+    #     Yahoo GC=F futuro  vs fix:  +43.08 $ de media  (|dif| mediana 44.62)
+    #
+    # El correo dice «busca XAU/USD (oro)», que ES el contado por definición,
+    # mientras los niveles salían del futuro. Las dos cosas no pueden ser
+    # correctas: unas órdenes 43 $ por encima del precio del bróker no esperan
+    # a la ruptura, se ejecutan al instante.
+    #
+    # Lo que se pierde: Dukascopy no publica la hora EN CURSO, así que los
+    # avisos del seguimiento llegan hasta una hora más tarde. Yahoo servía la
+    # vela a medias. Se acepta porque un aviso tardío es un coste ocasional y
+    # un instrumento equivocado es un error permanente.
+    #
+    # `ORO_FUENTE_VIVO=yahoo` lo revierte sin tocar código.
+    fuente_vivo: str = "dukascopy"
     capital: float = 3_000.0             # capital de la cuenta (divisa base). Configurable por ORO_CAPITAL.
     # Marco temporal de trabajo. H1 (1 hora) para operativa INTRADÍA (abrir y
     # cerrar el mismo día). Nota honesta: los marcos intradía tienen un borde más
