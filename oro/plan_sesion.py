@@ -127,10 +127,12 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
         return 0
 
     plan = resultado.plan
+    ordenes = " / ".join(f"{o.direccion.value} {o.entrada:.2f}" for o in plan.ordenes)
     print(f"Plan de {plan.dia}: rango {plan.rango.bajo:.2f}-{plan.rango.alto:.2f} "
-          f"({plan.rango.amplitud:.2f} $ de riesgo por onza), "
-          f"compra {plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}, "
-          f"objetivo {plan.r_objetivo:.0f}R.")
+          f"({plan.rango.amplitud:.2f} $ de riesgo por onza), {ordenes}, "
+          f"objetivo {plan.r_objetivo:.0f}R."
+          + (f" Se anula si sube de {plan.compra.entrada:.2f}."
+             if plan.solo_ventas and plan.anular_si_rompe_arriba else ""))
 
     # 4) Enviarlo. Igual que con las señales: el día solo se marca como enviado
     #    si el aviso LLEGÓ. Si el correo falla, la siguiente ejecución lo

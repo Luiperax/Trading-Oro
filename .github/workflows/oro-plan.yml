@@ -99,6 +99,8 @@ jobs:
           ORO_RIESGO_POR_OPERACION: ${{ vars.ORO_RIESGO_POR_OPERACION }}
           ORO_TIMEFRAME: ${{ vars.ORO_TIMEFRAME }}
           ORO_SIMBOLO: ${{ vars.ORO_SIMBOLO }}
+          ORO_RUPTURA_SOLO_VENTAS: ${{ vars.ORO_RUPTURA_SOLO_VENTAS }}
+          ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA: ${{ vars.ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
           # Parámetros de esta estrategia (vacío = valores medidos por defecto).

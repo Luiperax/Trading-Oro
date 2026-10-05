@@ -4,13 +4,42 @@ QUÉ HACE
 --------
 Cada día, a las 8:00 de Nueva York (14:00 en Madrid casi todo el año), mira el
 rango que ha dejado la mañana de Londres —el máximo y el mínimo entre las 3:00 y
-las 8:00 de Nueva York— y deja dos órdenes preparadas:
+las 8:00 de Nueva York— y deja UNA orden preparada:
 
-    · una COMPRA justo por encima del máximo, con el stop en el mínimo;
-    · una VENTA  justo por debajo del mínimo,  con el stop en el máximo.
+    · una VENTA justo por debajo del mínimo, con el stop en el máximo.
 
-La que salte primero es la operación del día; la otra se cancela. Si a las 10:00
-de Nueva York no ha saltado ninguna, se cancelan las dos y no hay operación.
+Si salta, es la operación del día. Si el precio rompe el MÁXIMO antes de que
+salte, la orden se anula (ver más abajo: es la pieza que sostiene la ventaja).
+Si a las 10:00 de Nueva York no ha saltado, se cancela y no hay operación.
+
+SOLO A LA BAJA, Y SOLO SI ES LA PRIMERA ROTURA DEL DÍA
+------------------------------------------------------
+Hasta octubre de 2026 se dejaban DOS órdenes, una a cada lado, y decidía el
+mercado. Reconstruido el histórico entero (124.718 velas H1, 2006-2026, 4.646
+días con rotura), eso daba +0.0133 R/op con t = 0.74: indistinguible de cero,
+porque el lado de las compras se comía lo que ganaba el de las ventas.
+
+    lado         n      R/op      t    1ª mitad   2ª mitad   años +
+    venta     2117   +0.1069   4.02    +0.1339    +0.0789    14/21
+    compra    2529   -0.0638  -2.56    -0.0549    -0.0714     4/21
+
+Y lo decisivo no es «vender oro»: es la rotura a la baja que ocurre PRIMERA. La
+misma rotura, cuando llega después de que el rango se haya roto al alza, es un
+latigazo que se gira.
+
+    población de días                        n      R/op       t   años +
+    rompe abajo primero (se opera)        2117   +0.1069    4.02    14/21
+    rompe arriba y LUEGO abajo (se anula)  869   -0.2863   -8.73     2/21
+    las dos juntas                        2986   -0.0075   -0.35    10/21
+
+Por eso `anular_si_rompe_arriba` manda un aviso propio y el día queda en
+`EstadoPlan.ANULADO`: si la orden se quedara puesta, la ventaja no bajaría,
+desaparecería (-1.07 R/año en lugar de +10.78).
+
+Medido otra vez con `python -m oro.historico`, que llama a estas mismas
+funciones y no a una copia: 2.131 operaciones, +0.1143 R/op (t = 4.37), +11.59 R
+al año, 17 años positivos de 21, las dos mitades positivas (+0.1270 y +0.1009),
+peor año -8.3 R y peor racha -23.0 R.
 
 POR QUÉ ESTA Y NO OTRA
 ----------------------
@@ -144,10 +173,25 @@ class PlanRuptura:
     coste_r: float                  # cuánto se come el spread, en múltiplos de R.
     r_objetivo: float               # objetivo en R (el mismo para las dos órdenes).
     sesgo: SesgoAsiatico            # qué hizo Asia, y por tanto cuál es la favorita.
+    # Con esto puesto solo se deja la orden de VENTA, y se anula en cuanto el
+    # rango se rompe al alza. Los dos números están en `ConfiguracionRuptura`:
+    # la compra es un lastre de -7.7 R/año y la venta tardía, de -11.9 R/año.
+    solo_ventas: bool = False
+    anular_si_rompe_arriba: bool = True
+
+    @property
+    def ordenes(self) -> List["OrdenPendiente"]:
+        """Las órdenes que de verdad se dejan puestas, en el orden del correo."""
+        return [self.venta] if self.solo_ventas else [self.compra, self.venta]
 
     @property
     def favorita(self) -> Optional[Direccion]:
-        """Cuál de las dos órdenes tiene más respaldo histórico, si alguna."""
+        """Cuál de las dos órdenes tiene más respaldo histórico, si alguna.
+
+        Con una sola orden la pregunta no existe: no hay entre qué elegir.
+        """
+        if self.solo_ventas:
+            return None
         return self.sesgo.direccion
 
     def es_favorita(self, orden: "OrdenPendiente") -> bool:
@@ -305,6 +349,8 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         coste_r=coste_r,
         r_objetivo=c.r_objetivo,
         sesgo=sesgo_asiatico(df, cfg, dia),
+        solo_ventas=c.solo_ventas,
+        anular_si_rompe_arriba=c.anular_si_rompe_arriba,
     )
     res.plan = plan
     return res
@@ -316,13 +362,17 @@ def direccion_disparada(plan: PlanRuptura, alto: float, bajo: float) -> Optional
     Si el precio ha tocado los DOS lados no se puede saber cuál saltó primero sin
     bajar de marco temporal, así que se devuelve ``None``: mejor no registrar una
     operación inventada que adivinar el orden.
+
+    Con ``solo_ventas`` la compra no existe, pero tocar el máximo sigue
+    importando: anula la venta. Dentro de una misma vela no se sabe el orden, así
+    que tocar los dos lados devuelve ``None`` igual que antes.
     """
     arriba = alto > plan.compra.entrada
     abajo = bajo < plan.venta.entrada
     if arriba and abajo:
         return None
     if arriba:
-        return Direccion.COMPRA
+        return None if plan.solo_ventas else Direccion.COMPRA
     if abajo:
         return Direccion.VENTA
     return None

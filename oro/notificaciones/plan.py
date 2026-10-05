@@ -1,9 +1,15 @@
 """El correo del plan de ruptura de sesión.
 
 Es distinto del correo de señal y por eso vive aparte: una señal dice «entra
-AHORA a este precio», y esto dice «deja preparadas estas DOS órdenes y que el
-mercado elija». Quien lo recibe no tiene que decidir nada ni estar delante: se
-teclean las dos órdenes en el bróker a las 14:00 y se olvida.
+AHORA a este precio», y esto dice «deja preparada esta orden y que el mercado
+decida». Quien lo recibe no tiene que decidir nada ni estar delante: se teclea
+la orden en el bróker a las 14:00 y se olvida.
+
+CON ``solo_ventas`` (lo medido y lo que va puesto) el correo lleva UNA orden de
+venta, no dos. El motivo está en :class:`oro.config.ConfiguracionRuptura`: sobre
+21 años, la rotura al alza es un lastre de -7.7 R al año, y la rotura a la baja
+que llega DESPUÉS de una rotura al alza vale -0.29 R de media. De ahí el aviso
+de cancelar: es la pieza que separa +10.78 R al año de -1.07.
 
 El formato es el mismo del resto de correos —tablas e estilos en línea, que es
 lo único que renderiza igual en Gmail, Outlook y el móvil— y comparte la paleta
@@ -65,6 +71,15 @@ def texto_confianza(plan: PlanRuptura) -> str:
     El orden de la frase importa: primero lo que NO es, porque es lo que todo
     el mundo asume al leerla, y después lo que sí.
     """
+    if plan.solo_ventas:
+        # Con una sola orden no hay nada que elegir, y la pregunta que importa
+        # no es «qué lado» sino «por qué solo este».
+        return ("Hoy solo va una orden, y a la baja. Medido sobre 4.646 días "
+                "con rotura de 21 años: la rotura a la baja da +0,114 R por "
+                "operación (t = 4,37, positiva en las dos mitades del histórico, "
+                "17 años a favor de 21) y la rotura al alza da -0,064 R "
+                "(t = -2,56, solo 4 años a favor de 21). No es que la compra "
+                "sea peor: es que resta.")
     if plan.favorita is None:
         return ("Hoy la sesión asiática ha cerrado casi donde abrió, así que no "
                 "aporta nada: trata las dos órdenes como iguales.")
@@ -80,8 +95,14 @@ def texto_confianza(plan: PlanRuptura) -> str:
             f"se haya equivocado: es la mitad de los días.")
 
 
-def aviso_confianza() -> str:
+def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
+    if plan is not None and plan.solo_ventas:
+        return ("El límite: son +11,6 R al año, unos 174 € con 0,5 % de riesgo "
+                "sobre 3.000 €, y 4 de los 21 años fueron en pérdida (el peor, "
+                "-8,3 R). La ventaja sobrevive a 11 perturbaciones de horario y "
+                "a quitar el mejor y el peor año, pero 101 operaciones al año "
+                "tardan en demostrar nada: espera rachas negativas de 23 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
             "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
             "del rango, cierre de ayer) combinadas en un modelo entrenado con "
@@ -94,6 +115,32 @@ def aviso_confianza() -> str:
 def pasos_plan(plan: PlanRuptura) -> list[str]:
     """Los pasos exactos, en el orden en que se teclean en el bróker."""
     c, v = plan.compra, plan.venta
+    if plan.solo_ventas:
+        return [
+            "Abre tu bróker y busca XAU/USD (oro). Vas a dejar UNA orden "
+            "pendiente del tamaño que decidas. No se abre nada todavía.",
+            f"VENTA tipo «SELL STOP» en {v.entrada:.2f}, con stop loss en "
+            f"{v.stop:.2f} y take profit en {v.objetivo:.2f}.",
+            "Ese take profit está lejos a propósito: es una red de seguridad "
+            "para el día en que el precio se desploma y no estás mirando, no la "
+            "salida. Salta 1 o 2 veces al año. La salida de verdad es cerrar a "
+            "mano al final de la sesión.",
+            f"IMPORTANTE — si el precio sube por encima de {c.entrada:.2f} "
+            f"(el techo del rango) antes de que salte tu venta, CANCÉLALA. Hoy "
+            f"ya no vale. Te mandaré un correo en cuanto pase, pero si puedes "
+            f"poner una alerta en {c.entrada:.2f}, mejor. Esto no es un detalle: "
+            f"la misma venta, cuando llega después de que el rango se haya roto "
+            f"al alza, pierde 0,29 R de media sobre 869 días medidos, y dejarla "
+            f"puesta borra toda la ventaja de la estrategia.",
+            f"Si a las {hora_local(plan.valido_hasta)} no ha saltado, cancélala. "
+            f"Hoy no hay operación: lo que se rompe más tarde ya no es la "
+            f"ruptura de la mañana y está medido que no compensa.",
+            f"A las {hora_cierre(plan)} CIÉRRALA A MERCADO, gane o pierda. Esta "
+            f"es la salida, y no se queda de un día para otro.",
+            f"Cuando la operación te dé {plan.rango.amplitud:.2f} $ de beneficio "
+            f"(1R), mueve el stop al precio de entrada. Desde ahí ya no puede "
+            f"perder. Medido: sube la ventaja de +0,096 a +0,114 R por operación.",
+        ]
     return [
         "Abre tu bróker y busca XAU/USD (oro). Vas a dejar DOS órdenes "
         "pendientes del tamaño que decidas. No se abre nada todavía.",
@@ -135,24 +182,36 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         f"Sesión asiática: {plan.sesgo.cuerpo:+.2f} $ sobre un rango de "
         f"{plan.sesgo.rango:.2f} $",
         "",
-        "DOS ÓRDENES PENDIENTES (salta una, cancela la otra):",
-        f"  COMPRA (buy stop)  en {plan.compra.entrada:.2f}   "
-        f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}"
-        f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.compra) else ''}",
-        f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
-        f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}"
-        f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.venta) else ''}",
-        "",
-        "CUÁL DE LAS DOS ES LA DE FIAR:",
-        f"  {texto_confianza(plan)}",
-        f"  {aviso_confianza()}",
-        "",
-        f"Riesgo si salta el stop: {riesgo_por_onza(plan):.2f} $ por onza.",
     ]
+    if plan.solo_ventas:
+        lineas += [
+            "UNA ORDEN PENDIENTE:",
+            f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
+            f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}",
+            "",
+            f"ANULA LA ORDEN si el precio sube de {plan.compra.entrada:.2f} "
+            f"antes de que salte.",
+        ]
+    else:
+        lineas += [
+            "DOS ÓRDENES PENDIENTES (salta una, cancela la otra):",
+            f"  COMPRA (buy stop)  en {plan.compra.entrada:.2f}   "
+            f"stop {plan.compra.stop:.2f}   objetivo {plan.compra.objetivo:.2f}"
+            f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.compra) else ''}",
+            f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
+            f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}"
+            f"{'   ◆ LA MEJOR SI SALTA' if plan.es_favorita(plan.venta) else ''}",
+        ]
     lineas += [
         "",
+        "POR QUÉ ESTE PLAN:" if plan.solo_ventas else "CUÁL DE LAS DOS ES LA DE FIAR:",
+        f"  {texto_confianza(plan)}",
+        f"  {aviso_confianza(plan)}",
+        "",
+        f"Riesgo si salta el stop: {riesgo_por_onza(plan):.2f} $ por onza.",
+        "",
         f"Válido hasta las {hora_local(plan.valido_hasta)} ({zona}). "
-        f"Después, cancela las dos.",
+        + ("Después, cancélala." if plan.solo_ventas else "Después, cancela las dos."),
         f"Cierre a mano: {hora_cierre(plan)} ({zona}), gane o pierda.",
         "",
         "QUÉ HACER, paso a paso:",
@@ -161,14 +220,62 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     lineas += [
         "",
         "LO QUE HAY QUE SABER ANTES DE OPERARLA:",
-        "  • Acierta el 45 % de las veces. La mayoría de los días pierde; gana",
-        "    porque las ganadoras son mucho mayores que las perdedoras.",
-        "  • Medido sobre 19,6 años: 14 años en positivo de 20, y una racha mala",
-        "    de 2017 a 2020 en la que perdió cuatro años seguidos.",
+    ]
+    lineas += [f"  • {t}" for t in _hechos_honestos(plan)]
+    lineas += [
         "",
         "⚠️ Herramienta de análisis, no asesoramiento financiero.",
     ]
     return "\n".join(lineas)
+
+
+def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
+    """Lo que hay que saber antes de operarla, medido, sin adornos.
+
+    Lo comparten el texto plano y el HTML para que no puedan contar cosas
+    distintas: cuando estaban duplicados, cambiar la estrategia dejó el texto
+    plano citando las cifras de la versión anterior.
+    """
+    if plan.solo_ventas:
+        return (
+            "Acierta el 40 % de las veces: la mayoría de los días pierde. Gana "
+            "porque las ganadoras valen +1,21 R de media y las perdedoras -0,61 R.",
+            "Medido sobre 2.131 roturas a la baja de 21 años reales: +0,114 R "
+            "por operación, 101 operaciones al año, 17 años en positivo de 21.",
+            "El peor año perdió 8,3 R y la peor racha fue de 23 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -125 € y -345 €, con +174 € de media al año.",
+            "No se opera la rotura al alza porque está medida y resta: -0,064 R "
+            "por operación, solo 4 años a favor de 21.",
+        )
+    return (
+        "Acierta el 45 % de las veces: la mayoría de los días pierde. Gana "
+        "porque las ganadoras son mucho mayores.",
+        "Medido sobre 19,6 años reales: 14 años en positivo de 20, con una "
+        "racha mala de 2017 a 2020 que perdió cuatro años seguidos.",
+    )
+
+
+def _titulo_ordenes(plan: PlanRuptura) -> str:
+    return ("Deja esta orden puesta" if plan.solo_ventas
+            else "Deja estas dos órdenes puestas")
+
+
+def _regla_cancelar(plan: PlanRuptura) -> str:
+    """La regla que hay que recordar sí o sí, en una línea."""
+    if plan.solo_ventas:
+        return f"Si sube de {plan.compra.entrada:.2f} → cancela la venta"
+    return "Salta una → cancela la otra"
+
+
+def _cajas_ordenes(plan: PlanRuptura) -> str:
+    """Las cajas de las órdenes que de verdad se dejan puestas."""
+    etiquetas = {"compra": ("▲ COMPRA · BUY STOP", _VERDE),
+                 "venta": ("▼ VENTA · SELL STOP", _ROJO)}
+    partes = []
+    for orden in plan.ordenes:
+        etiqueta, color = etiquetas[orden.direccion.value]
+        partes.append(_caja_orden(orden, etiqueta, color, plan.es_favorita(orden)))
+    return "\n      ".join(partes)
 
 
 def _caja_orden(orden: OrdenPendiente, etiqueta: str, color: str,
@@ -233,12 +340,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
     honestidad = "".join(
         f'<tr><td style="color:{_TEXTO};font-size:12px;padding:3px 0;'
         f'line-height:1.5;">• {_esc(t)}</td></tr>'
-        for t in (
-            "Acierta el 45 % de las veces: la mayoría de los días pierde. "
-            "Gana porque las ganadoras son mucho mayores.",
-            "Medido sobre 19,6 años reales: 14 años en positivo de 20, con una "
-            "racha mala de 2017 a 2020 que perdió cuatro años seguidos.",
-        ))
+        for t in _hechos_honestos(plan))
 
     return f"""\
 <div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
@@ -254,20 +356,17 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       <div style="color:{_TEXTO};font-size:30px;font-weight:800;margin:2px 0 2px;">{plan.rango.bajo:.2f} <span style="color:{_MUTED};font-size:18px;">—</span> {plan.rango.alto:.2f}</div>
       <div style="color:{_MUTED};font-size:12px;margin-bottom:18px;">Amplitud {plan.rango.amplitud:.2f} $ · eso es 1R, lo que arriesgas</div>
 
-      <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Deja estas dos órdenes puestas</div>
-      {_caja_orden(plan.compra, "▲ COMPRA · BUY STOP", _VERDE,
-                   plan.es_favorita(plan.compra))}
-      {_caja_orden(plan.venta, "▼ VENTA · SELL STOP", _ROJO,
-                   plan.es_favorita(plan.venta))}
+      <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">{_esc(_titulo_ordenes(plan))}</div>
+      {_cajas_ordenes(plan)}
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
        <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
-         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cuál de las dos es la de fiar</div>
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">{'Por qué este plan' if plan.solo_ventas else 'Cuál de las dos es la de fiar'}</div>
          <div style="color:{_TEXTO};font-size:13px;line-height:1.5;">{_esc(texto_confianza(plan))}</div>
-         <div style="color:{_MUTED};font-size:11px;line-height:1.5;margin-top:6px;">{_esc(aviso_confianza())}</div>
+         <div style="color:{_MUTED};font-size:11px;line-height:1.5;margin-top:6px;">{_esc(aviso_confianza(plan))}</div>
        </td></tr>
       </table>
       <div style="background:#0e131c;border:1px dashed {_ORO};border-radius:12px;padding:12px 16px;margin-bottom:18px;">
-        <div style="color:{_ORO};font-size:13px;font-weight:700;">Salta una → cancela la otra</div>
+        <div style="color:{_ORO};font-size:13px;font-weight:700;">{_esc(_regla_cancelar(plan))}</div>
         {aviso_riesgo}
       </div>
 

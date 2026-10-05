@@ -160,11 +160,55 @@ class ConfiguracionRuptura:
     en :mod:`oro.sesiones`; aquí solo van los números y por qué valen eso.
 
     Ajustable por entorno: ORO_RUPTURA_ACTIVA, ORO_RUPTURA_R_OBJETIVO,
-    ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO.
+    ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO,
+    ORO_RUPTURA_SOLO_VENTAS, ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA.
     """
 
     # Interruptor general. Se apaga con ORO_RUPTURA_ACTIVA=0 sin tocar nada más.
     activa: bool = True
+
+    # SOLO SE OPERA LA ROTURA A LA BAJA, Y SOLO SI ES LA PRIMERA DEL DÍA.
+    #
+    # Medido sobre 4.646 días con rotura de 2006-2026 (21 años, velas H1 de
+    # Dukascopy), neto de 0.30 $ de coste —medio spread más a la compra, porque
+    # el nivel se mide sobre BID y se entra al ask—:
+    #
+    #     lado         n      R/op      t    1ª mitad   2ª mitad   años +
+    #     venta     2117   +0.1069   4.02    +0.1339    +0.0789    14/21
+    #     compra    2529   -0.0638  -2.56    -0.0549    -0.0714     4/21
+    #
+    # Las compras no son más débiles: son un lastre medido de -7.7 R al año.
+    #
+    # Reconstruido después con `python -m oro.historico`, que no reimplementa
+    # nada: llama a `construir_plan` y `seguir`, las de producción. 2.131
+    # operaciones, +0.1143 R/op (t = 4.37), +11.59 R al año, 17 años positivos
+    # de 21, las dos mitades positivas (+0.1270 y +0.1009), peor año -8.3 R y
+    # peor racha -23.0 R. Esa es la cifra que vale, porque la mide el código
+    # que de verdad decide.
+    #
+    # Y LO DECISIVO: no vale «vender oro». Lo que funciona es la rotura a la
+    # baja que ocurre PRIMERA. La misma rotura a la baja, cuando llega después
+    # de que el rango se haya roto al alza, es un latigazo que se gira:
+    #
+    #     población de días                        n      R/op       t   años +
+    #     rompe abajo primero (se opera)        2117   +0.1069    4.02    14/21
+    #     rompe arriba y LUEGO abajo (se anula)  869   -0.2863   -8.73     2/21
+    #     las dos juntas                        2986   -0.0075   -0.35    10/21
+    #
+    # Por eso `anular_si_rompe_arriba` no es un refinamiento: si la orden de
+    # venta se queda puesta cuando el rango se rompe al alza, la ventaja entera
+    # desaparece (-1.07 R al año en lugar de +10.78).
+    #
+    # Sobrevive a 11 perturbaciones de horario (rango 2-8, 4-8, 3-7; validez
+    # 1h, 3h, 4h; cierre a las 14 y 15 ET; velas mínimas 3): las 11 positivas,
+    # 10 de ellas con las dos mitades positivas. Quitando a la vez el mejor y
+    # el peor año quedan +0.0989 R/op con t = 3.84 y 13 de 19 años a favor.
+    # Con 31 pruebas acumuladas en el estudio, Bonferroni exige |t| > 3.25.
+    solo_ventas: bool = True
+
+    # Al romperse el rango al alza, la orden de venta pendiente se ANULA. Ver
+    # arriba: es lo que separa +10.78 R/año de -1.07 R/año.
+    anular_si_rompe_arriba: bool = True
 
     # La ventana cuyo máximo y mínimo forman el rango, en hora de NUEVA YORK:
     # 3:00-8:00, que es la mañana de Londres. Se probaron 2-8, 3-7 y 4-8: las
@@ -456,6 +500,10 @@ def cargar_configuracion() -> ConfiguracionSistema:
     )
     cfg.ruptura.sesgo_cuerpo_minimo = _num(
         "ORO_RUPTURA_SESGO_CUERPO_MINIMO", cfg.ruptura.sesgo_cuerpo_minimo
+    )
+    cfg.ruptura.solo_ventas = _bool("ORO_RUPTURA_SOLO_VENTAS", cfg.ruptura.solo_ventas)
+    cfg.ruptura.anular_si_rompe_arriba = _bool(
+        "ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA", cfg.ruptura.anular_si_rompe_arriba
     )
     return cfg
 

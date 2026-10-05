@@ -120,6 +120,8 @@ jobs:
           ORO_OPERACIONES_MIN_DIA: ${{ vars.ORO_OPERACIONES_MIN_DIA }}
           ORO_TIMEFRAME: ${{ vars.ORO_TIMEFRAME }}
           ORO_SIMBOLO: ${{ vars.ORO_SIMBOLO }}
+          ORO_RUPTURA_SOLO_VENTAS: ${{ vars.ORO_RUPTURA_SOLO_VENTAS }}
+          ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA: ${{ vars.ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
         run: python -m oro.cierre --si-toca

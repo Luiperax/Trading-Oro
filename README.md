@@ -67,13 +67,21 @@ modo_prueba**.
 
 Además de las señales intradía, el sistema manda cada mañana un **plan de
 ruptura**: a las 14:00 de Madrid mide el rango que ha dejado la mañana de
-Londres y te da **dos órdenes pendientes** —una por encima y otra por debajo—
-para dejar puestas y olvidarte. La que salte es la operación del día.
+Londres y te da **una orden de venta pendiente** en el mínimo de ese rango, para
+dejarla puesta y olvidarte. Si salta, es la operación del día; si el precio
+rompe el techo del rango antes, te llega un correo para cancelarla.
 
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
-Aviso honesto: acierta el 44,7 % de las veces y entre 2017 y 2020 perdió cuatro
-años seguidos.
+Aviso honesto: **acierta el 40 % de las veces**, 4 de los 21 años medidos
+acabaron en pérdida y la peor racha fue de 23 R. Medido sobre 2.131 operaciones
+de 2006 a 2026 con el mismo código que opera: +0,114 R por operación
+(t = 4,37), unos +11,6 R al año.
+
+Antes dejaba **dos** órdenes, una a cada lado. Se midió el histórico completo y
+el lado de las compras resultó ser un lastre de −7,7 R al año, así que se quitó.
+El detalle está en
+[`docs/ESTRATEGIAS_MEDIDAS.md`](docs/ESTRATEGIAS_MEDIDAS.md).
 
 ## Documentación
 

@@ -6,39 +6,61 @@ intradía y no interfiere con él: puedes usar las dos, una, o ninguna.
 ## Qué recibes
 
 Un correo a las **14:00 de Madrid** (a veces 13:00, cuando Europa y Estados
-Unidos no han cambiado la hora a la vez) con dos órdenes ya calculadas:
+Unidos no han cambiado la hora a la vez) con **una** orden ya calculada:
 
 ```
 Rango de la mañana de Londres: 3998.00 — 4024.00
 
-COMPRA (buy stop)  en 4024.00   stop 3998.00   objetivo 4102.00
-VENTA  (sell stop) en 3998.00   stop 4024.00   objetivo 3920.00
+VENTA  (sell stop) en 3998.00   stop 4024.00   objetivo 3842.00
+
+ANULA LA ORDEN si el precio sube de 4024.00 antes de que salte.
 ```
 
-Las tecleas las dos en el bróker, cancelas la otra en cuanto una salte, y te
-olvidas. No hay que estar delante.
+La tecleas en el bróker y te olvidas. No hay que estar delante — con una
+excepción, la única de toda la estrategia: **si el precio rompe el techo del
+rango antes de que salte tu venta, hay que cancelarla.** Te llega un correo en
+cuanto pasa, y conviene además dejar una alerta en ese precio.
 
 ## La idea
 
 Entre las 3:00 y las 8:00 de Nueva York —la mañana de Londres— el oro deja un
-máximo y un mínimo. Cuando Nueva York abre y el precio sale de esa caja, suele
-seguir en esa dirección. Ni tú ni yo sabemos hacia qué lado saldrá, así que se
-deja preparada una orden a cada lado y decide el mercado.
+máximo y un mínimo. Cuando Nueva York abre y el precio **pierde el mínimo** de
+esa caja, suele seguir cayendo durante la sesión.
+
+### Por qué solo a la baja, y por qué hay que cancelar
+
+Las dos preguntas tienen la misma respuesta: están medidas sobre 21 años.
+
+| población de días | n | R/op | t | años + |
+|---|---|---|---|---|
+| **rompe abajo primero** (se opera) | 2131 | **+0,114** | 4,37 | 17/21 |
+| rompe arriba (no se opera) | 2529 | −0,064 | −2,56 | 4/21 |
+| rompe arriba y **luego** abajo | 869 | **−0,286** | −8,73 | 2/21 |
+
+La fila de abajo es la importante. La **misma** rotura a la baja, cuando llega
+después de que el rango se haya roto al alza, pierde 0,29 R de media. Si dejas
+la venta puesta en esos días, la estrategia pasa de +11,6 R al año a **−1,1**:
+no pierde parte de la ventaja, pierde toda.
+
+Antes se dejaban las dos órdenes y decidía el mercado. Eso daba +0,013 R por
+operación (t = 0,74), indistinguible de cero: el lado de las compras se comía
+lo que ganaba el de las ventas.
 
 * **La entrada** es el borde de la caja. Como es un precio conocido de antemano,
   la orden se deja puesta y no hace falta vigilar nada.
 * **El stop** es el otro borde. Si el precio vuelve a cruzar la caja entera, la
   ruptura era falsa.
-* **El objetivo** está a 10 veces esa distancia: es una red de seguridad para
-  el día extraordinario, no la salida. Se ejecuta 1 de cada 1.000 veces.
+* **El objetivo** está a 6 veces esa distancia: es una red de seguridad para
+  el día extraordinario, no la salida. Se ejecuta 17 veces en 21 años.
 * **La salida es cerrar a mano a las 21:50** (tu hora), gane o pierda. Medido:
-  +0,069 R por operación frente a +0,050 con un objetivo cercano, porque un
-  objetivo cerca corta las ganadoras grandes.
-* **Opcional:** cuando la operación te dé 1R de beneficio, mueve el stop al
-  precio de entrada. Sube la ventaja a +0,077 y desde ahí ya no puede perder.
-* **Caduca a las dos horas.** Si a las 16:00 de Madrid no ha saltado ninguna, se
-  cancelan las dos: lo que se rompe por la tarde ya no es la ruptura de la
-  mañana, y está medido que no compensa.
+  un objetivo cercano corta las ganadoras grandes y cuesta un tercio de la
+  ventaja (objetivo 2R: +0,080 R/op; sin objetivo: +0,107).
+* **Mueve el stop a la entrada al llegar a 1R.** Esto ya no es opcional: sube la
+  ventaja de +0,096 a +0,114 R por operación, y desde ahí la operación no puede
+  perder dinero.
+* **Caduca a las dos horas.** Si a las 16:00 de Madrid no ha saltado, se
+  cancela: lo que se rompe por la tarde ya no es la ruptura de la mañana, y
+  está medido que no compensa.
 * **Nunca se queda de un día para otro.**
 
 ## Lo que pasa después: el seguimiento
@@ -49,7 +71,8 @@ avisa cuando toca:
 
 | Cuándo | Qué te llega |
 |---|---|
-| Se acaba la ventana sin que salte ninguna | **Cancela las dos órdenes.** Hoy no hay operación. |
+| El rango se rompe **al alza** antes que a la baja | **Cancela la orden de venta.** Hoy no se opera. |
+| Se acaba la ventana sin que salte | **Cancela la orden.** Hoy no hay operación. |
 | La operación te da 1R de beneficio | **Mueve el stop a la entrada.** Desde ahí ya no puede perder. |
 | Final de la sesión con la operación viva | **Ciérrala a mercado**, gane o pierda. |
 
@@ -72,6 +95,12 @@ aprendizaje.
 
 ## Qué dice el sesgo asiático (y qué NO dice)
 
+> **Nota de octubre de 2026.** Con una sola orden esta sección es historia: no
+> hay dos órdenes entre las que elegir, así que el correo ya no marca ninguna y
+> el sesgo solo se guarda en el registro. Se deja escrito porque el camino de
+> dos órdenes sigue existiendo (`ORO_RUPTURA_SOLO_VENTAS=0`) y porque explica
+> por qué se quitó la estrella.
+
 **No dice cuál de las dos órdenes va a saltar.** Medido sobre 3.180 días, la
 marcada es la que salta el **50,0 %** de las veces (z = 0,00): como predicción
 vale exactamente lo que una moneda al aire.
@@ -90,26 +119,41 @@ orden se lee como predicción, y el **49 % de los días parecía equivocarse** �
 dato fuese correcto. Un dato que parece fallar la mitad de las veces destruye la
 confianza en todo lo demás que dice el correo.
 
-**Y es una indicación, no un hecho probado.** La diferencia entre lados da
-t = 2,07 y no supera la corrección de Bonferroni (haría falta 2,81). Se dejan
-las dos órdenes puestas siempre: el sistema no elige lado, elige el mercado.
+**Y ya no se usa para nada.** Con una sola orden no hay entre qué elegir, así
+que el correo no marca ninguna: la pregunta dejó de existir. La medición del
+sesgo asiático sigue guardada en el registro por si algún día hace falta.
 
 ## Lo que hay que saber antes de usarla
 
-Está medida sobre 19,6 años de velas horarias reales (118.452 velas), y esto es
-lo que sale — con un spread de 0,60 $ por operación:
+Medido con `python -m oro.historico`, que no reimplementa la estrategia: llama
+a las mismas funciones que deciden en vivo. **21 años, 124.718 velas horarias,
+2.131 operaciones**, con un coste de 0,30 $ por operación:
 
 | | |
 |---|---|
-| Operaciones | ~207 al año, casi una por día de mercado |
-| Acierto | **44,7 %**: la mayoría de los días pierde |
-| Ventaja | +0,067 R por operación (≈ +14 R al año) |
-| Años positivos | **14 de 20** |
-| Peor racha | **de 2017 a 2020 perdió cuatro años seguidos** |
+| Operaciones | ~101 al año (se opera el 40 % de los días) |
+| Acierto | **40,0 %**: la mayoría de los días pierde |
+| Ganadora media | +1,205 R |
+| Perdedora media | −0,612 R |
+| Ventaja | **+0,114 R por operación** (t = 4,37) |
+| Al año | **+11,6 R** |
+| Años positivos | **17 de 21** |
+| Peor año | **−8,3 R** (2009) |
+| Peor racha | **−23,0 R** |
 
-Gana porque las operaciones ganadoras son mucho mayores que las perdedoras, no
-porque acierte a menudo. Si perder cuatro días de cada siete te va a sacar del
-plan, esta estrategia no es para ti, y es mejor saberlo ahora.
+Sobre una cuenta de 3.000 € con 0,5 % de riesgo por operación (15 €/R), eso son
+**+174 € al año de media, un peor año de −125 € y una racha mala de −345 €**.
+
+Gana porque las ganadoras valen el doble que las perdedoras, no porque acierte
+a menudo. Si perder seis días de cada diez te va a sacar del plan, esta
+estrategia no es para ti, y es mejor saberlo ahora.
+
+**Y 101 operaciones al año tardan en demostrar algo.** Para distinguir +0,114 R
+de cero con 80 % de potencia hacen falta unas 690 operaciones, **seis años**.
+Lo que sí se puede comprobar desde la primera semana es que el *mecanismo*
+funcione —el acierto, dónde caen los stops, la forma de las salidas— y de eso
+se encarga `python -m oro.aprender`, que compara lo real con lo medido y avisa
+si se separan más de lo que explica el azar.
 
 El detalle de todo lo que se midió —incluidas las dos reglas parecidas que se
 descartaron y por qué— está en [ESTRATEGIAS_MEDIDAS.md](ESTRATEGIAS_MEDIDAS.md).
@@ -122,9 +166,11 @@ sin tocar código:
 | Variable | Por defecto | Qué hace |
 |---|---|---|
 | `ORO_RUPTURA_ACTIVA` | `1` | `0` apaga la estrategia entera. |
-| `ORO_RUPTURA_R_OBJETIVO` | `3.0` | Dónde va el objetivo, en múltiplos del rango. |
-| `ORO_RUPTURA_HORAS_VALIDEZ` | `2` | Cuántas horas valen las órdenes. |
-| `ORO_RUPTURA_SESGO_CUERPO_MINIMO` | `0.20` | Cuánto tiene que moverse Asia para señalar favorita. |
+| `ORO_RUPTURA_SOLO_VENTAS` | `1` | `0` vuelve a dejar las dos órdenes. Medido: cuesta 7,7 R al año. |
+| `ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA` | `1` | `0` deja la venta puesta aunque el rango rompa al alza. **Medido: borra la ventaja entera.** |
+| `ORO_RUPTURA_R_OBJETIVO` | `6.0` | Dónde va la red de seguridad, en múltiplos del rango. |
+| `ORO_RUPTURA_HORAS_VALIDEZ` | `2` | Cuántas horas vale la orden. |
+| `ORO_RUPTURA_SESGO_CUERPO_MINIMO` | `0.20` | Umbral del sesgo asiático (ya solo se registra). |
 
 Para probarlo sin esperar a las 14:00: **Actions → «Plan del día XAU/USD» → Run
 workflow → marca `forzar`**. O en local: `python -m oro.cli plan`.
