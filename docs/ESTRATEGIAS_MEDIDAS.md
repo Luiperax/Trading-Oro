@@ -1398,3 +1398,32 @@ del mercado por debajo.
 
 Referencia (no es hipótesis, no compite): **comprar y mantener** con la misma
 financiación de CFD.
+
+## Resultado de H16-H18 (medido después de declararlas)
+
+Rendimiento anual sobre el nominal, neto de spread, deslizamiento y financiación
+de CFD, 2006-2026:
+
+| | % anual | t | mitades | años + | peor caída | financiación |
+|---|---|---|---|---|---|---|
+| H16 media 200 largo/corto | +2,3 % | 0,59 | +2,5 / +2,1 | 12/21 | −61 % | −3,7 %/año |
+| H17 momento 12 meses | +2,7 % | 0,68 | +4,9 / +0,5 | 12/21 | −59 % | −3,8 %/año |
+| H18 media 200 solo largo | +5,6 % | 1,73 | +4,8 / +6,3 | 11/21 | −37 % | −3,2 %/año |
+| (referencia) comprar y mantener | +7,3 % | 1,86 | +5,3 / +9,1 | 14/21 | −50 % | −4,3 %/año |
+
+**Ninguna pasa** (listón t ≥ 2,99). Ninguna mejora a simplemente tener el oro
+comprado. La financiación del CFD se come entre 3 y 4 puntos al año: dormir con
+un CFD de oro es caro. Tener oro físico a través de un ETC (comisión ~0,15-0,25
+% al año, sin financiación) no paga ese peaje.
+
+## ¿Con qué coste ganaría el intradía? (descriptivo, no es hipótesis)
+
+La ruptura de sesión, con los días ambiguos contados, da **+0,078 R por
+operación ANTES de costes (t = 3,26)**: el movimiento existe. Pero:
+
+* El coste que la deja a cero es **0,48 $ por operación** (spread +
+  deslizamiento). El medido es 0,60 $ de spread + 0,25 $ de deslizamiento.
+* Desde 2016 la ventaja en bruto baja a +0,038 R (t = 1,20) y el coste que la
+  deja a cero, a **0,26 $**: el deslizamiento solo ya es 0,25 $.
+
+Con costes de minorista, el intradía en el oro no da para pagar al bróker.
