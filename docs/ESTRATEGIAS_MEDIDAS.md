@@ -1306,3 +1306,39 @@ avisa de revisar el bróker.
 La lección es la misma de siempre en este proyecto, y esta vez costó la
 estrategia entera: un dato que falta no es neutro. Los días que no se sabían
 medir eran justo los peores.
+
+---
+
+# 6-oct-2026: búsqueda de una estrategia nueva — hipótesis DECLARADAS ANTES DE MEDIR
+
+Se escriben y se suben al repositorio antes de calcular nada. Las 12 anteriores
+cuentan: con estas 3 son 15 hipótesis, y el listón de Bonferroni (5 % a dos
+colas) pasa a **t ≥ 2,94**.
+
+Reglas comunes, fijadas aquí y que no se tocan después:
+
+* Velas H1 BID de Dukascopy, 2006-01 a 2026-09. Horas en Nueva York.
+* **Entradas a mercado en la apertura de una vela** (no órdenes stop dentro de
+  la vela): así no hay velas ambiguas en la entrada, que es lo que hundió la
+  estrategia anterior.
+* **Salidas: solo el stop o la hora** (sin objetivo, sin break-even), para que
+  tampoco haya ambigüedad en la salida. Si una vela toca el stop, sale en el
+  stop.
+* Cierre a la apertura de la vela de las 16:00 ET (= precio de las 16:00).
+* Coste por operación: el spread medido de cada año (`oro.spread`) + 0,25 $ de
+  deslizamiento; 1,30 $ el día de empleo y el de IPC.
+* Se exige a la vez: **t ≥ 2,94**, **las dos mitades (2006-2015 y 2016-2026)
+  positivas** y R/año positivo. Si ninguna lo cumple, no hay estrategia.
+
+**H13 · Empleo, después del dato.** Los días del informe de empleo (calendario
+de FRED). La vela de 8:00-9:00 ET contiene el dato de las 8:30. A las 9:00 se
+entra a mercado en la dirección de esa vela (cierre frente a apertura), con el
+stop en el extremo contrario de esa vela. Cierre a las 16:00.
+
+**H14 · IPC, después del dato.** Lo mismo los días del IPC (FRED, publicación
+10, primera fecha de cada mes).
+
+**H15 · Rotura confirmada por cierre.** Todos los días. Rango de 3:00-8:00 ET.
+La primera vela de 8:00 o de 9:00 ET que CIERRA fuera del rango da la
+dirección; se entra a mercado en la apertura de la vela siguiente, con el stop
+en el extremo contrario del rango. Compras y ventas. Cierre a las 16:00.
