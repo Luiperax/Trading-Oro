@@ -130,7 +130,13 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         # publicado» y 503 es la intermitencia conocida del servidor, y un
         # hueco que se cuela en una serie temporal no falla, miente.
         cerrado = self.mercado_cerrado(hora)
-        intentos = 1 if cerrado else self._intentos
+        # Una hora que acaba de cerrar (Dukascopy la publica ~2 minutos después)
+        # se pide UNA vez: si aún no está, la pasada siguiente del vigilante, a
+        # los 3 minutos, la vuelve a pedir. Insistir aquí bloqueaba el ciclo:
+        # el 6-oct el plan, que tocaba a las 14:00, salió a las 14:10 por diez
+        # minutos de reintentos sobre la hora de 13:00 aún sin publicar.
+        reciente = (dt.datetime.now(dt.timezone.utc) - hora) < dt.timedelta(minutes=66)
+        intentos = 1 if (cerrado or reciente) else self._intentos
         datos, codigos = None, []
         for intento in range(intentos):
             try:

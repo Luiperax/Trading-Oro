@@ -192,3 +192,25 @@ def test_un_429_espera_de_verdad(monkeypatch):
     p = ProveedorDukascopyVivo(intentos=3)
     p._ticks_de(dt.datetime(2026, 9, 29, 9, tzinfo=dt.timezone.utc))
     assert esperas and min(esperas) >= 5
+
+
+def test_una_hora_recien_cerrada_se_pide_una_sola_vez(monkeypatch):
+    """El 6-oct el plan salió diez minutos tarde por reintentar una hora que
+    Dukascopy aún no había publicado. La pasada siguiente ya la recoge."""
+    import datetime as dt
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    pedidas = []
+
+    class R:
+        status_code, content = 404, b""
+
+    monkeypatch.setattr("requests.get", lambda url, **k: pedidas.append(url) or R())
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    p = ProveedorDukascopyVivo(intentos=6)
+    p.mercado_cerrado = lambda h: False
+    # Una hora que cerró hace un minuto.
+    recien = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=61)
+    assert p._ticks_de(recien) is None
+    assert len(pedidas) == 1 and recien not in p._memoria
