@@ -1360,3 +1360,41 @@ Que H15 pierda con t = −4,92 invita a probar lo contrario (operar contra la
 rotura confirmada). No se puede validar sobre estos mismos datos: sería elegir
 la regla mirando el resultado. Lo único limpio sería declararla y medirla
 hacia delante, en papel, con días que aún no han ocurrido.
+
+---
+
+# 6-oct-2026 (tarde): seguimiento de tendencia a varios días — DECLARADAS ANTES DE MEDIR
+
+Rompe la regla de «solo intradía»: las posiciones duran días o meses. Se mide
+porque es el terreno con más respaldo en la literatura (Moskowitz, Ooi y
+Pedersen 2012; Hurst, Ooi y Pedersen, «A Century of Evidence on
+Trend-Following»). Con estas 3 van 18 hipótesis: listón **t ≥ 2,99**.
+
+Reglas comunes:
+
+* Cierre diario = cierre de la última vela H1 de cada sesión (17:00 ET). La
+  señal se calcula con ese cierre y se opera en la APERTURA de la sesión
+  siguiente (sin mirar el futuro).
+* Coste por cada cambio de posición: el spread medido del año + 0,25 $ de
+  deslizamiento, por unidad que cambia (darle la vuelta de largo a corto paga
+  dos veces).
+* **Financiación de un CFD** (lo que cobra el bróker por dormir con la
+  posición): el largo paga (tipo de la Fed + 2,5 %) al año; el corto cobra
+  (tipo de la Fed − 2,5 %), que es pagar cuando los tipos están por debajo del
+  2,5 %. Tipo de la Fed: serie DFF de FRED. Por día natural.
+* Resultado en % anual sobre el nominal (sin apalancamiento). Se exige a la
+  vez: **t ≥ 2,99** sobre los rendimientos diarios, **las dos mitades
+  (2006-2015 y 2016-2026) positivas** y que gane neto de todo.
+
+**H16 · Media de 200 días, largo y corto.** Largo si el cierre está por encima
+de su media de 200 sesiones; corto si está por debajo.
+
+**H17 · Momento de 12 meses.** Largo si el cierre está por encima del de hace
+252 sesiones, corto si por debajo. Se revisa solo la primera sesión de cada
+mes.
+
+**H18 · Media de 200 días, solo largo.** Largo por encima de la media; fuera
+del mercado por debajo.
+
+Referencia (no es hipótesis, no compite): **comprar y mantener** con la misma
+financiación de CFD.
