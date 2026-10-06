@@ -1,0 +1,39 @@
+# Estudios de investigación que necesitan descargar muchos datos.
+#
+# Solo a mano (Actions → «Estudio XAU/USD» → Run workflow). No toca el estado
+# ni manda correos: imprime el resultado en el registro de la ejecución.
+# Existe porque el servidor de Dukascopy limita las peticiones por IP, y desde
+# una máquina de Actions recién creada la descarga va mucho más rápida.
+
+name: Estudio XAU/USD
+
+on:
+  workflow_dispatch:
+    inputs:
+      modulo:
+        description: "Módulo a ejecutar (python -m oro.<modulo>)"
+        default: "ambiguos"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  estudio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r oro/requirements.txt
+      - name: Ejecutar el estudio
+        env:
+          ORO_FRED_CLAVE: ${{ secrets.ORO_FRED_CLAVE }}
+          MODULO: ${{ inputs.modulo }}
+        # Por variable de entorno y no interpolado en el comando: así el texto
+        # del formulario no puede inyectar nada en el shell.
+        run: python -m "oro.${MODULO//[^a-z_]/}"
