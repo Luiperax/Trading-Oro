@@ -1342,3 +1342,21 @@ stop en el extremo contrario de esa vela. Cierre a las 16:00.
 La primera vela de 8:00 o de 9:00 ET que CIERRA fuera del rango da la
 dirección; se entra a mercado en la apertura de la vela siguiente, con el stop
 en el extremo contrario del rango. Compras y ventas. Cierre a las 16:00.
+
+## Resultado de H13-H15 (medido después de declararlas)
+
+| | n | R/op neto | t | mitades | años + |
+|---|---|---|---|---|---|
+| H13 empleo, tras el dato | 244 | −1,19 | −1,31 | −2,08 / −0,34 | 8/21 |
+| H14 IPC, tras el dato | 246 | −0,40 | −4,08 | −0,36 / −0,44 | 4/21 |
+| H15 rotura confirmada por cierre | 3.155 | −0,077 | −4,92 | −0,085 / −0,069 | 2/21 |
+
+**Ninguna pasa. Las tres pierden.** H13 tiene una media enorme y una t pequeña
+porque, cuando la vela del dato cierra cerca de su extremo, el stop queda a
+céntimos de la entrada y el coste se come varios R; es la regla declarada y no
+se retoca después de ver el resultado. H14 y H15 pierden con claridad.
+
+Que H15 pierda con t = −4,92 invita a probar lo contrario (operar contra la
+rotura confirmada). No se puede validar sobre estos mismos datos: sería elegir
+la regla mirando el resultado. Lo único limpio sería declararla y medirla
+hacia delante, en papel, con días que aún no han ocurrido.
