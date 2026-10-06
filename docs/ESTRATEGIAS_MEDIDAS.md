@@ -1457,3 +1457,20 @@ dirección.
 
 **H23 · Rango estrecho.** Amplitud del rango de Londres menor que la mitad del
 ATR diario de 14 sesiones (la «compresión» antes de una rotura).
+
+## Resultado de H19-H23 (medido después de declararlas)
+
+Sin filtro: 2.561 operaciones, −0,039 R/op (t = −1,64).
+
+| filtro | operaciones que deja | R/op | t | mitades | las que quita |
+|---|---|---|---|---|---|
+| H19 EMA 200 horaria a favor | 1.331 | +0,025 | 0,73 | +0,061 / −0,014 | −0,109 (t −3,34) |
+| H20 media 50 diaria a favor | 1.148 | −0,035 | −0,97 | −0,028 / −0,042 | −0,043 |
+| H21 RSI a favor | 1.555 | +0,003 | 0,09 | +0,009 / −0,004 | −0,104 (t −2,77) |
+| H22 ADX ≥ 20 | 1.718 | −0,061 | −2,23 | −0,045 / −0,078 | +0,006 |
+| H23 rango estrecho | 2.066 | −0,061 | −2,17 | −0,030 / −0,091 | +0,051 |
+
+**Ninguno pasa** (listón t ≥ 3,06). Lo único que se ve es que operar CONTRA la
+EMA 200 horaria o contra el RSI es claramente malo (t −3,34 y −2,77), pero lo
+que queda al quitar esos días se queda en cero, no gana. Combinar filtros a
+partir de esta tabla sería elegir la regla mirando el resultado.
