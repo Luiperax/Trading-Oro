@@ -340,7 +340,9 @@ def test_dia_completo_rompe_al_alza_y_solo_llega_la_cancelacion(entorno):
 
     assert len(espia.avisos) == 1
     titulo, _ = espia.avisos[0]
-    assert "CANCELA" in titulo and "venta" in titulo
+    # Este seguimiento llega tarde (17:00) y ve que después de romper arriba el
+    # precio bajó hasta la venta: lo honesto es «ciérrala», no «cancélala».
+    assert "CIERRA" in titulo and "venta" in titulo
 
     import json
 

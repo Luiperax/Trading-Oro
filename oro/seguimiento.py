@@ -138,6 +138,41 @@ def _cubre_hasta(df, limite: datetime, ahora: datetime) -> bool:
     return idx.max() + VELA >= limite
 
 
+def horas_ambiguas(plan: PlanRuptura, df) -> list:
+    """Velas de la ventana de disparo que cruzan el techo Y el suelo del rango.
+
+    En una vela horaria no se sabe qué se cruzó primero, y la diferencia es
+    enorme: con la venta sola, si cayó primero la venta se ejecutó y luego
+    saltó el stop (el stop ES el techo); si subió primero, la venta ya no valía.
+    """
+    velas = _velas_de_sesion(df, plan)
+    v = velas[velas.index < plan.valido_hasta]
+    mascara = (v["high"] > plan.compra.entrada) & (v["low"] < plan.venta.entrada)
+    return list(v.index[mascara])
+
+
+def refinar(plan: PlanRuptura, df, velas_minuto):
+    """Sustituye las velas ambiguas por velas de un minuto de esa hora.
+
+    ``velas_minuto(hora)`` devuelve las velas de 1 minuto de esa hora (o
+    ``None``). Devuelve el marco refinado, o ``None`` si no hay con qué.
+    """
+    import pandas as pd
+
+    ambiguas = horas_ambiguas(plan, df)
+    if not ambiguas:
+        return None
+    trozos, quitar = [], []
+    for hora in ambiguas:
+        fino = velas_minuto(hora.to_pydatetime())
+        if fino is None or len(fino) == 0:
+            return None
+        trozos.append(fino[["open", "high", "low", "close", "volume"]])
+        quitar.append(hora)
+    base = df.drop(index=quitar)[["open", "high", "low", "close", "volume"]]
+    return pd.concat([base, *trozos]).sort_index()
+
+
 def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
            avisados: Optional[set] = None,
            r_break_even: float = 1.0) -> Seguimiento:
@@ -160,26 +195,68 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
         if arriba and abajo:
             # Dentro de la misma vela no se sabe cuál fue primero. Registrar una
             # dirección inventada envenenaría el aprendizaje con datos falsos.
-            return Seguimiento(estado=EstadoPlan.AMBIGUA)
+            # En vivo se intenta antes resolver con velas de 1 minuto (ver
+            # `refinar`); si aun así no se puede, se avisa: callarse dejaba a
+            # quien opera con la venta quizá ejecutada y sin ninguna instrucción.
+            s = Seguimiento(estado=EstadoPlan.AMBIGUA)
+            if plan.solo_ventas:
+                cuerpo = (f"En la misma hora el precio ha pasado por el techo "
+                          f"({plan.compra.entrada:.2f}) y por el suelo "
+                          f"({plan.venta.entrada:.2f}) del rango, y no puedo saber "
+                          f"qué fue primero. Mira tu bróker: si la venta sigue "
+                          f"abierta, CIÉRRALA A MERCADO (si estuviera abierta, es "
+                          f"que el techo se rompió antes y hoy no vale); si saltó "
+                          f"el stop, no hay nada que hacer; si no se ejecutó, "
+                          f"cancélala.")
+            else:
+                cuerpo = (f"En la misma hora el precio ha pasado por las dos "
+                          f"órdenes ({plan.venta.entrada:.2f} y "
+                          f"{plan.compra.entrada:.2f}) y no puedo saber cuál fue "
+                          f"primero. Mira tu bróker: cancela la orden que siga "
+                          f"pendiente. Si te queda una posición abierta, déjala "
+                          f"con su stop, muévelo a la entrada cuando gane "
+                          f"{plan.rango.amplitud:.2f} $ y ciérrala a la hora de "
+                          f"cierre del plan.")
+            _añadir(s, avisados, AvisoSeguimiento(
+                clave=f"{plan.dia}:ambigua", tipo=Evento.CIERRE,
+                momento=momento, precio=float(v["close"]), r=0.0,
+                destacado="revisa tu bróker",
+                titulo="⚠️ XAU/USD: revisa tu orden",
+                cuerpo=cuerpo))
+            return s
         if arriba and plan.solo_ventas and plan.anular_si_rompe_arriba:
             # El rango se ha roto al alza ANTES que a la baja. La venta de hoy
             # deja de valer: medido, la misma rotura a la baja cuando llega
             # después de una rotura al alza da -0.2863 R/op (t = -8.73) y solo
             # 2 años positivos de 21. Dejar la orden puesta borra la ventaja
             # entera de la estrategia (-1.07 R/año en lugar de +10.78).
+            #
+            # Pero el aviso llega cuando se publica la vela, hasta una hora
+            # después de la rotura. Si en ese tiempo el precio ha bajado hasta
+            # la venta, la orden YA se ha ejecutado y cancelarla no sirve:
+            # hay que cerrarla. Se dice en el aviso, y más alto si se ve.
+            despues = velas[velas.index >= momento]
+            ejecutada = bool((despues["low"] < plan.venta.entrada).any())
             s = Seguimiento(estado=EstadoPlan.ANULADO)
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:anulado", tipo=Evento.CIERRE,
                 momento=momento, precio=float(v["close"]), r=0.0,
                 destacado=f"ha subido de {plan.compra.entrada:.2f}",
-                titulo="🚫 CANCELA la orden de venta de XAU/USD",
-                cuerpo=(f"El rango se ha roto por ARRIBA ({plan.compra.entrada:.2f}) "
-                        f"antes que por abajo. Cancela la orden de venta "
-                        f"pendiente: hoy ya no vale. La rotura a la baja solo "
-                        f"funciona cuando es la primera del día; cuando llega "
-                        f"después de una rotura al alza se gira, y está medido "
-                        f"sobre 869 días de 21 años (-0.29 R de media). Hoy no "
-                        f"se opera.")))
+                titulo=("🚫 CIERRA la venta de XAU/USD: hoy no vale" if ejecutada
+                        else "🚫 CANCELA la orden de venta de XAU/USD"),
+                cuerpo=((f"El rango se rompió por ARRIBA ({plan.compra.entrada:.2f}) "
+                         f"antes que por abajo, y después el precio bajó hasta tu "
+                         f"venta: lo más probable es que se haya ejecutado. "
+                         f"CIÉRRALA A MERCADO. Si no se ejecutó, cancélala. "
+                         if ejecutada else
+                         f"El rango se ha roto por ARRIBA ({plan.compra.entrada:.2f}) "
+                         f"antes que por abajo. Cancela la orden de venta "
+                         f"pendiente: hoy ya no vale. Si ya se hubiera ejecutado, "
+                         f"ciérrala a mercado. ")
+                        + "La rotura a la baja solo funciona cuando es la primera "
+                          "del día; cuando llega después de una rotura al alza se "
+                          "gira, y está medido sobre 869 días de 21 años (-0.29 R "
+                          "de media). Hoy no se opera.")))
             return s
         if arriba:
             disparo = (momento, plan.compra); break

@@ -91,7 +91,8 @@ def test_si_rompe_por_los_dos_lados_no_se_inventa_una_direccion():
     s = seguir(plan, df, ahora=_a_las(9))
     assert s.estado is EstadoPlan.AMBIGUA
     assert s.direccion is None
-    assert s.avisos == []
+    # Pero no se calla: quien opera puede tener la orden ejecutada.
+    assert len(s.avisos) == 1 and "revisa" in s.avisos[0].titulo
 
 
 def test_al_llegar_a_1r_avisa_de_mover_el_stop():
@@ -646,3 +647,63 @@ def test_despues_del_cierre_no_se_manda_mover_el_stop():
                avisados={f"{plan.dia}:cierre"})
     assert not any(a.tipo is Evento.MOVER_STOP for a in s.avisos)
     assert s.estado is EstadoPlan.CERRADA
+
+
+def test_rotura_arriba_a_tiempo_dice_cancela():
+    plan, _ = _plan(solo_ventas=True)
+    s = seguir(plan, _con_sesion({8: (4035, 4020)}), ahora=_a_las(9, 3))
+    assert s.estado is EstadoPlan.ANULADO
+    assert "CANCELA" in s.avisos[0].titulo
+
+
+def test_rotura_arriba_y_luego_la_venta_dice_cierra():
+    """El aviso sale cuando se publica la vela, hasta una hora después de la
+    rotura. Si en ese tiempo el precio bajó hasta la venta, ya se ejecutó."""
+    plan, _ = _plan(solo_ventas=True)
+    s = seguir(plan, _con_sesion({8: (4035, 4020), 9: (4022, 3990)}),
+               ahora=_a_las(10, 3))
+    assert s.estado is EstadoPlan.ANULADO
+    assert "CIERRA" in s.avisos[0].titulo
+
+
+def test_una_hora_ambigua_se_resuelve_con_velas_de_minuto():
+    """Con los ticks de esa hora se sabe qué se cruzó primero."""
+    import pandas as pd
+
+    from oro.seguimiento import refinar
+
+    plan, _ = _plan(solo_ventas=True)
+    df = _con_sesion({8: (4030, 3990)})              # cruza techo y suelo
+    hora = df.index[-1]
+
+    def minutos(primero_abajo):
+        idx = pd.date_range(hora, periods=3, freq="1min")
+        filas = ([(4010, 3990), (4012, 4000), (4030, 4015)] if primero_abajo
+                 else [(4030, 4015), (4012, 4000), (4010, 3990)])
+        return pd.DataFrame({"open": [ (a + b) / 2 for a, b in filas],
+                             "high": [a for a, _ in filas],
+                             "low": [b for _, b in filas],
+                             "close": [(a + b) / 2 for a, b in filas],
+                             "volume": 1.0}, index=idx)
+
+    s = seguir(plan, refinar(plan, df, lambda h: minutos(True)), ahora=_a_las(9, 3))
+    assert s.estado is EstadoPlan.CERRADA and s.motivo_cierre == "stop"
+    s = seguir(plan, refinar(plan, df, lambda h: minutos(False)), ahora=_a_las(9, 3))
+    assert s.estado is EstadoPlan.ANULADO and "CIERRA" in s.avisos[0].titulo
+
+
+def test_el_proveedor_al_contado_arma_velas_de_minuto_desde_los_ticks():
+    import datetime as dt
+
+    import pandas as pd
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    hora = dt.datetime(2026, 10, 5, 13, tzinfo=dt.timezone.utc)
+    idx = pd.DatetimeIndex([hora + dt.timedelta(seconds=x) for x in (5, 30, 70, 130)])
+    p = ProveedorDukascopyVivo()
+    p._memoria[hora] = pd.DataFrame({"bid": [10.0, 12.0, 9.0, 11.0],
+                                     "ask": [10.5, 12.5, 9.5, 11.5]}, index=idx)
+    m = p.velas_minuto(hora)
+    assert list(m["high"]) == [12.0, 9.0, 11.0]
+    assert list(m["low"]) == [10.0, 9.0, 11.0]

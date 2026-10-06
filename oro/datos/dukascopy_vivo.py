@@ -311,6 +311,23 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         ticks = self._ticks_de(hora.astimezone(dt.timezone.utc))
         return self._vela(ticks) if ticks is not None and not ticks.empty else None
 
+    def velas_minuto(self, hora: dt.datetime) -> Optional[pd.DataFrame]:
+        """Velas de 1 minuto de esa hora, armadas desde sus ticks (bid).
+
+        Para los días en que una vela horaria cruza el techo y el suelo del
+        rango: con los ticks se sabe qué se cruzó primero. Sin ninguna petición
+        nueva, porque los ticks de esa hora ya están en la caché.
+        """
+        if hora.tzinfo is None:
+            hora = hora.replace(tzinfo=dt.timezone.utc)
+        ticks = self._ticks_de(hora.astimezone(dt.timezone.utc))
+        if ticks is None or ticks.empty:
+            return None
+        b = ticks["bid"].resample("1min")
+        df = pd.DataFrame({"open": b.first(), "high": b.max(), "low": b.min(),
+                           "close": b.last(), "volume": b.count().astype(float)})
+        return df.dropna()
+
     def ultima(self) -> Optional[pd.Series]:
         """La última vela cerrada. ``None`` si no hay ninguna reciente."""
         df = self.historico(2)

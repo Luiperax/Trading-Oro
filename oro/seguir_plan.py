@@ -28,7 +28,7 @@ from pathlib import Path
 from .cli import _construir_notificador
 from .config import cargar_configuracion
 from .plan_sesion import VELAS_EN_VIVO, _proveedor, _ruta_estado, fuente_actual
-from .seguimiento import EstadoPlan, deslizamiento_de, registro_de, seguir
+from .seguimiento import EstadoPlan, deslizamiento_de, refinar, registro_de, seguir
 from .sesiones import PlanRuptura
 
 RUTA_RUPTURAS = "oro_rupturas.jsonl"
@@ -118,9 +118,18 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
         _guardar_estado(datos)
         return 0
 
-    df = _proveedor(sintetico).historico(VELAS_EN_VIVO)
+    proveedor = _proveedor(sintetico)
+    df = proveedor.historico(VELAS_EN_VIVO)
     avisados = set(datos.get("avisados", []))
     s = seguir(plan, df, ahora=ahora, avisados=avisados)
+    if s.estado is EstadoPlan.AMBIGUA and hasattr(proveedor, "velas_minuto"):
+        # En la misma hora el precio cruzó el techo y el suelo. Con los ticks
+        # de esa hora se sabe qué fue primero; sin eso, el día se daba por
+        # «ambiguo» y el sistema se callaba con la venta quizá ejecutada.
+        fino = refinar(plan, df, proveedor.velas_minuto)
+        if fino is not None:
+            s = seguir(plan, fino, ahora=ahora, avisados=avisados)
+            print(f"  Hora ambigua resuelta con velas de 1 minuto: {s.estado.value}.")
     print(f"{plan.dia}: estado {s.estado.value}"
           + (f", {s.direccion.value} desde {s.entrada:.2f}" if s.direccion else "")
           + (f", cerrada en {s.salida:.2f} ({s.r:+.2f}R, {s.motivo_cierre})"
