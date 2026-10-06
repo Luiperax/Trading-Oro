@@ -707,3 +707,48 @@ def test_el_proveedor_al_contado_arma_velas_de_minuto_desde_los_ticks():
     m = p.velas_minuto(hora)
     assert list(m["high"]) == [12.0, 9.0, 11.0]
     assert list(m["low"]) == [10.0, 9.0, 11.0]
+
+
+# ---- Cobertura: una vigilancia tras otra ----
+
+def test_habra_mercado():
+    from datetime import datetime, timezone
+
+    from oro.vigilar import habra_mercado
+
+    U = timezone.utc
+    assert habra_mercado(datetime(2026, 10, 6, 8, tzinfo=U))          # martes
+    assert habra_mercado(datetime(2026, 10, 9, 18, tzinfo=U))         # viernes, quedan horas
+    assert not habra_mercado(datetime(2026, 10, 10, 1, tzinfo=U))     # viernes noche → sábado
+    assert not habra_mercado(datetime(2026, 10, 10, 12, tzinfo=U))    # sábado
+    assert habra_mercado(datetime(2026, 10, 11, 19, tzinfo=U))        # domingo, abre a las 22 UTC
+
+
+def test_solo_se_encadena_si_termino_por_tiempo(tmp_path, monkeypatch):
+    from oro import vigilar
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(vigilar, "habra_mercado", lambda *a, **k: True)
+    vigilar._marcar_relevo(True)
+    assert (tmp_path / vigilar.MARCA_ENCADENAR).exists()
+    vigilar._marcar_relevo(False)
+    assert not (tmp_path / vigilar.MARCA_ENCADENAR).exists()
+
+
+def test_el_workflow_encadena_la_siguiente_vigilancia():
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[2]
+    texto = (raiz / ".github" / "workflows" / "oro-alertas.yml").read_text(encoding="utf-8")
+    assert "actions: write" in texto
+    assert "gh workflow run oro-alertas.yml" in texto
+
+
+def test_con_las_senales_apagadas_el_vigilante_no_se_aparta_antes_del_cierre():
+    """Se apartaba a las 21:30 de Madrid para dejar paso al cierre del motor de
+    señales (apagado) y se perdía el «CIERRA» del plan de las 22:00."""
+    import inspect
+
+    from oro import vigilar
+
+    assert "cfg.senales_activas and _toca_relevo(cfg)" in inspect.getsource(vigilar.main)

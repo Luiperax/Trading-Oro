@@ -28,3 +28,4 @@ venv/
 # Sistema operativo
 .DS_Store
 Thumbs.db
+.encadenar_vigilancia

@@ -197,6 +197,50 @@ def _dia_del_plan():
         return None
 
 
+MARCA_ENCADENAR = ".encadenar_vigilancia"
+
+
+def habra_mercado(ahora=None, horas: float = 5.0) -> bool:
+    """¿Abre el oro en algún momento de las próximas ``horas``?
+
+    El contado cierra el viernes a las 17:00 de Nueva York y abre el domingo a
+    las 18:00. Una vigilancia que caería entera en ese hueco no sirve de nada.
+    """
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+
+    ny = ZoneInfo("America/New_York")
+    ahora = ahora or datetime.now(timezone.utc)
+    t = ahora
+    while t <= ahora + timedelta(hours=horas):
+        local = t.astimezone(ny)
+        d, h = local.weekday(), local.hour
+        cerrado = d == 5 or (d == 4 and h >= 17) or (d == 6 and h < 18)
+        if not cerrado:
+            return True
+        t += timedelta(minutes=30)
+    return False
+
+
+def _marcar_relevo(por_tiempo: bool) -> None:
+    """Deja dicho si el workflow debe lanzar YA la siguiente vigilancia.
+
+    GitHub arranca las tareas programadas cuando quiere: el 5-oct hubo una
+    vigilancia de 07:00 a 11:50 UTC y la siguiente a las 15:58, con la ventana
+    del plan (12:00-14:00) en medio, sin nadie. Encadenando cada vigilancia con
+    la siguiente siempre hay una en marcha entre semana. Solo si esta terminó
+    por tiempo (no por un error) y si va a haber mercado.
+    """
+    from pathlib import Path
+
+    p = Path(MARCA_ENCADENAR)
+    if por_tiempo and habra_mercado():
+        p.write_text("1\n", encoding="utf-8")
+        print("→ Se encadena la siguiente vigilancia.")
+    elif p.exists():
+        p.unlink()
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--probar" in argv:
@@ -242,6 +286,7 @@ def main(argv=None) -> int:
           f"{cada:.0f}s, cierre operativo {cfg.riesgo.hora_cierre_et}:00 Nueva York.")
     fin = time.monotonic() + minutos * 60.0
     n = 0
+    por_tiempo = False
     while True:
         n += 1
         try:
@@ -270,17 +315,23 @@ def main(argv=None) -> int:
         # para dejar esa memoria solo en el disco del runner.
         _atender_ruptura(ruta)
 
-        if _toca_relevo(cfg):
+        # El relevo existe para el motor de señales: dejar paso al trabajo que
+        # cierra SUS operaciones. Con el motor apagado no hay nada que ceder, y
+        # apartarse a las 21:30 de Madrid dejaba sin vigilancia el «CIERRA» del
+        # plan de ruptura, que llega a las 22:00 (16:00 de Nueva York).
+        if cfg.senales_activas and _toca_relevo(cfg):
             # Se cede el turno al trabajo de cierre, pero NO se deja la operación
             # huérfana: se cierra aquí y ahora. Es idempotente, así que si el
             # trabajo de cierre llega después no encontrará nada que hacer.
             _cerrar_antes_de_ceder(runner, ruta)
             break
         if time.monotonic() >= fin:
+            por_tiempo = True
             break
         time.sleep(cada)
 
     print(f"■ Ventana de vigilancia completada ({n} ciclos).")
+    _marcar_relevo(por_tiempo)
     return 0
 
 

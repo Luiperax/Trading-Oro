@@ -44,6 +44,7 @@ on:
 
 permissions:
   contents: write              # para guardar el estado (oro_estado.json) en el repo.
+  actions: write               # para encadenar la siguiente vigilancia (ver abajo).
 
 concurrency:
   group: oro-alertas
@@ -56,7 +57,7 @@ jobs:
     # que ha entregado el plan del día a tiempo, porque es un proceso vivo).
     # Este tope evita que un ciclo colgado deje la máquina ocupada, y debe
     # superar ORO_BUCLE_MINUTOS con margen. El máximo de GitHub son 360.
-    timeout-minutes: 300
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
 
@@ -136,3 +137,20 @@ jobs:
           # en shell que había aquí llegó a PERDER una operación abierta: chocó,
           # abortó y el fallo se tragaba con un echo.
           python -m oro.persistencia
+
+      - name: Encadenar la siguiente vigilancia
+        # GitHub arranca las tareas programadas cuando quiere (el 5-oct dejó la
+        # ventana del plan, 12:00-14:00 UTC, sin vigilancia). Al terminar una
+        # vigilancia por tiempo se lanza la siguiente, salvo que vaya a caer
+        # entera en el fin de semana (ver oro/vigilar.py: _marcar_relevo).
+        # workflow_dispatch es de los pocos eventos que GITHUB_TOKEN sí puede
+        # disparar. La concurrencia del grupo impide que se solapen.
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f .encadenar_vigilancia ]; then
+            gh workflow run oro-alertas.yml --ref "${GITHUB_REF_NAME}" && echo "Siguiente vigilancia lanzada."
+          else
+            echo "No se encadena (fin de semana, prueba o salida anticipada)."
+          fi
