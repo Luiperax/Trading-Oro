@@ -247,12 +247,8 @@ class ConfiguracionRuptura:
     #     días de empleo      161   +0.6448    4.58    +5.00
     #     resto (venta)      2048   +0.0284    1.10    +2.80
     #
-    # Mitades +0.0884 / +0.0575, 15 años positivos de 21, peor año -18.7 R,
-    # peor racha -45.4 R. Casi dos tercios del rendimiento salen de unos 8 días
-    # al año; el resto de días la venta NO se distingue de cero (t = 1.10). Y
-    # el total, con t = 2.80, queda justo por debajo del listón de Bonferroni
-    # para 12 hipótesis (2.87); el día de empleo solo lo pasa de sobra.
-    # (Con el calendario real de FRED.)
+    # OJO: estas cifras NO cuentan los 359 días ambiguos y por eso están
+    # infladas. Con ellos la estrategia pierde: ver `solo_papel` más abajo.
     #
     # Hasta el 6-oct-2026 estas cifras eran +0.0819 (t = 3.13): el seguimiento
     # metía la vela de 16:00 a 17:00 de Nueva York, así que el histórico cerraba
@@ -302,15 +298,22 @@ class ConfiguracionRuptura:
 
     # SOLO PAPEL desde el 6-oct-2026. El plan se sigue mandando y siguiendo,
     # pero marcado «no operes con dinero real». Motivo: el histórico dejaba
-    # fuera de las cifras los ~360 días en que una misma vela horaria cruza el
+    # fuera de las cifras los 359 días en que una misma vela horaria cruza el
     # techo y el suelo del rango (no se sabía qué fue primero). Resueltos con
-    # velas de un minuto (`python -m oro.ambiguos`) son pérdidas casi seguras
-    # —la venta salta y en esa hora sube hasta el stop—: −0,81 R de media en
-    # los primeros 209. Con ellos dentro la estrategia no tiene ventaja: los
-    # días de empleo pasan de +0,64 a +0,02 R/op (1 de cada 3 es ambiguo, por
-    # el salto de las 8:30) y el resto queda en −0,04. Se vuelve a operar con
-    # ORO_RUPTURA_SOLO_PAPEL=0, y no debería hacerse sin una estrategia que
-    # aguante con esos días contados.
+    # velas de un minuto (`python -m oro.ambiguos`, ya dentro de
+    # `oro.historico`) son pérdidas casi seguras: −0,745 R de media en 352.
+    # Con ellos dentro:
+    #
+    #                           n      R/op       t    R/año
+    #     total              2561   -0.0391   -1.64    -4.83
+    #     días de empleo      239   +0.0198    0.18    +0.23
+    #     resto              2322   -0.0452   -1.91    -5.06
+    #
+    # 7 años positivos de 21, peor año −31,8 R, peor racha −126,8 R. Los días
+    # de empleo caen porque 1 de cada 3 es ambiguo: el salto de las 8:30 cruza
+    # los dos lados en la misma hora. Se vuelve a operar con
+    # ORO_RUPTURA_SOLO_PAPEL=0, y no debería hacerse sin una regla que aguante
+    # con esos días contados.
     solo_papel: bool = True
 
     # La ventana cuyo máximo y mínimo forman el rango, en hora de NUEVA YORK:

@@ -330,9 +330,7 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
                 cuerpo=(f"La operación te lleva {s.r_maximo:.1f}R de beneficio. "
                         f"Mueve el stop loss a {orden.entrada:.2f}, tu precio de "
                         f"entrada: a partir de ahí ya no puede perder dinero. "
-                        f"Medido sobre 2.209 operaciones de 21 años, este "
-                        f"movimiento sube la ventaja de +0,060 a +0,073 R por "
-                        f"operación.")))
+                        f"Es la regla del plan.")))
 
     # --- 3) ¿Toca cerrar a mano? ---
     if s.estado is EstadoPlan.ABIERTA and ahora >= plan.cierre_forzoso:

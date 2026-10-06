@@ -67,7 +67,7 @@ modo_prueba**.
 
 | | estado | por qué |
 |---|---|---|
-| **Plan de ruptura** (venta del rango de Londres; las dos órdenes el día del dato de empleo) | **activo** | +0,073 R/op sobre 2.209 operaciones de 21 años con todos los costes medidos, t = 2,80, mitades +0,088 / +0,058; casi dos tercios salen de los días de empleo (+0,64 R/op, t = 4,58) |
+| **Plan de ruptura** (venta del rango de Londres; las dos órdenes el día del dato de empleo) | **solo papel** (se manda y se sigue, marcado «no operes») | −0,039 R/op sobre 2.561 operaciones de 21 años, t = −1,64, contando con velas de minuto los 359 días en que el precio cruza los dos lados del rango en la misma hora. Sin esos días salía +0,073: estaba inflado |
 | Motor de señales intradía | **apagado** | −0,090 R/op sobre 4.891 operaciones, 2 años positivos de 21, −157 €/año |
 
 El motor de señales se apagó en octubre de 2026 tras reconstruir el histórico
@@ -93,13 +93,17 @@ rompe el techo del rango antes, te llega un correo para cancelarla.
 
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
-Aviso honesto: **acierta el 39 % de las veces**, 6 de los 21 años medidos
-acabaron en pérdida y la peor racha fue de 45 R. Medido sobre 2.209 operaciones
-de 2006 a 2026 con el mismo código que opera y con el spread y el deslizamiento
-REALES sacados de los ticks: +0,073 R por operación (t = 2,80), unos +7,8 R al
-año. Casi dos tercios salen de los ~8 días al año en que se publica el dato de
-empleo de EE. UU. (esos días van dos órdenes); el resto de días la venta no se
-distingue de cero.
+Aviso honesto: **desde el 6-oct-2026 el plan va en «solo papel»**. El
+histórico dejaba fuera de las cifras los días en que, dentro de la misma hora,
+el precio cruza el techo y el suelo del rango (359 de 5.370 días con plan, y 1
+de cada 3 días de empleo por el salto de las 8:30). Resueltos con velas de un
+minuto son pérdidas casi seguras (−0,75 R de media): la venta salta y en esa
+misma hora el precio sube hasta el stop. Con ellos dentro, la estrategia da
+**−0,039 R por operación (t = −1,64), unos −4,8 R al año**, 7 años positivos
+de 21. El correo y los avisos siguen llegando, marcados «SOLO PAPEL, NO
+OPERES», para seguir midiendo en real. Se vuelve a operar con
+`ORO_RUPTURA_SOLO_PAPEL=0`, y no debería hacerse sin una regla que aguante con
+esos días contados.
 
 Antes dejaba **dos** órdenes, una a cada lado. Se midió el histórico completo y
 el lado de las compras resultó ser un lastre de −7,7 R al año, así que se quitó.

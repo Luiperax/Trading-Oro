@@ -1263,3 +1263,46 @@ dos fallos del seguimiento, y uno de ellos tocaba todas las cifras:
   ejecutado dentro de esa última hora. Ahora espera a esa vela (como mucho 45
   minutos) antes de dar la orden por caducada o grabar el cierre. El aviso de
   «CIERRA» sigue saliendo a su hora.
+
+## 6-oct-2026: los días ambiguos. La estrategia no tiene ventaja
+
+El histórico dejaba **fuera de las cifras** los días en que, dentro de la
+ventana de disparo, una misma vela horaria cruza el techo y el suelo del rango:
+con velas de una hora no se sabe qué fue primero. Eran 359 de 5.370 días con
+plan. Fuera de las cifras no es fuera de la cuenta: en vivo, ese día la orden
+existe.
+
+Bajadas las velas de un minuto de Dukascopy de los 359 días y resueltos con las
+mismas funciones de producción (`python -m oro.ambiguos`, y ahora dentro de
+`oro.historico`):
+
+| qué pasó | días | R neto medio |
+|---|---|---|
+| la venta salta primero y en esa hora sube al stop | 178 | ≈ −1,2 |
+| sube primero; la venta se ejecuta antes de que pueda llegar el aviso de cancelar, y se cierra al llegar | 116 | ≈ −0,1 |
+| el día de empleo, la compra salta primero y luego el stop | 33 | ≈ −1,3 |
+| otros (break-even, stop tras rotura al alza) | 25 | |
+| sin resolver ni con minutos | 7 | |
+| **total resueltos** | **352** | **−0,745** |
+
+Con esos días dentro:
+
+| | n | R/op | t | R/año |
+|---|---|---|---|---|
+| **total** | 2.561 | **−0,0391** | **−1,64** | **−4,83** |
+| días de empleo | 239 | +0,0198 | 0,18 | +0,23 |
+| resto | 2.322 | −0,0452 | −1,91 | −5,06 |
+
+Mitades −0,016 / −0,062, 7 años positivos de 21, peor año −31,8 R, peor racha
+−126,8 R, acierto 35 %. Los días de empleo se hunden porque 1 de cada 3 es
+ambiguo: el salto de las 8:30 cruza los dos lados en la misma hora.
+
+**Decisión: el plan pasa a «solo papel»** (`ORO_RUPTURA_SOLO_PAPEL`, activo por
+defecto). Se sigue mandando y siguiendo para medir en real, con el correo y los
+avisos marcados «NO OPERES». En vivo, además, una hora ambigua ya no deja al
+sistema callado: se resuelve con los ticks de esa hora y, si no se puede, se
+avisa de revisar el bróker.
+
+La lección es la misma de siempre en este proyecto, y esta vez costó la
+estrategia entera: un dato que falta no es neutro. Los días que no se sabían
+medir eran justo los peores.

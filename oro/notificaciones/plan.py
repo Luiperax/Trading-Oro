@@ -48,8 +48,10 @@ PAPEL_EXPLICACION = (
     "(unos 17 al año, y 1 de cada 3 días de empleo por el salto de las 8:30). "
     "Resueltos con velas de un minuto, son pérdidas casi seguras: la venta salta "
     "y en esa misma hora el precio sube hasta el stop. Con esos días contados la "
-    "estrategia no tiene ventaja (días de empleo +0,02 R por operación, resto "
-    "-0,04). Este plan se manda para seguir midiendo en real, no para operarlo.")
+    "estrategia PIERDE: -0,039 R por operación (t = -1,64), unos -4,8 R al año, "
+    "y solo 7 años positivos de 21. Los días de empleo se quedan en +0,02 R, que "
+    "no se distingue de cero. Este plan se manda para seguir midiendo en real, "
+    "no para operarlo.")
 
 
 def en_papel() -> bool:
@@ -94,18 +96,19 @@ def texto_confianza(plan: PlanRuptura) -> str:
         return ("Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York "
                 "y van LAS DOS órdenes. Ese día la rotura no es una rotura "
                 "cualquiera: es el mercado reaccionando al dato, y sigue en la "
-                "dirección en que sale, en las dos. Medido sobre 161 días de "
-                "empleo de 21 años, con el relleno real sacado tick a tick: "
-                "+0,64 R por operación (t = 4,58). Son unos 8 días al año y "
-                "aportan casi dos tercios del rendimiento anual de la estrategia.")
+                "dirección en que sale, en las dos. Pero medido sobre 239 días de "
+                "empleo de 21 años, contando con velas de minuto los días en que "
+                "el salto de las 8:30 cruza los dos lados en la misma hora (1 de "
+                "cada 3): +0,02 R por operación (t = 0,18). No se distingue de "
+                "cero.")
     if plan.solo_ventas:
         # Con una sola orden no hay nada que elegir, y la pregunta que importa
         # no es «qué lado» sino «por qué solo este».
         return ("Hoy solo va una orden, y a la baja. Medido sobre 21 años con "
                 "todos los costes reales (spread y deslizamiento sacados de los "
-                "ticks): la estrategia da +0,073 R por operación (t = 2,80; "
-                "+0,088 y +0,058 en las dos mitades del histórico). La rotura al "
-                "alza no se opera porque resta: solo 4 años a favor de 21.")
+                "ticks) y contando los días en que el precio cruza los dos lados del "
+                "rango en la misma hora: -0,039 R por operación (t = -1,64). La "
+                "estrategia no tiene ventaja demostrada.")
     if plan.favorita is None:
         return ("Hoy la sesión asiática ha cerrado casi donde abrió, así que no "
                 "aporta nada: trata las dos órdenes como iguales.")
@@ -125,7 +128,7 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
     if en_papel():
         return ("Las cifras que se daban antes (+0,073 R por operación, +7,8 R "
-                "al año) no contaban esos días y ya no valen.")
+                "al año) no contaban esos 352 días y ya no valen.")
     if plan is not None and plan.dia_de_empleo:
         return ("Cuidado con las 8:30: el precio salta de golpe y la orden se "
                 "llena en el primer precio que cruza el nivel, no en el nivel. "
@@ -134,11 +137,9 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
                 "Usa una orden OCO si tu bróker la tiene: a esa hora pueden "
                 "saltar las dos en segundos y no da tiempo a cancelar a mano.")
     if plan is not None and plan.solo_ventas:
-        return ("El límite: son +7,8 R al año, unos 117 € con 0,5 % de riesgo "
-                "sobre 3.000 €, y 6 de los 21 años fueron en pérdida (el peor, "
-                "-18,7 R). Casi dos tercios salen de los ~8 días de empleo al "
-                "año; el resto de días la venta da +0,03 R, que no se distingue "
-                "de cero. Espera rachas negativas de 45 R.")
+        return ("El límite: son -4,8 R al año, unos -72 € con 0,5 % de riesgo "
+                "sobre 3.000 €; 14 de los 21 años fueron en pérdida (el peor, "
+                "-31,8 R) y la peor racha fue de -127 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
             "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
             "del rango, cierre de ayer) combinadas en un modelo entrenado con "
@@ -307,17 +308,16 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
         )
     if plan.solo_ventas or plan.dia_de_empleo:
         return (
-            "Acierta el 39 % de las veces: la mayoría de los días pierde. Gana "
-            "porque las ganadoras valen +1,23 R de media y las perdedoras -0,66 R.",
-            "Medido sobre 2.209 operaciones de 21 años con TODOS los costes "
+            "Acierta el 35 % de las veces. Las ganadoras valen +1,19 R de media "
+            "y las perdedoras -0,71 R.",
+            "Medido sobre 2.561 operaciones de 21 años con TODOS los costes "
             "reales —spread de cada año y deslizamiento, sacados de los ticks— "
-            "y cerrando a la hora de verdad: +0,073 R por operación, 15 años en "
+            "y contando con velas de minuto los días en que el precio cruza los "
+            "dos lados en la misma hora: -0,039 R por operación, 7 años en "
             "positivo de 21.",
-            "El peor año perdió 18,7 R y la peor racha fue de 45 R. Con 0,5 % de "
-            "riesgo sobre 3.000 € eso son -281 € y -681 €, con +117 € de media al año.",
-            "Los días de empleo (unos 8 al año) dan +0,64 R por operación y "
-            "aportan casi dos tercios. El resto de días la venta da +0,03 R: "
-            "no se distingue de cero.",
+            "El peor año perdió 31,8 R y la peor racha fue de 127 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -477 € y -1.902 €, con -72 € de media al año.",
+            "Los días de empleo dan +0,02 R por operación: no se distinguen de cero.",
         )
     return (
         "Acierta el 45 % de las veces: la mayoría de los días pierde. Gana "

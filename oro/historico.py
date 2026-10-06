@@ -60,11 +60,18 @@ def _por_dia_de_sesion(df) -> Iterator[tuple[dt.date, "object"]]:
             inicio = i
 
 
-def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None) -> list[dict]:
+def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
+                minutos_del_dia=None) -> list[dict]:
     """Las fichas de todos los días del histórico, en el formato del registro.
 
     Cada ficha es exactamente la que `oro_rupturas.jsonl` guarda en vivo, así
     que el aprendizaje puede juntar histórico y real sin traducir nada.
+
+    ``minutos_del_dia(fecha)`` da las velas de 1 minuto de un día UTC. Con
+    ella, los días en que una misma vela horaria cruza el techo y el suelo del
+    rango se resuelven (ver :mod:`oro.ambiguos`) en vez de quedar fuera de las
+    cifras: fuera de las cifras no es fuera de la cuenta, y son casi siempre
+    pérdidas.
     """
     cfg = cfg or cargar_configuracion()
     c = cfg.ruptura
@@ -96,6 +103,26 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None) -> list[dict]:
         # R por operación e inventa una estrategia peor de lo que fue.
         coste = spread_de(dia.year) + deslizamiento_de(plan, cfg)
         ficha = registro_de(plan, s, coste)
+        if s.estado.value == "ambigua" and minutos_del_dia is not None:
+            from .ambiguos import resolver
+
+            def _minutos(hora, _f=minutos_del_dia):
+                m = _f(hora.date())
+                if m is None:
+                    return None
+                t = m[(m.index >= hora) & (m.index < hora + dt.timedelta(hours=1))]
+                return t if len(t) else None
+
+            caso, r = resolver(plan, velas, _minutos)
+            ficha["resuelto_con_minutos"] = caso
+            if r is not None:
+                ficha.update(estado="cerrada", r_bruto=round(r, 3),
+                             r_neto=round(r - coste / plan.rango.amplitud, 3),
+                             ganada=r > 0)
+                if "venta" in caso:
+                    ficha["direccion"] = "venta"
+                elif "compra" in caso:
+                    ficha["direccion"] = "compra"
         ficha["origen"] = "historico"
         # Los dos componentes por separado: si mañana se vuelve a medir uno,
         # hay que poder saber con qué se calculó cada R de hace meses.
@@ -123,7 +150,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"  {len(df)} velas  {df.index.min()} → {df.index.max()}")
 
     print("Reconstruyendo con construir_plan() + seguir(), las mismas de producción…")
-    fichas = reconstruir(df, cfg)
+    from pathlib import Path
+
+    from .ambiguos import velas_minuto_del_dia
+
+    cache_m1 = Path.home() / ".cache" / "oro" / "dukascopy_m1"
+    fichas = reconstruir(df, cfg,
+                         minutos_del_dia=lambda d: velas_minuto_del_dia(d, cache_m1))
     with open(salida, "w", encoding="utf-8") as fh:
         for f in fichas:
             fh.write(json.dumps(f, ensure_ascii=False) + "\n")
