@@ -28,7 +28,7 @@ ninguna operación, porque inventarse un dato sería peor que perderlo.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -97,12 +97,45 @@ class Seguimiento:
 
 
 def _velas_de_sesion(df, plan: PlanRuptura):
-    """Velas desde que abre la ventana de disparo hasta el cierre de la sesión."""
+    """Velas desde que abre la ventana de disparo hasta el cierre de la sesión.
+
+    La vela que EMPIEZA a la hora del cierre queda fuera. Antes entraba (``<=``)
+    y el histórico cerraba en realidad a las 17:00 de Nueva York, con una hora
+    más de stops y objetivos, mientras en vivo se cierra a las 16:00. Medido
+    sobre 2.209 operaciones de 2006-2026: con la hora de más +0,0819 R/op
+    (t = 3,13); cerrando cuando dice la estrategia, +0,0733 (t = 2,80).
+    """
     idx = df.index
     if getattr(idx, "tz", None) is None:
         idx = idx.tz_localize(timezone.utc)
-    mascara = (idx >= plan.sesion_desde) & (idx <= plan.cierre_forzoso)
+    mascara = (idx >= plan.sesion_desde) & (idx < plan.cierre_forzoso)
     return df[mascara]
+
+
+# Las velas son horarias y cada una se publica cuando TERMINA (Dukascopy, unos
+# 2 minutos después). A las 10:00 de Nueva York la vela de 9:00 a 10:00 aún no
+# está, y decidir entonces es decidir sin la última hora de la ventana.
+VELA = timedelta(hours=1)
+
+# Si la última vela no llega, pasado este margen se decide con lo que haya:
+# que falte una hora no puede dejar el día sin registrar para siempre.
+MARGEN_ULTIMA_VELA = timedelta(minutes=45)
+
+
+def _cubre_hasta(df, limite: datetime, ahora: datetime) -> bool:
+    """¿Hay velas hasta ``limite``? (o ya se esperó bastante).
+
+    Lo que pasó el 5-oct-2026 reproducido con el código de producción: a las
+    10:00 de Nueva York se dio la orden por caducada y se mandó «CANCELA»,
+    cuando la venta se había ejecutado a las 9:xx, dentro de la última vela de
+    la ventana, que se publicó dos minutos después.
+    """
+    if ahora >= limite + MARGEN_ULTIMA_VELA or df is None or len(df) == 0:
+        return ahora >= limite + MARGEN_ULTIMA_VELA
+    idx = df.index
+    if getattr(idx, "tz", None) is None:
+        idx = idx.tz_localize(timezone.utc)
+    return idx.max() + VELA >= limite
 
 
 def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
@@ -159,6 +192,10 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             # Dar el día por caducado grabaría un "no hubo operación" que quizá
             # es falso, y ese registro luego alimenta el aprendizaje.
             return Seguimiento(estado=EstadoPlan.ESPERANDO)
+        if ahora >= plan.valido_hasta and not _cubre_hasta(df, plan.valido_hasta, ahora):
+            # La ventana ha terminado pero su última vela aún no ha llegado:
+            # puede que la orden saltara justo en esa hora.
+            return Seguimiento(estado=EstadoPlan.ESPERANDO)
         if ahora >= plan.valido_hasta:
             s = Seguimiento(estado=EstadoPlan.CADUCADO)
             _añadir(s, avisados, AvisoSeguimiento(
@@ -202,6 +239,12 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
         if not movido_a_be and s.r_maximo >= r_break_even:
             movido_a_be = True
             s.stop_actual = orden.entrada
+            # Pasada la hora del cierre, «mueve el stop» llegaría DESPUÉS de
+            # «cierra la operación» (la última vela se publica a las 16:02): una
+            # orden sobre una posición que ya no existe. Para la ficha cuenta
+            # igual; solo no se avisa.
+            if ahora >= plan.cierre_forzoso:
+                continue
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:break-even", tipo=Evento.MOVER_STOP,
                 momento=momento, precio=float(v["close"]), r=s.r_maximo,
@@ -210,30 +253,33 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
                 cuerpo=(f"La operación te lleva {s.r_maximo:.1f}R de beneficio. "
                         f"Mueve el stop loss a {orden.entrada:.2f}, tu precio de "
                         f"entrada: a partir de ahí ya no puede perder dinero. "
-                        f"Medido sobre 2.131 roturas a la baja de 21 años, este "
-                        f"movimiento sube la ventaja de +0,086 a +0,103 R por "
+                        f"Medido sobre 2.209 operaciones de 21 años, este "
+                        f"movimiento sube la ventaja de +0,060 a +0,073 R por "
                         f"operación.")))
 
     # --- 3) ¿Toca cerrar a mano? ---
     if s.estado is EstadoPlan.ABIERTA and ahora >= plan.cierre_forzoso:
         ultimo = float(velas["close"].iloc[-1]) if len(velas) else orden.entrada
-        # El resultado del cierre a mano ES el resultado de la operación. Sin
-        # esto, todas las operaciones cerradas al final del día se registraban
-        # con 0.00R —ni ganadas ni perdidas— y el aprendizaje se quedaba solo
-        # con las que tocan stop u objetivo, que son las peores y las mejores.
-        # Se marca CERRADA: para el registro el día ya no puede cambiar. Dejarla
-        # como ABIERTA hacía que `ganada` saliera nulo en una operación que sí
-        # tuvo resultado, y el marcador se quedaba sin ella.
-        _cerrar(s, plan, ultimo, plan.cierre_forzoso, riesgo, "cierre de sesión")
+        r_ahora = signo * (ultimo - orden.entrada) / riesgo
+        # El aviso sale YA: quien opera tiene que cerrar a las 16:00, no cuando
+        # se publique la última vela. Con el último precio conocido.
         _añadir(s, avisados, AvisoSeguimiento(
             clave=f"{plan.dia}:cierre", tipo=Evento.CIERRE,
-            momento=plan.cierre_forzoso, precio=ultimo,
-            r=signo * (ultimo - orden.entrada) / riesgo,
-            destacado=f"{signo * (ultimo - orden.entrada) / riesgo:+.2f} R",
+            momento=plan.cierre_forzoso, precio=ultimo, r=r_ahora,
+            destacado=f"{r_ahora:+.2f} R",
             titulo="⏱ CIERRA la operación de XAU/USD, gane o pierda",
             cuerpo=(f"Se acaba la sesión. Cierra la posición a mercado: la "
                     f"estrategia no deja operaciones abiertas de un día para "
-                    f"otro. Vas {signo * (ultimo - orden.entrada) / riesgo:+.2f}R.")))
+                    f"otro. Vas {r_ahora:+.2f}R.")))
+        # La FICHA espera a la última vela de la sesión: sin ella, el resultado
+        # sería el precio de una hora antes y se perdería un posible stop en la
+        # última hora. Mientras tanto la operación sigue ABIERTA y no se graba.
+        if _cubre_hasta(df, plan.cierre_forzoso, ahora):
+            # El resultado del cierre a mano ES el resultado de la operación.
+            # Sin esto, todas las operaciones cerradas al final del día se
+            # registraban con 0.00R y el aprendizaje se quedaba solo con las que
+            # tocan stop u objetivo, que son las peores y las mejores.
+            _cerrar(s, plan, ultimo, plan.cierre_forzoso, riesgo, "cierre de sesión")
     return s
 
 

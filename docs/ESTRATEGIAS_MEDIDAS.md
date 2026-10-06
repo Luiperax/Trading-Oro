@@ -1234,3 +1234,32 @@ Tres cosas cambiadas para que no vuelva a pasar:
 
 Y el vigilante sube el estado al repositorio en cuanto cambia cualquier cosa
 —también los avisos de la tarde y la ficha del día—, no solo al mandar el plan.
+
+## 6-oct-2026: el histórico cerraba una hora tarde
+
+Reproduciendo días reales cada 3 minutos con el código de producción salieron
+dos fallos del seguimiento, y uno de ellos tocaba todas las cifras:
+
+* **Una vela de más.** El seguimiento incluía la vela que *empieza* a la hora
+  del cierre (16:00-17:00 de Nueva York). El histórico, que llama a ese mismo
+  código, cerraba en realidad a las 17:00, con una hora más de stops y
+  objetivos. En vivo se cierra a las 16:00. Corregido:
+
+| | n | R/op | t | R/año |
+|---|---|---|---|---|
+| **total** | 2.209 | **+0,0733** | **2,80** | **+7,81** |
+| días de empleo | 161 | +0,6448 | 4,58 | +5,00 |
+| resto (venta) | 2.048 | +0,0284 | 1,10 | +2,80 |
+
+  Mitades +0,0884 / +0,0575, 15 años positivos de 21, peor año −18,7 R (2006),
+  peor racha −45,4 R, acierto 38,8 %, ganadoras +1,23 R y perdedoras −0,66 R.
+  El total queda **justo por debajo de Bonferroni** para 12 hipótesis (2,87).
+  El día de empleo lo pasa de sobra; el resto de días no se distingue de cero.
+
+* **La última vela de cada ventana llega después de que la ventana acabe.** A
+  las 10:00 de Nueva York la vela de 9:00-10:00 aún no está publicada (Dukascopy
+  la sube ~2 minutos después). El 5-oct, reproducido, el seguimiento dio la
+  orden por caducada a las 10:00 y mandó «CANCELA», cuando la venta se había
+  ejecutado dentro de esa última hora. Ahora espera a esa vela (como mucho 45
+  minutos) antes de dar la orden por caducada o grabar el cierre. El aviso de
+  «CIERRA» sigue saliendo a su hora.

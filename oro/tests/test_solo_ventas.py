@@ -182,16 +182,17 @@ def test_el_correo_da_las_cifras_malas_tambien():
     plan, _ = _plan()
     for t in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "39 %" in t                       # acierta menos de la mitad.
-        assert "peor año" in t and "18,3 R" in t
-        assert "46 R" in t                       # la peor racha.
+        assert "peor año" in t and "18,7 R" in t
+        assert "45 R" in t                       # la peor racha.
         assert "21" in t                         # los años medidos.
         # Y que los costes están medidos, no supuestos: con 0,30 $ inventados y
         # sin deslizamiento la estrategia parecía rendir +0,114 R; con todo lo
-        # real, +0,079.
-        assert "deslizamiento" in t and "+0,082" in t
-        # Y que dice de dónde sale el rendimiento: no esconder que la mitad
-        # viene de unos pocos días al año.
-        assert "empleo" in t and "no demostrada por sí sola" in t
+        # real y cerrando a la hora de verdad, +0,073.
+        assert "deslizamiento" in t and "+0,073" in t
+        # Y que dice de dónde sale el rendimiento: no esconder que casi dos
+        # tercios vienen de unos pocos días al año y el resto no se distingue
+        # de cero.
+        assert "empleo" in t and "no se distingue de cero" in t
 
 
 def test_el_asunto_dice_una_orden_y_el_nivel_de_anulacion():
@@ -422,24 +423,32 @@ def test_la_cabecera_roja_lleva_el_texto_en_blanco():
     assert "#ffffff" not in cabecera(_ORO)
 
 
-def test_el_correo_dice_de_que_instrumento_salen_los_precios():
-    """El fallo más caro posible y el único que el sistema no puede detectar.
-
-    El feed en vivo es GC=F, el FUTURO de COMEX, porque Yahoo no sirve XAU/USD
-    al contado en velas horarias. En septiembre de 2026 el futuro cotizó 40,17 $
-    por encima del contado. Si el bróker de quien opera cotiza el contado, los
-    niveles del correo no existen en su pantalla y la orden se ejecutaría al
-    instante en vez de esperar a la ruptura. Desde aquí no se puede saber: el
-    sistema solo ve un feed. Así que se dice.
-    """
+def test_con_yahoo_el_correo_avisa_de_que_es_el_futuro(monkeypatch):
+    """Si se vuelve a Yahoo, el feed es GC=F, el FUTURO de COMEX (40,17 $ por
+    encima del contado en septiembre de 2026), y el correo tiene que decirlo."""
     from oro.notificaciones.plan import (aviso_instrumento, mensaje_de_plan,
                                          mensaje_html_de_plan)
 
+    monkeypatch.setenv("ORO_FUENTE_VIVO", "yahoo")
     plan, _ = _plan()
     assert "GC=F" in (aviso_instrumento() or "")
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "GC=F" in texto
         assert "CONTADO" in texto or "contado" in texto
+
+
+def test_con_el_contado_el_correo_no_habla_del_futuro():
+    """Fallo real: el 6-oct-2026 los niveles ya salían del contado de Dukascopy
+    y el correo seguía diciendo «Los precios salen de GC=F (futuro de oro de
+    COMEX)» y que el bróker marcaría 30-50 $ menos. Era falso y empujaba a
+    «corregir» unos niveles que estaban bien."""
+    from oro.notificaciones.plan import (aviso_instrumento, mensaje_de_plan,
+                                         mensaje_html_de_plan)
+
+    plan, _ = _plan()
+    assert aviso_instrumento() is None
+    for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
+        assert "GC=F" not in texto and "COMEX" not in texto
 
 
 def test_sin_desajuste_de_instrumento_el_correo_no_mete_ruido(monkeypatch):

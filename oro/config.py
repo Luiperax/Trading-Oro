@@ -243,15 +243,20 @@ class ConfiguracionRuptura:
     # del dato de empleo). Con las dos órdenes el día de empleo:
     #
     #                           n      R/op       t    R/año
-    #     total              2209   +0.0819    3.13    +8.62
-    #     días de empleo      161   +0.6387    4.58    +4.90
-    #     resto (venta)      2048   +0.0382    1.48    +3.72
+    #     total              2209   +0.0733    2.80    +7.81
+    #     días de empleo      161   +0.6448    4.58    +5.00
+    #     resto (venta)      2048   +0.0284    1.10    +2.80
     #
-    # Mitades +0.0830 / +0.0808, 15 años positivos de 21, peor año -18.3 R,
-    # peor racha -45.9 R. Más de la mitad del rendimiento sale de unos 8 días al
-    # año; el resto de días la venta es positiva pero NO está demostrada por sí
-    # sola (t = 1.48). Conviene saberlo. (Con el calendario real de FRED;
-    # con la regla de fechas sale +0.0786, porque falla los retrasos.)
+    # Mitades +0.0884 / +0.0575, 15 años positivos de 21, peor año -18.7 R,
+    # peor racha -45.4 R. Casi dos tercios del rendimiento salen de unos 8 días
+    # al año; el resto de días la venta NO se distingue de cero (t = 1.10). Y
+    # el total, con t = 2.80, queda justo por debajo del listón de Bonferroni
+    # para 12 hipótesis (2.87); el día de empleo solo lo pasa de sobra.
+    # (Con el calendario real de FRED.)
+    #
+    # Hasta el 6-oct-2026 estas cifras eran +0.0819 (t = 3.13): el seguimiento
+    # metía la vela de 16:00 a 17:00 de Nueva York, así que el histórico cerraba
+    # una hora más tarde de lo que dice la estrategia y de lo que se opera.
     #
     # Las cifras viejas (+0.1143, t = 4.37) suponían 0.30 $ de coste y ningún
     # deslizamiento. Ninguna de las dos cosas se había medido.

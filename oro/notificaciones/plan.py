@@ -21,7 +21,6 @@ from __future__ import annotations
 from ..sesiones import OrdenPendiente, PlanRuptura
 from ..tiempo import etiqueta_zona, hora_local
 from .base import (
-    _cierre_local,
     _BORDE,
     _FONDO,
     _FUENTE,
@@ -54,15 +53,14 @@ def riesgo_por_onza(plan: PlanRuptura) -> float:
 def hora_cierre(plan: PlanRuptura) -> str:
     """A qué hora hay que cerrar la operación, en la hora del usuario.
 
-    Son las 21:50 casi todo el año, pero Europa y EE. UU. no cambian la hora el
-    mismo fin de semana (1 semana desfasada en octubre y 3 en marzo) y esas
-    cuatro semanas el mercado ya ha cerrado a las 21:00. Decir "21:50" entonces
-    sería mandar a cerrar una posición que ya se cerró sola.
+    Es la hora del cierre de la estrategia (16:00 de Nueva York), la misma a la
+    que el seguimiento manda el aviso de «CIERRA» y la misma con la que está
+    medido el histórico. Antes decía las 21:50 —la hora del aviso del motor
+    intradía, que está apagado— y el aviso del cierre llegaba a las 22:00: dos
+    horas distintas para lo mismo. Las semanas en que Europa y EE. UU. no han
+    cambiado aún la hora a la vez, sale sola la hora correcta (las 21:00).
     """
-    from ..config import cargar_configuracion
-
-    return _cierre_local(plan.cierre_forzoso,
-                         cargar_configuracion().ruptura.cierre_et)
+    return hora_local(plan.cierre_forzoso)
 
 
 def texto_confianza(plan: PlanRuptura) -> str:
@@ -75,17 +73,17 @@ def texto_confianza(plan: PlanRuptura) -> str:
         return ("Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York "
                 "y van LAS DOS órdenes. Ese día la rotura no es una rotura "
                 "cualquiera: es el mercado reaccionando al dato, y sigue en la "
-                "dirección en que sale, en las dos. Medido sobre 160 días de "
+                "dirección en que sale, en las dos. Medido sobre 161 días de "
                 "empleo de 21 años, con el relleno real sacado tick a tick: "
                 "+0,64 R por operación (t = 4,58). Son unos 8 días al año y "
-                "aportan más de la mitad del rendimiento anual de la estrategia.")
+                "aportan casi dos tercios del rendimiento anual de la estrategia.")
     if plan.solo_ventas:
         # Con una sola orden no hay nada que elegir, y la pregunta que importa
         # no es «qué lado» sino «por qué solo este».
         return ("Hoy solo va una orden, y a la baja. Medido sobre 21 años con "
                 "todos los costes reales (spread y deslizamiento sacados de los "
-                "ticks): la estrategia da +0,082 R por operación (t = 3,13, "
-                "+0,083 y +0,081 en las dos mitades del histórico). La rotura al "
+                "ticks): la estrategia da +0,073 R por operación (t = 2,80; "
+                "+0,088 y +0,058 en las dos mitades del histórico). La rotura al "
                 "alza no se opera porque resta: solo 4 años a favor de 21.")
     if plan.favorita is None:
         return ("Hoy la sesión asiática ha cerrado casi donde abrió, así que no "
@@ -112,11 +110,11 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
                 "Usa una orden OCO si tu bróker la tiene: a esa hora pueden "
                 "saltar las dos en segundos y no da tiempo a cancelar a mano.")
     if plan is not None and plan.solo_ventas:
-        return ("El límite: son +8,6 R al año, unos 129 € con 0,5 % de riesgo "
+        return ("El límite: son +7,8 R al año, unos 117 € con 0,5 % de riesgo "
                 "sobre 3.000 €, y 6 de los 21 años fueron en pérdida (el peor, "
-                "-18,3 R). Más de la mitad de eso sale de los ~8 días de empleo "
-                "al año; el resto de días la venta da +0,04 R, positiva pero no "
-                "demostrada por sí sola. Espera rachas negativas de 46 R.")
+                "-18,7 R). Casi dos tercios salen de los ~8 días de empleo al "
+                "año; el resto de días la venta da +0,03 R, que no se distingue "
+                "de cero. Espera rachas negativas de 45 R.")
     return ("De dónde sale: se probaron 8 condiciones distintas conocidas a las "
             "8:00 (dólar, medias de 5 y 20 días, dónde cierra Londres, anchura "
             "del rango, cierre de ayer) combinadas en un modelo entrenado con "
@@ -279,13 +277,14 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
             "Acierta el 39 % de las veces: la mayoría de los días pierde. Gana "
             "porque las ganadoras valen +1,23 R de media y las perdedoras -0,66 R.",
             "Medido sobre 2.209 operaciones de 21 años con TODOS los costes "
-            "reales —spread de cada año y deslizamiento, sacados de los ticks—: "
-            "+0,082 R por operación, 15 años en positivo de 21.",
-            "El peor año perdió 18,3 R y la peor racha fue de 46 R. Con 0,5 % de "
-            "riesgo sobre 3.000 € eso son -274 € y -688 €, con +129 € de media al año.",
+            "reales —spread de cada año y deslizamiento, sacados de los ticks— "
+            "y cerrando a la hora de verdad: +0,073 R por operación, 15 años en "
+            "positivo de 21.",
+            "El peor año perdió 18,7 R y la peor racha fue de 45 R. Con 0,5 % de "
+            "riesgo sobre 3.000 € eso son -281 € y -681 €, con +117 € de media al año.",
             "Los días de empleo (unos 8 al año) dan +0,64 R por operación y "
-            "aportan más de la mitad. El resto de días la venta da +0,04 R: "
-            "positiva, pero no demostrada por sí sola.",
+            "aportan casi dos tercios. El resto de días la venta da +0,03 R: "
+            "no se distingue de cero.",
         )
     return (
         "Acierta el 45 % de las veces: la mayoría de los días pierde. Gana "
@@ -313,14 +312,18 @@ def aviso_instrumento() -> str | None:
     """
     from ..config import cargar_configuracion
 
-    simbolo = (cargar_configuracion().simbolo_vivo or "").upper()
+    cfg = cargar_configuracion()
+    if cfg.fuente_vivo == "dukascopy":
+        # El contado de verdad: no hay prima de futuro que advertir. Lo que sí
+        # puede variar es el spread de cada bróker, que mueve unos céntimos.
+        return None
+    simbolo = (cfg.simbolo_vivo or "").upper()
     if simbolo in ("XAUUSD", "XAU/USD", "GOLD", "XAUUSD=X"):
         return None
-    return (f"Los precios salen de {simbolo or 'GC=F'} (futuro de oro de COMEX: "
-            f"es el único feed horario gratuito). Si tu bróker cotiza XAU/USD al "
-            f"CONTADO, marcará unos 30-50 $ menos y estos niveles no le valdrán. "
-            f"Compruébalo una vez contra tu pantalla antes de poner la primera "
-            f"orden.")
+    return (f"Los precios salen de {simbolo or 'GC=F'} (futuro de oro de COMEX). "
+            f"Si tu bróker cotiza XAU/USD al CONTADO, marcará unos 30-50 $ menos "
+            f"y estos niveles no le valdrán. Compruébalo una vez contra tu "
+            f"pantalla antes de poner la primera orden.")
 
 
 def _titulo_ordenes(plan: PlanRuptura) -> str:

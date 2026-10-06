@@ -39,7 +39,7 @@ from typing import Iterator, Optional
 
 from .config import ConfiguracionSistema, cargar_configuracion
 from .dominio.mercado import dia_sesion, hora_mercado
-from .seguimiento import deslizamiento_de, registro_de, seguir
+from .seguimiento import MARGEN_ULTIMA_VELA, deslizamiento_de, registro_de, seguir
 from .spread import spread_de
 from .sesiones import construir_plan
 
@@ -85,7 +85,11 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None) -> list[dict]:
             continue
         plan = res.plan
         # Y ahora sí, el día entero, para ver qué pasó con el plan.
-        s = seguir(plan, velas, ahora=plan.cierre_forzoso)
+        # `ahora` pasado el margen de la última vela: en el histórico todo está
+        # ya publicado. Con `ahora` justo en el cierre, los días de cierre
+        # temprano (festivos de EE. UU., sin velas hasta las 16:00) se quedaban
+        # «abiertos», esperando una vela que no existe.
+        s = seguir(plan, velas, ahora=plan.cierre_forzoso + MARGEN_ULTIMA_VELA)
         # El coste de CADA AÑO, no el de hoy. Un coste fijo para 21 años es
         # falso en los dos extremos: cobrarle a 2016 el spread de 2026 (0.63 $
         # frente a 0.295 real) baja el resultado histórico de +0.1029 a +0.0680

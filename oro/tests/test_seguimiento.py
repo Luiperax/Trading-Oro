@@ -579,3 +579,70 @@ def test_si_la_hora_no_aparece_a_las_9_se_manda_con_lo_que_hay(entorno):
     _servir(monkeypatch, _marco(DIA, {**ASIA_SUBE, **sin_la_3}))
     assert plan_sesion.ejecutar(ahora=_a_las(9, 5)) == 0
     assert len(espia.planes) == 1
+
+
+# ---- La última vela de cada ventana llega DESPUÉS de que la ventana acabe ----
+# Reproducido el 5-oct-2026 con el código de producción y velas reales: a las
+# 10:00 de Nueva York se mandó «CANCELA» porque la vela de 9:00-10:00 aún no
+# estaba publicada, y en esa vela la venta se había ejecutado.
+
+def test_sin_la_ultima_vela_de_la_ventana_no_se_da_por_caducada():
+    plan, _ = _plan()
+    df = _con_sesion({8: (4020, 4002)})                 # falta la de 9:00
+    s = seguir(plan, df, ahora=_a_las(10, 1))
+    assert s.estado is EstadoPlan.ESPERANDO and s.avisos == []
+
+
+def test_cuando_llega_la_ultima_vela_se_ve_la_entrada():
+    plan, _ = _plan()
+    df = _con_sesion({8: (4020, 4002), 9: (4005, 3990)})
+    s = seguir(plan, df, ahora=_a_las(10, 3))
+    assert s.estado is EstadoPlan.ABIERTA and s.direccion is Direccion.VENTA
+
+
+def test_si_la_ultima_vela_no_llega_nunca_se_decide_con_lo_que_hay():
+    plan, _ = _plan()
+    df = _con_sesion({8: (4020, 4002)})
+    s = seguir(plan, df, ahora=_a_las(10, 50))
+    assert s.estado is EstadoPlan.CADUCADO
+
+
+def test_el_cierre_avisa_a_su_hora_y_graba_cuando_llega_la_ultima_vela():
+    plan, _ = _plan()
+    sesion = {8: (4005, 3990), 9: (3995, 3985), 10: (3992, 3984),
+              11: (3990, 3982), 12: (3991, 3983), 13: (3990, 3984),
+              14: (3989, 3983)}
+    s = seguir(plan, _con_sesion(sesion), ahora=_a_las(16, 0))
+    assert any(a.clave.endswith(":cierre") for a in s.avisos)
+    assert s.estado is EstadoPlan.ABIERTA            # aún falta la de 15:00
+    s = seguir(plan, _con_sesion({**sesion, 15: (3988, 3980)}),
+               ahora=_a_las(16, 3), avisados={f"{plan.dia}:cierre"})
+    assert s.estado is EstadoPlan.CERRADA and s.motivo_cierre == "cierre de sesión"
+    assert s.salida == pytest.approx((3988 + 3980) / 2)   # el cierre de las 16:00
+    assert s.avisos == []                                  # el aviso no se repite
+
+
+def test_la_vela_de_despues_del_cierre_no_cuenta():
+    """Antes entraba y el histórico cerraba de verdad a las 17:00."""
+    plan, _ = _plan()
+    sesion = {8: (4005, 3990), 9: (3995, 3985), 10: (3992, 3984),
+              11: (3990, 3982), 12: (3991, 3983), 13: (3990, 3984),
+              14: (3989, 3983), 15: (3988, 3980),
+              16: (4030, 3900)}                    # después del cierre: ni stop ni objetivo
+    s = seguir(plan, _con_sesion(sesion), ahora=_a_las(17))
+    assert s.motivo_cierre == "cierre de sesión"
+    assert s.salida == pytest.approx(3984)
+
+
+def test_despues_del_cierre_no_se_manda_mover_el_stop():
+    """Reproducido el 10-sep-2026: la vela de 15:00 (publicada a las 16:02)
+    llevaba la operación a 1R, y el «MUEVE EL STOP» llegaba DESPUÉS del
+    «CIERRA». Para la ficha cuenta; avisar no tiene sentido."""
+    plan, _ = _plan()
+    sesion = {8: (4005, 3990), 9: (3995, 3985), 10: (3992, 3984),
+              11: (3990, 3982), 12: (3991, 3983), 13: (3990, 3984),
+              14: (3989, 3983), 15: (3985, 3970)}       # 1R = 3972 en la última
+    s = seguir(plan, _con_sesion(sesion), ahora=_a_las(16, 3),
+               avisados={f"{plan.dia}:cierre"})
+    assert not any(a.tipo is Evento.MOVER_STOP for a in s.avisos)
+    assert s.estado is EstadoPlan.CERRADA
