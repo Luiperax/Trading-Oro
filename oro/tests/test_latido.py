@@ -16,6 +16,9 @@ def _escribir_estado(tmp_path, monkeypatch, datos):
 
 
 def _sin_red(monkeypatch):
+    # Estas pruebas cubren el parte del motor de señales, que solo aparece si
+    # está encendido. El del plan de ruptura está en test_parte_ruptura.py.
+    monkeypatch.setenv("ORO_SENALES_ACTIVAS", "1")
     monkeypatch.setattr("oro.latido._motivo_actual",
                         lambda cfg: (4700.0, "mercado en rango"))
 
@@ -215,6 +218,7 @@ def test_parte_cuenta_la_sesion_en_orden_cronologico(tmp_path, monkeypatch):
              "direccion": "compra", "entrada": 4290.0, "stop": 4280.0,
              "prob": 0.65, "mensaje": "ENTRADA COMPRA"},
         ]}), encoding="utf-8")
+    monkeypatch.setenv("ORO_SENALES_ACTIVAS", "1")
     monkeypatch.setattr(latido, "_motivo_actual", lambda cfg: (4300.0, "sin sesgo"))
 
     ahora = datetime(2026, 8, 28, 5, 10, tzinfo=timezone.utc)

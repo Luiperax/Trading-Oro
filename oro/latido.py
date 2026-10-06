@@ -28,6 +28,11 @@ from .dominio.mercado import APERTURA_ET, dia_sesion, hora_mercado
 from .tiempo import etiqueta_zona, hora_local
 
 
+def _esc_html(t: str) -> str:
+    import html
+    return html.escape(t)
+
+
 def _estado(ruta: str) -> dict:
     p = Path(ruta)
     if not p.exists():
@@ -74,6 +79,86 @@ def _motivo_actual(cfg) -> tuple[float | None, str]:
         return None, f"no se pudo consultar el mercado ({type(e).__name__})."
 
 
+def _precio_contado() -> float | None:
+    """Último cierre horario del contado (Dukascopy), o None. Sin reintentos
+    largos: el parte no puede quedarse colgado por la red."""
+    try:
+        from .datos.dukascopy_vivo import ProveedorDukascopyVivo
+        return float(ProveedorDukascopyVivo(intentos=2).historico(6)["close"].iloc[-1])
+    except Exception:  # noqa: BLE001
+        return None
+
+
+_ESTADOS = {
+    "cerrada": "operación cerrada",
+    "anulado": "anulada: el rango se rompió antes por arriba",
+    "caducado": "caducada: el precio no salió del rango a tiempo",
+    "ambigua": "ambigua: rompió por los dos lados en la misma hora",
+}
+
+
+def _ruptura(sesion: date) -> dict:
+    """Qué pasó con el plan de ruptura de esa sesión, y el acumulado real.
+
+    Es lo único que opera el sistema mientras el motor de señales está
+    apagado. El parte hablaba solo de señales («llevas 4 días sin señales; los
+    filtros son muy selectivos») y no decía nada del plan: justo lo contrario
+    de lo que hace falta saber.
+    """
+    from .plan_sesion import _ruta_estado
+    from .seguir_plan import RUTA_RUPTURAS
+
+    estado = _estado(str(_ruta_estado()))
+    plan = estado.get("plan") or {}
+    enviado = estado.get("ultimo_plan") == sesion.isoformat()
+    fichas = []
+    ruta = Path(os.getenv("ORO_RUTA_RUPTURAS", RUTA_RUPTURAS))
+    if ruta.exists():
+        for linea in ruta.read_text(encoding="utf-8").splitlines():
+            try:
+                fichas.append(json.loads(linea))
+            except ValueError:
+                continue
+    ficha = next((f for f in reversed(fichas) if f.get("dia") == sesion.isoformat()), None)
+    con_r = [f["r_neto"] for f in fichas if f.get("r_neto") is not None]
+    return {
+        "enviado": enviado,
+        "venta": (plan.get("venta") or {}).get("entrada") if enviado else None,
+        "techo": (plan.get("compra") or {}).get("entrada") if enviado else None,
+        "empleo": bool(plan.get("dia_de_empleo")) if enviado else False,
+        "avisos": [a.split(":", 1)[1] for a in estado.get("avisados", [])
+                   if a.startswith(sesion.isoformat())] if enviado else [],
+        "ficha": ficha,
+        "nota": estado.get("nota") or estado.get("descartado") if enviado else None,
+        "operaciones": len(con_r),
+        "r_total": sum(con_r),
+    }
+
+
+def _lineas_ruptura(r: dict) -> list[str]:
+    L = ["PLAN DE RUPTURA:"]
+    if not r["enviado"] and r["ficha"] is None:
+        L.append("  Esa sesión no hubo plan (no se envió o no tocaba).")
+    else:
+        if r["empleo"]:
+            L.append(f"  Día de empleo: compra {r['techo']:.2f} / venta {r['venta']:.2f}.")
+        elif r["venta"] is not None and r["techo"] is not None:
+            L.append(f"  Venta en {r['venta']:.2f} (se anulaba si subía de {r['techo']:.2f}).")
+        f = r["ficha"]
+        if f is None:
+            L.append("  " + (r["nota"] or "Sin ficha registrada todavía."))
+        else:
+            L.append(f"  Resultado: {_ESTADOS.get(f.get('estado'), f.get('estado'))}.")
+            if f.get("r_neto") is not None:
+                L.append(f"  {str(f.get('direccion')).upper()} {f.get('entrada')} → "
+                         f"{f.get('salida')} ({f.get('motivo_cierre')}): "
+                         f"{f['r_neto']:+.2f} R con costes.")
+        if r["avisos"]:
+            L.append(f"  Avisos mandados: {', '.join(r['avisos'])}.")
+    L.append(f"  Acumulado real: {r['operaciones']} operación(es), {r['r_total']:+.2f} R.")
+    return L
+
+
 def _recopilar(cfg, ahora: datetime) -> dict:
     """Reúne todo lo que el parte necesita contar."""
     sesion = sesion_a_informar(ahora)
@@ -100,8 +185,13 @@ def _recopilar(cfg, ahora: datetime) -> dict:
                 pass
             break
 
-    precio, motivo = _motivo_actual(cfg)
+    if cfg.senales_activas:
+        precio, motivo = _motivo_actual(cfg)
+    else:
+        precio, motivo = _precio_contado(), ""
     return {
+        "senales": cfg.senales_activas,
+        "ruptura": _ruptura(sesion),
         "sesion": sesion,
         "ahora": ahora,
         "entradas": _de_la_sesion({"entrada"}),
@@ -139,6 +229,12 @@ def construir_parte(cfg, ahora: datetime | None = None) -> str:
          "=" * 46,
          f"El vigilante está EN MARCHA. (Horas en {etiqueta_zona(d['ahora'])}, tu hora.)"]
     L.append(f"Oro ahora: {d['precio']:.2f} $" if d["precio"] else "Oro ahora: (sin dato)")
+    L.append("")
+    L += _lineas_ruptura(d["ruptura"])
+    if not d["senales"]:
+        L += ["", "(El motor de señales intradía está apagado: solo opera el plan.)",
+              "", "Parte automático. Análisis, no asesoramiento financiero."]
+        return "\n".join(L)
     L.append("")
     L.append(f"En esa sesión: {len(d['entradas'])} entrada(s), {len(d['salidas'])} salida(s), "
              f"{len(d['gestiones'])} aviso(s) de gestión.")
@@ -240,6 +336,25 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
             f'⚠ <b>{d["dias_sin"]} días sin señales.</b> No es una avería: los filtros son '
             f'muy selectivos y el oro lleva en rango.</div>')
 
+    lineas_r = _lineas_ruptura(d["ruptura"])
+    bloque_ruptura = (
+        f'<div style="background:#111823;border-left:3px solid {_ORO};'
+        f'border-radius:8px;padding:12px 14px;margin-top:6px;">'
+        f'<div style="color:{_ORO};font-size:12px;font-weight:700;'
+        f'text-transform:uppercase;letter-spacing:.5px;">Plan de ruptura</div>'
+        + "".join(f'<div style="color:{_TEXTO};font-size:13px;margin-top:3px;">'
+                  f'{_esc_html(t.strip())}</div>' for t in lineas_r[1:])
+        + '</div>')
+    if not d["senales"]:
+        bloque_actividad = bloque_abiertas = bloque_motivo = bloque_silencio = ""
+        cifras = ""
+    else:
+        cifras = (f'<tr><td style="padding:8px 12px;">'
+                  f'<table role="presentation" width="100%" style="border-collapse:collapse;'
+                  f'background:#111823;border-radius:12px;"><tr>'
+                  f'{_cifra(len(d["entradas"]), "Entradas", _VERDE)}'
+                  f'{_cifra(len(d["salidas"]), "Salidas", _ROJO)}'
+                  f'{_cifra(len(d["gestiones"]), "Gestión", _AMBAR)}</tr></table></td></tr>')
     precio = f"{d['precio']:.2f} $" if d["precio"] else "sin dato"
     return f"""\
 <div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
@@ -255,14 +370,9 @@ def construir_parte_html(cfg, ahora: datetime | None = None) -> str:
         ✓ El vigilante está EN MARCHA · Oro ahora <b style="color:{_TEXTO};">{precio}</b>
       </div>
     </td></tr>
-    <tr><td style="padding:8px 12px;">
-      <table role="presentation" width="100%" style="border-collapse:collapse;background:#111823;border-radius:12px;">
-       <tr>{_cifra(len(d['entradas']), 'Entradas', _VERDE)}
-           {_cifra(len(d['salidas']), 'Salidas', _ROJO)}
-           {_cifra(len(d['gestiones']), 'Gestión', _AMBAR)}</tr>
-      </table>
-    </td></tr>
+    {cifras}
     <tr><td style="padding:6px 22px 18px;">
+      {bloque_ruptura}
       {bloque_actividad}
       {bloque_abiertas}
       {bloque_motivo}

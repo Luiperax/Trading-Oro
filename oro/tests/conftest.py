@@ -54,3 +54,9 @@ def _sin_lbma_en_red(monkeypatch):
 def _sin_fred_en_red(monkeypatch):
     """Las pruebas no llaman a FRED: sin clave, el calendario va por la regla."""
     monkeypatch.delenv("ORO_FRED_CLAVE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _sin_precio_en_red(monkeypatch):
+    """El parte no sale a Dukascopy en las pruebas."""
+    monkeypatch.setattr("oro.latido._precio_contado", lambda: None)
