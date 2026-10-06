@@ -204,3 +204,10 @@ def test_el_paso_opcional_de_break_even_da_su_cifra(plan):
     for texto in (mensaje_de_plan(plan), mensaje_html_de_plan(plan)):
         assert "OPCIONAL" in texto
         assert "+0,077" in texto and "+0,069" in texto
+
+
+@pytest.fixture(autouse=True)
+def _correo_de_operar(monkeypatch):
+    """Estas pruebas cubren el correo de OPERAR. El de «solo papel», que es el
+    que va puesto desde el 6-oct-2026, está en test_solo_papel.py."""
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "0")

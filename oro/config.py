@@ -218,7 +218,7 @@ class ConfiguracionRuptura:
     Ajustable por entorno: ORO_RUPTURA_ACTIVA, ORO_RUPTURA_R_OBJETIVO,
     ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO,
     ORO_RUPTURA_SOLO_VENTAS, ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA,
-    ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO.
+    ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO, ORO_RUPTURA_SOLO_PAPEL.
     """
 
     # Interruptor general. Se apaga con ORO_RUPTURA_ACTIVA=0 sin tocar nada más.
@@ -299,6 +299,19 @@ class ConfiguracionRuptura:
     # Añade +3.10 R al año en días que hoy se anulan. Detalle y cálculo de la
     # fecha en `oro.calendario`.
     dos_ordenes_en_dia_de_empleo: bool = True
+
+    # SOLO PAPEL desde el 6-oct-2026. El plan se sigue mandando y siguiendo,
+    # pero marcado «no operes con dinero real». Motivo: el histórico dejaba
+    # fuera de las cifras los ~360 días en que una misma vela horaria cruza el
+    # techo y el suelo del rango (no se sabía qué fue primero). Resueltos con
+    # velas de un minuto (`python -m oro.ambiguos`) son pérdidas casi seguras
+    # —la venta salta y en esa hora sube hasta el stop—: −0,81 R de media en
+    # los primeros 209. Con ellos dentro la estrategia no tiene ventaja: los
+    # días de empleo pasan de +0,64 a +0,02 R/op (1 de cada 3 es ambiguo, por
+    # el salto de las 8:30) y el resto queda en −0,04. Se vuelve a operar con
+    # ORO_RUPTURA_SOLO_PAPEL=0, y no debería hacerse sin una estrategia que
+    # aguante con esos días contados.
+    solo_papel: bool = True
 
     # La ventana cuyo máximo y mínimo forman el rango, en hora de NUEVA YORK:
     # 3:00-8:00, que es la mañana de Londres. Se probaron 2-8, 3-7 y 4-8: las
@@ -704,6 +717,7 @@ def cargar_configuracion() -> ConfiguracionSistema:
     cfg.ruptura.dos_ordenes_en_dia_de_empleo = _bool(
         "ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO", cfg.ruptura.dos_ordenes_en_dia_de_empleo
     )
+    cfg.ruptura.solo_papel = _bool("ORO_RUPTURA_SOLO_PAPEL", cfg.ruptura.solo_papel)
     return cfg
 
 

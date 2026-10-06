@@ -140,8 +140,10 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     # ejecución siguiente lo reintenta: es la misma disciplina que las señales.
     if s.avisos:
         notificador = _construir_notificador()
+        papel = cfg.ruptura.solo_papel
         for aviso in s.avisos:
-            if notificador.enviar(aviso.titulo, aviso.cuerpo, aviso.tipo,
+            titulo = (f"📝 [papel] {aviso.titulo}" if papel else aviso.titulo)
+            if notificador.enviar(titulo, aviso.cuerpo, aviso.tipo,
                                   html=aviso.html()):
                 avisados.add(aviso.clave)
             else:

@@ -475,3 +475,10 @@ def test_el_proveedor_en_vivo_recibe_el_simbolo_configurado():
                    inspect.getsource(runner.RunnerVivo.__init__)):
         assert "simbolo_vivo" in fuente, (
             "el proveedor en vivo no recibe el símbolo configurado")
+
+
+@pytest.fixture(autouse=True)
+def _correo_de_operar(monkeypatch):
+    """Estas pruebas cubren el correo de OPERAR. El de «solo papel», que es el
+    que va puesto desde el 6-oct-2026, está en test_solo_papel.py."""
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "0")

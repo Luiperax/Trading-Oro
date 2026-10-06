@@ -40,6 +40,24 @@ _R_A_FAVOR = "+0,088"
 _R_EN_CONTRA = "+0,013"
 
 
+# ---- Modo «solo papel» (ver ConfiguracionRuptura.solo_papel) ----
+PAPEL_TITULO = "📝 SOLO PAPEL — NO OPERES CON DINERO REAL"
+PAPEL_EXPLICACION = (
+    "Revisión del 6-oct-2026: el histórico dejaba fuera de las cifras los días "
+    "en que, en la misma hora, el precio cruza el techo Y el suelo del rango "
+    "(unos 17 al año, y 1 de cada 3 días de empleo por el salto de las 8:30). "
+    "Resueltos con velas de un minuto, son pérdidas casi seguras: la venta salta "
+    "y en esa misma hora el precio sube hasta el stop. Con esos días contados la "
+    "estrategia no tiene ventaja (días de empleo +0,02 R por operación, resto "
+    "-0,04). Este plan se manda para seguir midiendo en real, no para operarlo.")
+
+
+def en_papel() -> bool:
+    from ..config import cargar_configuracion
+
+    return cargar_configuracion().ruptura.solo_papel
+
+
 def riesgo_por_onza(plan: PlanRuptura) -> float:
     """Lo que se pierde por cada onza si salta el stop: el rango entero.
 
@@ -69,6 +87,9 @@ def texto_confianza(plan: PlanRuptura) -> str:
     El orden de la frase importa: primero lo que NO es, porque es lo que todo
     el mundo asume al leerla, y después lo que sí.
     """
+    if en_papel():
+        return ("Es el plan de la estrategia tal cual, para comparar con lo que "
+                "haga el precio. El motivo de no operarlo está arriba.")
     if plan.dia_de_empleo:
         return ("Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York "
                 "y van LAS DOS órdenes. Ese día la rotura no es una rotura "
@@ -102,6 +123,9 @@ def texto_confianza(plan: PlanRuptura) -> str:
 
 def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     """El límite de lo anterior, sin el cual la frase promete de más."""
+    if en_papel():
+        return ("Las cifras que se daban antes (+0,073 R por operación, +7,8 R "
+                "al año) no contaban esos días y ya no valen.")
     if plan is not None and plan.dia_de_empleo:
         return ("Cuidado con las 8:30: el precio salta de golpe y la orden se "
                 "llena en el primer precio que cruza el nivel, no en el nivel. "
@@ -203,7 +227,7 @@ def pasos_plan(plan: PlanRuptura) -> list[str]:
 def mensaje_de_plan(plan: PlanRuptura) -> str:
     """Versión en texto plano (respaldo y clientes sin HTML)."""
     zona = etiqueta_zona(plan.valido_hasta)
-    lineas = [
+    lineas = ([PAPEL_TITULO, "", PAPEL_EXPLICACION, ""] if en_papel() else []) + [
         "⚡ PLAN DEL DÍA — XAU/USD · ruptura del rango de la mañana",
         "",
         f"Rango de la mañana de Londres: {plan.rango.bajo:.2f} — {plan.rango.alto:.2f}",
@@ -250,12 +274,14 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         + ("Después, cancélala." if plan.solo_ventas else "Después, cancela las dos."),
         f"Cierre a mano: {hora_cierre(plan)} ({zona}), gane o pierda.",
         "",
-        "QUÉ HACER, paso a paso:",
+        ("LO QUE HARÍA LA ESTRATEGIA (no lo hagas con dinero real):" if en_papel()
+         else "QUÉ HACER, paso a paso:"),
     ]
     lineas += [f"  {i}. {t}" for i, t in enumerate(pasos_plan(plan), 1)]
     lineas += [
         "",
-        "LO QUE HAY QUE SABER ANTES DE OPERARLA:",
+        ("POR QUÉ VA EN PAPEL:" if en_papel()
+         else "LO QUE HAY QUE SABER ANTES DE OPERARLA:"),
     ]
     lineas += [f"  • {t}" for t in _hechos_honestos(plan)]
     lineas += [
@@ -272,6 +298,13 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
     distintas: cuando estaban duplicados, cambiar la estrategia dejó el texto
     plano citando las cifras de la versión anterior.
     """
+    if en_papel():
+        return (
+            "Los niveles son los de la estrategia, para comparar con lo que haga "
+            "el precio. Los avisos de la tarde también llegarán, marcados igual.",
+            "Se vuelve a operar solo si aparece una regla que aguante con esos "
+            "días contados, medida sin mirar el resultado antes de declararla.",
+        )
     if plan.solo_ventas or plan.dia_de_empleo:
         return (
             "Acierta el 39 % de las veces: la mayoría de los días pierde. Gana "
@@ -327,6 +360,8 @@ def aviso_instrumento() -> str | None:
 
 
 def _titulo_ordenes(plan: PlanRuptura) -> str:
+    if en_papel():
+        return "La orden del plan (solo papel)"
     return ("Deja esta orden puesta" if plan.solo_ventas
             else "Deja estas dos órdenes puestas")
 
@@ -421,12 +456,19 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
         f'line-height:1.5;">• {_esc(t)}</td></tr>'
         for t in _hechos_honestos(plan))
 
+    banda_papel = (
+        f'<tr><td style="background:{_ROJO};border-radius:18px 18px 0 0;padding:14px 24px;">'
+        f'<div style="color:#ffffff;font-size:17px;font-weight:800;">{_esc(PAPEL_TITULO)}</div>'
+        f'<div style="color:#ffffff;font-size:12px;line-height:1.5;margin-top:6px;">'
+        f'{_esc(PAPEL_EXPLICACION)}</div></td></tr>' if en_papel() else "")
+    radio_oro = "0" if en_papel() else "18px 18px 0 0"
     return f"""\
 <div style="margin:0;padding:22px 10px;background:{_FONDO};font-family:{_FUENTE};">
  <table role="presentation" align="center" width="100%" style="max-width:460px;margin:0 auto;border-collapse:collapse;">
   <tr><td style="background:{_TARJETA};border:1px solid {_BORDE};border-radius:18px;">
    <table role="presentation" width="100%" style="border-collapse:collapse;">
-    <tr><td style="background:{_ORO};border-radius:18px 18px 0 0;padding:16px 24px;">
+    {banda_papel}
+    <tr><td style="background:{_ORO};border-radius:{radio_oro};padding:16px 24px;">
       <div style="color:#0b0e14;font-size:12px;letter-spacing:3px;opacity:.75;">◆ XAU/USD · ORO</div>
       <div style="color:#0b0e14;font-size:23px;font-weight:800;margin-top:2px;">⚡ PLAN DEL DÍA</div>
     </td></tr>
@@ -451,12 +493,12 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
 
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;">
        <tr><td style="background:#0e131c;border-radius:12px;padding:14px 16px;">
-         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Qué hacer, paso a paso</div>
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">{"Lo que haría la estrategia (no lo hagas con dinero real)" if en_papel() else "Qué hacer, paso a paso"}</div>
          {pasos}
        </td></tr>
       </table>
 
-      <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Lo que hay que saber antes de operarla</div>
+      <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">{"Por qué va en papel" if en_papel() else "Lo que hay que saber antes de operarla"}</div>
       <table role="presentation" width="100%" style="border-collapse:collapse;">{honestidad}</table>
     </td></tr>
     <tr><td style="background:#0e131c;border-radius:0 0 18px 18px;padding:12px 24px;">

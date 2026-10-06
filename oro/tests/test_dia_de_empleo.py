@@ -197,3 +197,10 @@ def test_el_campo_viaja_por_json():
     plan = _plan("2024-09-06")
     vuelta = PlanRuptura(**_rehidratar(serializar(plan)))
     assert vuelta.dia_de_empleo is True and vuelta.solo_ventas is False
+
+
+@pytest.fixture(autouse=True)
+def _correo_de_operar(monkeypatch):
+    """Estas pruebas cubren el correo de OPERAR. El de «solo papel», que es el
+    que va puesto desde el 6-oct-2026, está en test_solo_papel.py."""
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "0")
