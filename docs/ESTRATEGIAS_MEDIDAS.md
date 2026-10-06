@@ -1427,3 +1427,33 @@ operación ANTES de costes (t = 3,26)**: el movimiento existe. Pero:
   deja a cero, a **0,26 $**: el deslizamiento solo ya es 0,25 $.
 
 Con costes de minorista, el intradía en el oro no da para pagar al bróker.
+
+---
+
+# 6-oct-2026: indicadores como FILTRO del plan de ruptura — DECLARADAS ANTES DE MEDIR
+
+Pregunta: ¿precisan los indicadores las entradas del plan actual? Cada filtro se
+aplica al plan tal como está (venta en la primera rotura a la baja; las dos
+órdenes el día de empleo) y deja operar solo los días que lo cumplen. Todo se
+calcula con lo que se sabe a las 8:00 ET (vela H1 de 7:00-8:00 cerrada), sobre
+el histórico con los días ambiguos resueltos con velas de un minuto. Un filtro
+de dirección se aplica al lado de la operación (la venta pide señal bajista,
+la compra del día de empleo, alcista).
+
+Con estas 5 van 23 hipótesis: listón **t ≥ 3,06**. Se exige además que el
+subconjunto filtrado gane en las dos mitades (2006-2015 y 2016-2026).
+
+**H19 · Tendencia horaria.** Precio por encima (compra) / por debajo (venta) de
+su EMA de 200 velas H1.
+
+**H20 · Tendencia diaria.** Cierre diario anterior por encima / por debajo de
+su media de 50 sesiones.
+
+**H21 · RSI.** RSI de 14 velas H1 por encima de 50 (compra) / por debajo
+(venta).
+
+**H22 · ADX.** ADX de 14 velas H1 de al menos 20 (hay tendencia). No mira la
+dirección.
+
+**H23 · Rango estrecho.** Amplitud del rango de Londres menor que la mitad del
+ATR diario de 14 sesiones (la «compresión» antes de una rotura).
