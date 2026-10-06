@@ -1,39 +1,39 @@
 {
-  "ultimo_plan": "2026-10-05",
-  "avisados": [
-    "2026-10-05:break-even"
-  ],
+  "ultimo_plan": "2026-10-06",
+  "avisados": [],
   "plan": {
-    "dia": "2026-10-05",
+    "dia": "2026-10-06",
     "rango": {
-      "alto": 4198.89990234375,
-      "bajo": 4177.89990234375,
-      "desde": "2026-10-05T07:00:00+00:00",
-      "hasta": "2026-10-05T11:00:00+00:00",
+      "alto": 4174.595,
+      "bajo": 4128.075,
+      "desde": "2026-10-06T07:00:00+00:00",
+      "hasta": "2026-10-06T11:00:00+00:00",
       "velas": 5
     },
     "compra": {
-      "entrada": 4198.89990234375,
-      "stop": 4177.89990234375,
-      "objetivo": 4324.89990234375
+      "entrada": 4174.595,
+      "stop": 4128.075,
+      "objetivo": 4453.715000000003
     },
     "venta": {
-      "entrada": 4177.89990234375,
-      "stop": 4198.89990234375,
-      "objetivo": 4051.89990234375
+      "entrada": 4128.075,
+      "stop": 4174.595,
+      "objetivo": 3848.954999999997
     },
-    "sesion_desde": "2026-10-05T12:00:00+00:00",
-    "valido_hasta": "2026-10-05T14:00:00+00:00",
-    "cierre_forzoso": "2026-10-05T20:00:00+00:00",
-    "onzas": 0.35714285714285715,
-    "coste_r": 0.014285714285714285,
+    "sesion_desde": "2026-10-06T12:00:00+00:00",
+    "valido_hasta": "2026-10-06T14:00:00+00:00",
+    "cierre_forzoso": "2026-10-06T20:00:00+00:00",
+    "onzas": 0.16122098022355824,
+    "coste_r": 0.012897678417884658,
     "r_objetivo": 6.0,
     "sesgo": {
-      "direccion": "compra",
-      "cuerpo": 12.5,
-      "rango": 31.80029296875
-    }
+      "direccion": null,
+      "cuerpo": 3.089999999999236,
+      "rango": 21.840000000000146
+    },
+    "solo_ventas": true,
+    "anular_si_rompe_arriba": true,
+    "dia_de_empleo": false
   },
-  "registrado": "2026-10-05",
-  "nota": "Plan de 2026-10-05 calculado con el futuro GC=F por el código anterior y seguido con XAU/USD al contado: no es una operación real y no se registra."
+  "fuente": "dukascopy:XAUUSD"
 }
