@@ -81,8 +81,7 @@ def resolver(plan, velas, minutos: Callable) -> tuple[str, Optional[float]]:
 
     ``minutos(hora)`` da las velas de 1 minuto de esa hora UTC.
     """
-    from .seguimiento import (MARGEN_ULTIMA_VELA, EstadoPlan, horas_ambiguas,
-                              refinar, seguir)
+    from .seguimiento import MARGEN_ULTIMA_VELA, EstadoPlan, refinar, seguir
 
     fino = refinar(plan, velas, minutos)
     if fino is None:
@@ -91,20 +90,13 @@ def resolver(plan, velas, minutos: Callable) -> tuple[str, Optional[float]]:
     if s.estado is EstadoPlan.CERRADA:
         return f"{s.direccion.value} primero: {s.motivo_cierre}", s.r
     if s.estado is EstadoPlan.ANULADO:
-        hora = horas_ambiguas(plan, velas)[0]
-        t = minutos(hora.to_pydatetime())
-        sube = t[t["high"] > plan.compra.entrada].index[0]
-        tras = t[t.index > sube]
-        baja = tras[tras["low"] < plan.venta.entrada]
-        if not len(baja):
+        # `seguir` ya cuenta la venta ejecutada en la misma hora de la rotura
+        # al alza (ver seguimiento._ejecutada_en_la_misma_hora).
+        if s.salida is None:
             return "arriba primero, la venta no llegó", None
-        # Ejecutada antes de que el aviso pudiera llegar. Se cierra al
-        # publicarse la vela (cierre de esa hora), salvo que antes salte el stop.
-        despues = tras[tras.index > baja.index[0]]
-        if (despues["high"] >= plan.venta.stop).any():
-            return "arriba primero, venta ejecutada: stop", -1.0
-        r = (plan.venta.entrada - float(t["close"].iloc[-1])) / plan.rango.amplitud
-        return "arriba primero, venta ejecutada: cerrada al aviso", r
+        return (f"arriba primero, venta ejecutada: "
+                f"{'stop' if s.motivo_cierre == 'stop tras anular' else 'cerrada al aviso'}",
+                s.r)
     return f"sin resolver ({s.estado.value})", None
 
 

@@ -93,7 +93,10 @@ class Seguimiento:
 
     @property
     def hubo_operacion(self) -> bool:
-        return self.estado in (EstadoPlan.ABIERTA, EstadoPlan.CERRADA)
+        # Un día anulado también tiene operación si la venta se ejecutó en la
+        # misma hora de la rotura al alza, antes de que el aviso pudiera llegar.
+        return (self.estado in (EstadoPlan.ABIERTA, EstadoPlan.CERRADA)
+                or (self.estado is EstadoPlan.ANULADO and self.salida is not None))
 
 
 def _velas_de_sesion(df, plan: PlanRuptura):
@@ -173,6 +176,33 @@ def refinar(plan: PlanRuptura, df, velas_minuto):
     return pd.concat([base, *trozos]).sort_index()
 
 
+def _ejecutada_en_la_misma_hora(s: Seguimiento, plan: PlanRuptura, velas, momento) -> None:
+    """Si tras romper arriba la venta se ejecutó en esa MISMA hora, la ficha
+    lleva la operación: el aviso de cancelar solo puede llegar al publicarse la
+    vela, así que se cierra entonces (al cierre de esa hora), salvo que antes
+    salte el stop. Es lo mismo que cuenta el histórico (ver `oro.ambiguos`).
+    Solo se ve con velas de minuto: con velas horarias la rotura y la venta en
+    la misma hora son una vela ambigua.
+    """
+    import pandas as pd
+
+    fin_hora = pd.Timestamp(momento).floor("h") + pd.Timedelta(hours=1)
+    misma = velas[(velas.index > momento) & (velas.index < fin_hora)]
+    baja = misma[misma["low"] < plan.venta.entrada]
+    if not len(baja):
+        return
+    riesgo = plan.rango.amplitud
+    tras = misma[misma.index > baja.index[0]]
+    s.direccion = Direccion.VENTA
+    s.entrada = plan.venta.entrada
+    s.momento_entrada = baja.index[0].to_pydatetime()
+    if (tras["high"] >= plan.venta.stop).any():
+        s.salida, s.motivo_cierre = plan.venta.stop, "stop tras anular"
+    else:
+        s.salida, s.motivo_cierre = float(misma["close"].iloc[-1]), "cerrada al anular"
+    s.r = (s.entrada - s.salida) / riesgo
+
+
 def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
            avisados: Optional[set] = None,
            r_break_even: float = 1.0) -> Seguimiento:
@@ -238,13 +268,22 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             despues = velas[velas.index >= momento]
             ejecutada = bool((despues["low"] < plan.venta.entrada).any())
             s = Seguimiento(estado=EstadoPlan.ANULADO)
+            _ejecutada_en_la_misma_hora(s, plan, velas, momento)
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:anulado", tipo=Evento.CIERRE,
                 momento=momento, precio=float(v["close"]), r=0.0,
                 destacado=f"ha subido de {plan.compra.entrada:.2f}",
-                titulo=("🚫 CIERRA la venta de XAU/USD: hoy no vale" if ejecutada
+                titulo=("🚫 XAU/USD: tu venta se ejecutó y saltó el stop"
+                        if s.motivo_cierre == "stop tras anular"
+                        else "🚫 CIERRA la venta de XAU/USD: hoy no vale" if ejecutada
                         else "🚫 CANCELA la orden de venta de XAU/USD"),
                 cuerpo=((f"El rango se rompió por ARRIBA ({plan.compra.entrada:.2f}) "
+                         f"antes que por abajo, y en esa misma hora el precio bajó "
+                         f"hasta tu venta y volvió a subir hasta el stop: lo más "
+                         f"probable es que ya no tengas nada abierto. Compruébalo "
+                         f"en el bróker y cancela la orden si siguiera pendiente. "
+                         if s.motivo_cierre == "stop tras anular" else
+                         f"El rango se rompió por ARRIBA ({plan.compra.entrada:.2f}) "
                          f"antes que por abajo, y después el precio bajó hasta tu "
                          f"venta: lo más probable es que se haya ejecutado. "
                          f"CIÉRRALA A MERCADO. Si no se ejecutó, cancélala. "
@@ -419,7 +458,8 @@ def registro_de(plan: PlanRuptura, s: Seguimiento, coste: float) -> dict:
             None if plan.favorita is None or s.direccion is None
             else s.direccion is plan.favorita),
         "hora_entrada": (s.momento_entrada.isoformat() if s.momento_entrada else None),
-        "ganada": s.r > 0 if s.estado is EstadoPlan.CERRADA else None,
+        "ganada": (s.r > 0 if s.hubo_operacion and s.salida is not None
+                   else None),
     }
 
 

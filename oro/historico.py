@@ -116,7 +116,10 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
             caso, r = resolver(plan, velas, _minutos)
             ficha["resuelto_con_minutos"] = caso
             if r is not None:
-                ficha.update(estado="cerrada", r_bruto=round(r, 3),
+                # Mismo estado que daría el seguimiento en vivo: «anulado» con
+                # resultado si la venta se ejecutó tras romper arriba.
+                ficha.update(estado="anulado" if caso.startswith("arriba") else "cerrada",
+                             r_bruto=round(r, 3),
                              r_neto=round(r - coste / plan.rango.amplitud, 3),
                              ganada=r > 0)
                 if "venta" in caso:

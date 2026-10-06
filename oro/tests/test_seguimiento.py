@@ -752,3 +752,25 @@ def test_con_las_senales_apagadas_el_vigilante_no_se_aparta_antes_del_cierre():
     from oro import vigilar
 
     assert "cfg.senales_activas and _toca_relevo(cfg)" in inspect.getsource(vigilar.main)
+
+
+def test_venta_ejecutada_en_la_hora_de_la_rotura_al_alza_cuenta_en_la_ficha():
+    """El aviso de cancelar solo llega al publicarse la vela. Si en esa misma
+    hora el precio bajó hasta la venta, se ejecutó: la ficha lleva el resultado
+    (cerrada al llegar el aviso), igual que el histórico."""
+    import pandas as pd
+
+    from oro.seguimiento import refinar
+
+    plan, _ = _plan(solo_ventas=True)
+    df = _con_sesion({8: (4030, 3990)})
+    hora = df.index[-1]
+    idx = pd.date_range(hora, periods=3, freq="1min")
+    minutos = pd.DataFrame({"open": [4020, 4010, 3995], "high": [4030, 4012, 3999],
+                            "low": [4015, 4000, 3990], "close": [4025, 4005, 3992],
+                            "volume": 1.0}, index=idx)
+    s = seguir(plan, refinar(plan, df, lambda h: minutos), ahora=_a_las(9, 3))
+    assert s.estado is EstadoPlan.ANULADO and s.hubo_operacion
+    assert s.salida == 3992 and s.r == pytest.approx((3998 - 3992) / 26)
+    ficha = registro_de(plan, s, 0.0)
+    assert ficha["r_bruto"] == pytest.approx(0.231, abs=1e-3)
