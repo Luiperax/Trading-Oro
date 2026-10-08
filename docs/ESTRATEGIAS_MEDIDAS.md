@@ -1511,3 +1511,77 @@ mes; t ≥ 3,11 y mismo signo en las dos mitades.
 Además, sin ser hipótesis: control del dólar (correlación parcial), episodios
 de choques del petróleo (1990, 2008, 2014-16, abril 2020, 2022) y relación de
 largo plazo entre los niveles (cointegración).
+
+## Resultado: petróleo y oro (medido después de declararlo)
+
+### H24 · ¿Se mueven en sentido contrario? No: en general, en el MISMO
+
+Rendimientos logarítmicos, 1986-2026 (oro de referencia del WGC; WTI y Brent
+de la EIA vía FRED):
+
+| | n | correlación | t | van en sentido contrario |
+|---|---|---|---|---|
+| WTI diario | 9.464 | +0,080 | +7,8 | 45 % |
+| WTI semanal | 2.121 | +0,139 | +6,5 | 45 % |
+| WTI mensual | 489 | +0,130 | +2,9 | 47 % |
+| Brent diario | 9.080 | +0,122 | +11,7 | 44 % |
+| Brent semanal | 2.037 | +0,146 | +6,7 | 44 % |
+| Brent mensual | 473 | +0,092 | +2,0 | 47 % |
+
+Con los dos precios a la misma hora (oro de Dukascopy a las 15:00 ET, WTI a
+las 14:30 ET), la correlación diaria 2006-2026 es +0,150.
+
+La relación es positiva pero DÉBIL (explica alrededor del 2 % de los
+movimientos del oro) y cambia con las épocas (Brent, semanal):
+
+| época | correlación | t |
+|---|---|---|
+| 1987-1995 | +0,251 | +5,4 |
+| 1996-2005 | +0,054 | +1,2 |
+| 2006-2015 | +0,338 | +8,2 |
+| 2016-2026 | −0,003 | −0,1 |
+
+En ventanas móviles de 52 semanas es negativa el 31 % del tiempo (mínimo
+−0,35, en julio de 2026; máximo +0,66, en mayo de 2011). **En 2026 la
+correlación sí es negativa** (−0,19 en marzo, −0,31 en junio, −0,34 en
+septiembre) y en los últimos 24 meses fueron en sentido contrario el 60 % de
+los meses. Ya pasó antes (1992, 1996, 1999, 2001, 2019, 2021) y siempre volvió.
+
+La creencia, directamente: en el 10 % de semanas con el petróleo más alcista
+(+9 % de media) el oro SUBIÓ +0,53 % de media (t = +3,5) y solo bajó el 38 % de
+esas semanas. En el 10 % más bajista (−9,8 %) el oro BAJÓ −0,60 % (t = −2,9).
+
+Por tipo de choque (semanas extremas del Brent frente al Nasdaq): el oro va con
+el petróleo en los cuatro casos, también cuando el petróleo se hunde por miedo
+a una recesión (−0,56 %, t = −2,3). En ninguno va en contra más del 41 % de las
+veces.
+
+Doce episodios grandes del petróleo desde 1990: en 10 el oro fue en el mismo
+sentido (más suave). Solo en 1999-2000 (petróleo +241 %, oro −5 %) y en la
+caída del COVID de 2020 (petróleo −87 %, oro +7 %) fue al revés.
+
+**El dólar explica casi todo el vínculo.** Semanal, con el índice del dólar
+como control: 1987-2005 el petróleo sigue pesando (+0,036, t = +3,1), pero
+2006-2026 deja de hacerlo (+0,016, t = +0,9), mientras el dólar pesa mucho
+(−1,42, t = −9,6). Cuando el dólar baja, suben los dos (los dos cotizan en
+dólares); cuando sube, bajan los dos.
+
+Niveles: correlación +0,81 entre los precios, pero es la ilusión de dos
+tendencias de largo plazo; no hay cointegración (Engle-Granger p = 0,52 en toda
+la muestra, 0,72 y 0,91 en las mitades): no hay una «relación de equilibrio»
+a la que vuelvan.
+
+### H25 · El petróleo de hoy NO anticipa el oro de mañana
+
+Precios sincronizados (oro 15:00 ET, WTI 14:30 ET), 2006-2026: coeficiente
++0,008, **t = +1,13** (mitades t = +0,28 y +1,24). Correlaciones a ±1, 2 y 3
+días: entre −0,022 y +0,020. Operar al día siguiente el oro en contra del
+petróleo de hoy: −0,1 puntos básicos al día antes de costes (t = −0,04).
+
+### H27 · El ratio oro/petróleo NO anticipa el oro
+
+Ratio oro/WTI hoy 43,2 (media 1986-2026: 20,5; z frente a 5 años +0,64).
+Regresión del oro del mes siguiente sobre la z: coeficiente +0,0022, **t =
++1,25** (mitades t = +0,06 y +1,56), y con el signo CONTRARIO al que predice
+la idea popular (con el oro «caro» frente al petróleo, el oro rindió algo más,
+no menos).
