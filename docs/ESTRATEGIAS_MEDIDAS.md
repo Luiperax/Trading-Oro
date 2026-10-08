@@ -1474,3 +1474,40 @@ Sin filtro: 2.561 operaciones, −0,039 R/op (t = −1,64).
 EMA 200 horaria o contra el RSI es claramente malo (t −3,34 y −2,77), pero lo
 que queda al quitar esos días se queda en cero, no gana. Combinar filtros a
 partir de esta tabla sería elegir la regla mirando el resultado.
+
+---
+
+# 8-oct-2026: petróleo y oro — HIPÓTESIS DECLARADAS ANTES DE MEDIR
+
+Pregunta del usuario: «creo que cuando sube el petróleo baja el oro, y al
+revés». Se mide con datos, no con lo que se lee por ahí. Con estas 4 van 27
+hipótesis: listón **t ≥ 3,11** (5 % a dos colas, Bonferroni).
+
+Datos: WTI y Brent diarios (FRED/EIA, desde 1986-87), oro diario de referencia
+del World Gold Council (desde 1985), oro H1 de Dukascopy (2006-2026) y, si se
+consigue, WTI H1 de Dukascopy. Dólar: índices amplios de la Fed (FRED DTWEXM
+hasta 2019, DTWEXBGS desde 2006).
+
+**H24 · La creencia, tal cual.** Los rendimientos del oro y del petróleo se
+mueven en sentido CONTRARIO (correlación negativa) a plazo diario, semanal y
+mensual. Se mide la correlación en toda la muestra, por décadas y en ventanas
+móviles de un año, y la frecuencia con que van en sentidos opuestos.
+
+**H25 · El petróleo de hoy anticipa el oro de mañana.** El rendimiento diario
+del WTI (cierre de 14:30 ET) predice el rendimiento del oro del día siguiente
+(de 15:00 ET a 15:00 ET, con el oro H1 de Dukascopy para que los dos precios
+sean de la misma hora y no fabricar un adelanto falso). Regresión con t ≥ 3,11
+y el mismo signo en las dos mitades.
+
+**H26 · Anticipación intradía.** El rendimiento del WTI en una hora predice el
+del oro en la hora siguiente (H1 de Dukascopy). Mismo criterio.
+
+**H27 · Ratio oro/petróleo extremo.** Con el logaritmo del ratio oro/WTI frente
+a su media de 5 años (puntuación z), cuando el oro está «caro» frente al
+petróleo (z > +1) rinde menos el mes siguiente que cuando está «barato»
+(z < −1). Regresión del rendimiento del oro del mes siguiente sobre la z del
+mes; t ≥ 3,11 y mismo signo en las dos mitades.
+
+Además, sin ser hipótesis: control del dólar (correlación parcial), episodios
+de choques del petróleo (1990, 2008, 2014-16, abril 2020, 2022) y relación de
+largo plazo entre los niveles (cointegración).
