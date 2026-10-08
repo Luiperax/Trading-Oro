@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-10-08",
-  "avisados": [],
+  "avisados": [
+    "2026-10-08:anulado"
+  ],
   "plan": {
     "dia": "2026-10-08",
     "rango": {
@@ -35,5 +37,6 @@
     "anular_si_rompe_arriba": true,
     "dia_de_empleo": false
   },
-  "fuente": "dukascopy:XAUUSD"
+  "fuente": "dukascopy:XAUUSD",
+  "registrado": "2026-10-08"
 }
