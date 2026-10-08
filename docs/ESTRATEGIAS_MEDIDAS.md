@@ -1585,3 +1585,26 @@ Regresión del oro del mes siguiente sobre la z: coeficiente +0,0022, **t =
 +1,25** (mitades t = +0,06 y +1,56), y con el signo CONTRARIO al que predice
 la idea popular (con el oro «caro» frente al petróleo, el oro rindió algo más,
 no menos).
+
+### H26 · Hora a hora, el petróleo tampoco anticipa el oro
+
+WTI H1 de Dukascopy (existe desde septiembre de 2011) frente al oro H1, 79.895
+pares de horas consecutivas, 2011-2026: correlación en la misma hora +0,063;
+el petróleo de una hora frente al oro de la siguiente, coeficiente −0,0007,
+**t = −0,36** (mitades t = −1,30 y +0,21). Tras el 1 % de horas más alcistas
+del petróleo, el oro hace +0,6 puntos básicos la hora siguiente (t = +0,54);
+tras el 1 % más bajistas, +0,7 (t = +0,53): nada. En los dos últimos años la
+correlación en la misma hora es −0,134, coherente con el giro de 2026, pero
+sigue sin anticipar nada (t = −0,56).
+
+### Conclusión
+
+* **La creencia no se cumple como regla**: en 40 años el oro y el petróleo han
+  ido más veces en el mismo sentido (55 %) que en el contrario, y en las
+  semanas de grandes subidas del petróleo el oro tendió a SUBIR.
+* El vínculo es débil y viene sobre todo del dólar.
+* **2026 es una excepción real**: la correlación de los últimos 12 meses es
+  negativa. Ha pasado otras veces y siempre ha durado poco.
+* **Para operar no sirve**: ni el día, ni la hora, ni el ratio oro/petróleo
+  anticipan el oro (H25, H26 y H27 sin acercarse a t = 3,11). Saber qué hizo
+  el petróleo no dice qué va a hacer el oro.
