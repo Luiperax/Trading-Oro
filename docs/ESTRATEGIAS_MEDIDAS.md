@@ -1748,3 +1748,24 @@ Mitades −0,108 / −0,047. Largos −0,074 (t −4,18), cortos −0,082 (t −
 Ni siquiera la cota optimista (contar siempre primero el objetivo dentro de la
 vela) sale positiva. Antes de costes tiene un poco de ventaja, pero con 348
 operaciones al año el coste se la come entera.
+
+---
+
+# 14-oct-2026: optimizar el v3 en H1 sin engañarse — DECLARADA ANTES DE MEDIR
+
+El usuario quiere los avisos del v3 en H1 para operar, y que se revise qué se
+puede optimizar. Lo que lo hunde es el coste: 348 operaciones al año con un
+stop de 1,5 ATR horario. Las palancas naturales son operar menos y con más
+recorrido. Se prueba una rejilla pequeña, fijada aquí:
+
+* confirmaciones mínimas: 3, 4, 5 o 6 (de 6);
+* stop: 1,5, 2 o 3 ATR (TP1 a la misma distancia que el stop y TP2 a 5/3 de
+  ella, la proporción del original);
+* exigir o no que la tendencia de H4 vaya a favor (precio frente a la EMA 50
+  de H4 como condición obligatoria, no como un punto más).
+
+Son 24 combinaciones. **Se elige la mejor SOLO con 2006-2015** (la de mayor R
+neto por operación con al menos 100 operaciones) y se prueba **una sola vez
+en 2016-2026**, que la elección no ha visto. H30 es ese procedimiento: pasa si
+en 2016-2026 da t ≥ 3,17 (30 hipótesis) y R neto positivo. Mismo cálculo que
+H29 (stop primero dentro de la vela, costes y financiación de CFD).
