@@ -121,7 +121,8 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
             if r is not None:
                 # Mismo estado que daría el seguimiento en vivo: «anulado» con
                 # resultado si la venta se ejecutó tras romper arriba.
-                ficha.update(estado="anulado" if caso.startswith("arriba") else "cerrada",
+                ficha.update(estado="anulado" if " ejecutada" in caso and caso.split()[0]
+                             in ("arriba", "abajo") else "cerrada",
                              r_bruto=round(r, 3),
                              r_neto=round(r - coste / plan.rango.amplitud, 3),
                              ganada=r > 0)
@@ -138,6 +139,38 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
     return fichas
 
 
+def reconstruir_completo(desde: int = 2006, cfg: Optional[ConfiguracionSistema] = None,
+                         hasta: Optional[dt.date] = None) -> list[dict]:
+    """El histórico entero con la estrategia que opera, tal como la opera.
+
+    Baja las velas H1 (con dos meses antes para que la EMA 200 horaria del
+    filtro arranque ya asentada), resuelve los días ambiguos con las velas de un
+    minuto y, si el filtro está puesto, le pasa a cada día su EMA. Sin eso, con
+    el filtro encendido no saldría ningún plan: `construir_plan` no manda nada
+    si no sabe de qué lado está el precio.
+    """
+    from pathlib import Path
+
+    from .ambiguos import velas_minuto_del_dia
+    from .datos.dukascopy import ProveedorDukascopy
+
+    cfg = cfg or cargar_configuracion()
+    hasta = hasta or dt.date.today()
+    df = ProveedorDukascopy().rango(dt.date(desde - 1, 11, 1), hasta)
+    df = df.set_axis(df.index if df.index.tz is not None else df.index.tz_localize("UTC"))
+    ema = df["close"].ewm(span=200, adjust=False).mean()
+    df = df[df.index >= pd_inicio(desde)]
+    cache_m1 = Path.home() / ".cache" / "oro" / "dukascopy_m1"
+    return reconstruir(df, cfg,
+                       minutos_del_dia=lambda d: velas_minuto_del_dia(d, cache_m1),
+                       ema_de=lambda t: float(ema.loc[t]))
+
+
+def pd_inicio(anio: int):
+    import pandas as pd
+    return pd.Timestamp(dt.date(anio, 1, 1), tz="UTC")
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     desde = 2006
@@ -149,20 +182,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             salida = argv[i + 1]
 
     cfg = cargar_configuracion()
-    from .datos.dukascopy import ProveedorDukascopy
-
-    print(f"Descargando XAU/USD desde {desde} (Dukascopy, con caché en disco)…")
-    df = ProveedorDukascopy().rango(dt.date(desde, 1, 1), dt.date.today())
-    print(f"  {len(df)} velas  {df.index.min()} → {df.index.max()}")
-
-    print("Reconstruyendo con construir_plan() + seguir(), las mismas de producción…")
-    from pathlib import Path
-
-    from .ambiguos import velas_minuto_del_dia
-
-    cache_m1 = Path.home() / ".cache" / "oro" / "dukascopy_m1"
-    fichas = reconstruir(df, cfg,
-                         minutos_del_dia=lambda d: velas_minuto_del_dia(d, cache_m1))
+    print(f"Reconstruyendo XAU/USD desde {desde} con construir_plan() + seguir(), "
+          f"las mismas de producción (filtro EMA 200: "
+          f"{'sí' if cfg.ruptura.filtro_ema200_h1 else 'no'})…")
+    fichas = reconstruir_completo(desde, cfg)
     with open(salida, "w", encoding="utf-8") as fh:
         for f in fichas:
             fh.write(json.dumps(f, ensure_ascii=False) + "\n")

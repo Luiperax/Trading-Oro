@@ -90,11 +90,13 @@ def resolver(plan, velas, minutos: Callable) -> tuple[str, Optional[float]]:
     if s.estado is EstadoPlan.CERRADA:
         return f"{s.direccion.value} primero: {s.motivo_cierre}", s.r
     if s.estado is EstadoPlan.ANULADO:
-        # `seguir` ya cuenta la venta ejecutada en la misma hora de la rotura
-        # al alza (ver seguimiento._ejecutada_en_la_misma_hora).
+        # `seguir` ya cuenta la orden ejecutada en la misma hora de la rotura
+        # del otro lado (ver seguimiento._ejecutada_en_la_misma_hora).
+        pal = "compra" if plan.solo_compras else "venta"
+        primero = "abajo" if plan.solo_compras else "arriba"
         if s.salida is None:
-            return "arriba primero, la venta no llegó", None
-        return (f"arriba primero, venta ejecutada: "
+            return f"{primero} primero, la {pal} no llegó", None
+        return (f"{primero} primero, {pal} ejecutada: "
                 f"{'stop' if s.motivo_cierre == 'stop tras anular' else 'cerrada al aviso'}",
                 s.r)
     return f"sin resolver ({s.estado.value})", None

@@ -239,7 +239,7 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
         from .sesiones import _a_las
         vela = _a_las(dia, cfg.ruptura.rango_hasta_et - 1)
         try:
-            ema200 = ema_en(df, vela)
+            ema200 = ema_en(df, vela, ahora=ahora)
         except Exception as e:  # noqa: BLE001
             print(f"⚠️  No se pudo calcular la EMA 200 horaria ({type(e).__name__}: {e}).")
         if ema200 is not None:

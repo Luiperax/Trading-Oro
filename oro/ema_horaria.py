@@ -65,36 +65,58 @@ def _utc(idx: pd.DatetimeIndex) -> pd.DatetimeIndex:
     return idx if idx.tz is not None else idx.tz_localize("UTC")
 
 
+# Una hora de mercado abierto que falta pero está dentro de lo que el
+# proveedor en vivo intenta bajar (sus últimas 24 horas) se espera: suele
+# llegar en la pasada siguiente. Si pasado este tiempo sigue sin aparecer, es
+# que no existe (festivo, hueco del proveedor) y se salta, igual que la salta
+# la EMA del histórico, que se calcula con las velas que hay.
+ESPERA_HUECO = pd.Timedelta(hours=6)
+VENTANA_VIVO = pd.Timedelta(hours=24)
+
+
 def avanzar(df: pd.DataFrame, estado: Optional[dict] = None,
-            guardar: bool = True) -> Optional[dict]:
+            guardar: bool = True, ahora=None) -> Optional[dict]:
     """Avanza la EMA guardada con las velas de ``df`` posteriores a ella.
 
-    Devuelve el estado nuevo, o ``None`` si no hay estado o si falta alguna
-    hora de mercado abierto entre lo guardado y lo nuevo (entonces hay que
-    reconstruir: seguir avanzando daría una EMA que no es la de verdad).
+    Devuelve el estado nuevo, o ``None`` si no hay estado o si faltan horas de
+    mercado abierto que el proveedor en vivo nunca llegó a intentar (quedan
+    antes de su ventana de 24 horas: el vigilante estuvo parado). Entonces hay
+    que reconstruir; seguir avanzando daría una EMA que no es la de verdad.
     """
     estado = estado if estado is not None else cargar()
     if estado is None or df is None or len(df) == 0:
         return estado
+    ahora = pd.Timestamp(ahora or dt.datetime.now(dt.timezone.utc))
+    ahora = ahora if ahora.tzinfo else ahora.tz_localize("UTC")
+    ventana_desde = (ahora - VENTANA_VIVO).floor("h")
     cierres = df["close"].copy()
     cierres.index = _utc(cierres.index)
+    cierres = cierres[~cierres.index.duplicated(keep="last")].sort_index()
     hasta = pd.Timestamp(estado["hasta"])
-    nuevas = cierres[cierres.index > hasta]
-    if nuevas.empty:
+    if cierres.empty or cierres.index[-1] <= hasta:
         return estado
+    usar = []
     h = hasta + pd.Timedelta(hours=1)
-    while h < nuevas.index[0]:
-        if not _cerrado(h):
-            return None
+    ultima = cierres.index[-1]
+    while h <= ultima:
+        if h in cierres.index:
+            usar.append(h)
+        elif not _cerrado(h):
+            if h < ventana_desde:
+                return None                  # nunca se intentó: reconstruir
+            if ahora - h < ESPERA_HUECO + pd.Timedelta(hours=1):
+                break                        # puede llegar aún: se espera
+            # lleva horas sin aparecer: no existe, se salta
         h += pd.Timedelta(hours=1)
+    if not usar:
+        return estado
     ema = float(estado["ema"])
     hist = dict(estado.get("historial", {}))
-    for t, c in nuevas.items():
-        ema += ALFA * (float(c) - ema)
+    for t in usar:
+        ema += ALFA * (float(cierres[t]) - ema)
         hist[t.isoformat()] = round(ema, 4)
     hist = dict(sorted(hist.items())[-GUARDAR:])
-    nuevo = {"hasta": nuevas.index[-1].isoformat(), "ema": round(ema, 4),
-             "historial": hist}
+    nuevo = {"hasta": usar[-1].isoformat(), "ema": round(ema, 4), "historial": hist}
     if guardar:
         _guardar(nuevo)
     return nuevo
@@ -148,13 +170,30 @@ def reconstruir(df_vivo: Optional[pd.DataFrame], hoy: Optional[dt.date] = None,
     return estado
 
 
-def ema_en(df_vivo: pd.DataFrame, vela: pd.Timestamp) -> Optional[float]:
+_ULTIMA_RECONSTRUCCION = None
+ENTRE_RECONSTRUCCIONES = pd.Timedelta(minutes=30)
+
+
+def reconstruir_si_toca(df_vivo, ahora=None) -> Optional[dict]:
+    """Reconstruye, pero como mucho una vez cada media hora: son decenas de
+    peticiones y el vigilante pasa cada tres minutos."""
+    global _ULTIMA_RECONSTRUCCION
+    ahora = pd.Timestamp(ahora or dt.datetime.now(dt.timezone.utc))
+    ahora = ahora if ahora.tzinfo else ahora.tz_localize("UTC")
+    if (_ULTIMA_RECONSTRUCCION is not None
+            and ahora - _ULTIMA_RECONSTRUCCION < ENTRE_RECONSTRUCCIONES):
+        return None
+    _ULTIMA_RECONSTRUCCION = ahora
+    print("  EMA 200 horaria: el estado guardado no enlaza con las velas de "
+          "ahora; se reconstruye.")
+    return reconstruir(df_vivo, hoy=ahora.date())
+
+
+def ema_en(df_vivo: pd.DataFrame, vela: pd.Timestamp, ahora=None) -> Optional[float]:
     """La EMA 200 horaria al cierre de la vela que empieza en ``vela`` (UTC)."""
-    estado = avanzar(df_vivo)
+    estado = avanzar(df_vivo, ahora=ahora)
     if estado is None:
-        print("  EMA 200 horaria: el estado guardado no enlaza con las velas de "
-              "ahora; se reconstruye.")
-        estado = reconstruir(df_vivo)
+        estado = reconstruir_si_toca(df_vivo, ahora)
     if estado is None:
         return None
     clave = pd.Timestamp(vela).tz_convert("UTC").isoformat() if pd.Timestamp(vela).tzinfo \

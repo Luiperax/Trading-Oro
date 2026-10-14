@@ -130,19 +130,54 @@ def test_la_ema_avanza_y_guarda(tmp_path, monkeypatch):
     monkeypatch.setenv("ORO_RUTA_EMA", str(tmp_path / "ema.json"))
     base = e.desde_cierres(_velas("2026-10-05 00:00", 600)["close"])
     nuevas = _velas("2026-10-05 00:00", 610)
-    st = e.avanzar(nuevas, base)
+    st = e.avanzar(nuevas, base, ahora=nuevas.index[-1] + pd.Timedelta(hours=1))
     assert st["hasta"] == nuevas.index[-1].isoformat()
     completo = nuevas["close"].ewm(span=200, adjust=False).mean().iloc[-1]
     assert st["ema"] == pytest.approx(completo, abs=1e-3)
     assert json.loads((tmp_path / "ema.json").read_text())["hasta"] == st["hasta"]
 
 
-def test_la_ema_no_enlaza_si_falta_una_hora_de_mercado(tmp_path, monkeypatch):
+def _base(e):
+    # Hasta el martes 6-oct-2026 a las 15:00 UTC (mercado abierto alrededor).
+    return e.desde_cierres(_velas("2026-09-21 00:00", 15 * 24 + 15)["close"])
+
+
+def test_horas_que_nunca_se_intentaron_obligan_a_reconstruir(tmp_path, monkeypatch):
+    """El vigilante estuvo parado: entre lo guardado y las 24 horas que baja el
+    proveedor hay horas de mercado que nadie bajó. Avanzar daría otra EMA."""
     from oro import ema_horaria as e
     monkeypatch.setenv("ORO_RUTA_EMA", str(tmp_path / "ema.json"))
-    base = e.desde_cierres(_velas("2026-10-05 00:00", 600)["close"])   # martes…
-    hueco = _velas(pd.Timestamp(base["hasta"]) + pd.Timedelta(hours=5), 3)
-    assert e.avanzar(hueco, base) is None
+    base = _base(e)
+    hasta = pd.Timestamp(base["hasta"])
+    ahora = hasta + pd.Timedelta(hours=40)
+    vivo = _velas(ahora - pd.Timedelta(hours=24), 23)
+    assert e.avanzar(vivo, base, ahora=ahora) is None
+
+
+def test_una_hora_que_falta_y_puede_llegar_se_espera(tmp_path, monkeypatch):
+    """Dukascopy pierde horas sueltas que llegan en la pasada siguiente: no se
+    salta ni se reconstruye, se espera."""
+    from oro import ema_horaria as e
+    monkeypatch.setenv("ORO_RUTA_EMA", str(tmp_path / "ema.json"))
+    base = _base(e)
+    hasta = pd.Timestamp(base["hasta"])
+    vivo = pd.concat([_velas(hasta + pd.Timedelta(hours=1), 1),
+                      _velas(hasta + pd.Timedelta(hours=3), 2)])     # falta hasta+2h
+    st = e.avanzar(vivo, base, ahora=hasta + pd.Timedelta(hours=5))
+    assert st["hasta"] == (hasta + pd.Timedelta(hours=1)).isoformat()
+
+
+def test_una_hora_que_no_aparece_en_horas_se_salta(tmp_path, monkeypatch):
+    """Festivo o hueco del proveedor: la EMA del histórico también se calcula
+    con las velas que hay."""
+    from oro import ema_horaria as e
+    monkeypatch.setenv("ORO_RUTA_EMA", str(tmp_path / "ema.json"))
+    base = _base(e)
+    hasta = pd.Timestamp(base["hasta"])
+    vivo = pd.concat([_velas(hasta + pd.Timedelta(hours=1), 1),
+                      _velas(hasta + pd.Timedelta(hours=3), 9)])
+    st = e.avanzar(vivo, base, ahora=hasta + pd.Timedelta(hours=12))
+    assert st["hasta"] == (hasta + pd.Timedelta(hours=11)).isoformat()
 
 
 def test_el_fin_de_semana_no_es_un_hueco(tmp_path, monkeypatch):
@@ -154,7 +189,8 @@ def test_el_fin_de_semana_no_es_un_hueco(tmp_path, monkeypatch):
     base = e.desde_cierres(serie)
     assert base["hasta"].startswith("2026-09-18T20:00")
     domingo = _velas("2026-09-20 22:00", 3)
-    assert e.avanzar(domingo, base) is not None
+    st = e.avanzar(domingo, base, ahora=pd.Timestamp("2026-09-21 01:05", tz="UTC"))
+    assert st is not None and st["hasta"].startswith("2026-09-21T00:00")
 
 
 # ---- De punta a punta: plan_sesion con el filtro encendido ----

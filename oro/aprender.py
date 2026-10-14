@@ -342,13 +342,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     ruta_hist = Path(RUTA_HISTORICO)
     if "--reconstruir" in argv or not ruta_hist.exists():
         print("Reconstruyendo el histórico con el código de producción…")
-        import datetime as dt
+        from .historico import reconstruir_completo
 
-        from .datos.dukascopy import ProveedorDukascopy
-        from .historico import reconstruir
-
-        df = ProveedorDukascopy().rango(dt.date(2006, 1, 1), dt.date.today())
-        fichas = reconstruir(df, cfg)
+        fichas = reconstruir_completo(2006, cfg)
         with ruta_hist.open("w", encoding="utf-8") as fh:
             for f in fichas:
                 fh.write(json.dumps(f, ensure_ascii=False) + "\n")

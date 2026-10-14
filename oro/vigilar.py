@@ -171,30 +171,25 @@ def _atender_ruptura(ruta_estado: str) -> None:
             print("  ✔ estado de la ruptura guardado en el repositorio (a salvo).")
 
 
-_EMA_RECONSTRUIDA = False
-
 
 def _avanzar_ema() -> None:
     """Avanza la EMA 200 horaria del filtro con las velas que ya se bajan.
 
     Cada pasada, para que entre un día y el siguiente nunca falte una hora y
     no haya que reconstruirla desde cero (que son decenas de peticiones). Si
-    aun así no enlaza, se reconstruye UNA vez por proceso.
+    aun así no enlaza, se reconstruye, como mucho una vez cada media hora.
     """
-    global _EMA_RECONSTRUIDA
     from .config import cargar_configuracion
 
     if not cargar_configuracion().ruptura.filtro_ema200_h1:
         return
     try:
-        from .ema_horaria import avanzar, reconstruir
+        from .ema_horaria import avanzar, reconstruir_si_toca
         from .plan_sesion import VELAS_EN_VIVO, _proveedor
 
         df = _proveedor(False).historico(VELAS_EN_VIVO)
-        if avanzar(df) is None and not _EMA_RECONSTRUIDA:
-            _EMA_RECONSTRUIDA = True
-            print("  EMA 200 horaria: no enlaza, se reconstruye.")
-            reconstruir(df)
+        if avanzar(df) is None:
+            reconstruir_si_toca(df)
     except Exception as e:  # noqa: BLE001 — el filtro no puede tumbar el vigilante.
         print("  ! EMA 200 horaria:", type(e).__name__, str(e)[:100])
 
