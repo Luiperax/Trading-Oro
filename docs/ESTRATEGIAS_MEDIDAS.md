@@ -1642,3 +1642,39 @@ Cómo se mide:
 
 Sin ser hipótesis, se muestra también una variante que cierra todo a las
 21:00 UTC (intradía puro).
+
+---
+
+# 14-oct-2026: el plan vuelve a operar, con el filtro de la EMA 200 horaria
+
+Decisión del usuario: volver al plan del día «aunque sea jugársela», con la
+variante que más posibilidades tenga. De lo medido, la mejor es la de la
+hipótesis H19 (la venta solo con el precio por debajo de su EMA 200 horaria a
+las 8:00 ET). El indicador M30 v3 no puede ser el plan del sistema: necesita
+velas de 30 minutos al momento y Dukascopy publica los ticks por horas
+cerradas, así que sus señales llegarían con 30-60 minutos de retraso.
+
+Cómo queda (ver `ConfiguracionRuptura.filtro_ema200_h1`):
+
+* Día normal: venta en el suelo del rango de Londres SOLO si a las 8:00 ET el
+  precio está por debajo de su EMA 200 horaria; se anula si el rango se rompe
+  antes por arriba. Si está por encima, llega un aviso de «hoy no hay plan».
+* Día del dato de empleo: una sola orden, la del lado de la EMA (compra si el
+  precio está por encima, venta si está por debajo), anulada si el otro lado
+  se rompe antes.
+* La EMA se lleva en `oro_ema.json` y el vigilante la avanza cada pasada.
+
+Medido con ESTE código (`oro.historico` con el filtro, días ambiguos resueltos
+con velas de un minuto, todos los costes):
+
+| | n | R/op | t |
+|---|---|---|---|
+| 2006-2026 | 1.375 | +0,012 | 0,34 |
+| 2006-2015 | | +0,044 | |
+| 2016-2026 | | −0,022 | |
+| 2022-2026 | 273 | +0,057 | 0,80 |
+
+10 años positivos de 21, peor año −19,0 R, peor racha −49,6 R, acierto 39 %,
+unas 66 operaciones al año. **No es una ventaja demostrada**: es la mejor de
+23 variantes probadas, y elegir la mejor infla lo que se espera de ella. El
+correo lo dice así.
