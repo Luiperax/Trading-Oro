@@ -137,6 +137,12 @@ class ProveedorDukascopy(ProveedorDatos):
         hoy = dt.datetime.now(dt.timezone.utc)
         en_curso = (anio, mes) >= (hoy.year, hoy.month)
         fichero = self._cache / self._simbolo / f"{anio}-{mes:02d}.csv"
+        # Un mes recién cerrado se baja entero pero no se guarda en disco hasta
+        # pasada una semana: si Dukascopy aún no había publicado los últimos
+        # días, la caché (que en Actions se conserva entre ejecuciones) se
+        # quedaría para siempre con el mes a medias.
+        sig = dt.datetime(anio + mes // 12, mes % 12 + 1, 1, tzinfo=dt.timezone.utc)
+        reciente = hoy - sig < dt.timedelta(days=7)
 
         if not en_curso and fichero.exists():
             df = pd.read_csv(fichero, index_col=0, parse_dates=True)
@@ -146,7 +152,7 @@ class ProveedorDukascopy(ProveedorDatos):
             # gastaría minutos en algo que no existe. Los meses cerrados sí
             # merecen toda la insistencia, porque ahí un 404 es intermitencia.
             df = self._descargar(anio, mes, intentos=2 if en_curso else None)
-            if df is not None and not en_curso:
+            if df is not None and not en_curso and not reciente:
                 fichero.parent.mkdir(parents=True, exist_ok=True)
                 df.to_csv(fichero)
 

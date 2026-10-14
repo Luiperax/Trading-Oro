@@ -68,3 +68,10 @@ def _sin_filtro_ema(monkeypatch):
     de punta a punta no tienen una EMA guardada (y reconstruirla saldría a la
     red). Las del filtro lo encienden ellas: ver test_filtro_ema.py."""
     monkeypatch.setenv("ORO_RUPTURA_FILTRO_EMA200", "0")
+
+
+@pytest.fixture(autouse=True)
+def _sin_v3(monkeypatch):
+    """Los avisos del v3 van encendidos en producción; en las pruebas, solo en
+    las suyas (test_v3_vivo.py), que les dan velas sin salir a la red."""
+    monkeypatch.setenv("ORO_V3_ACTIVA", "0")

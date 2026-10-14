@@ -48,15 +48,22 @@ def velas_minuto_del_dia(dia: dt.date, cache: Path, simbolo: str = "XAUUSD",
     import requests
 
     fichero = cache / simbolo / f"{dia.isoformat()}.bi5"
+    contenido = None
     if not fichero.exists():
         url = URL.format(sim=simbolo, anio=dia.year, mes=dia.month - 1, dia=dia.day)
+        # Los dos últimos días se usan pero no se guardan: si el fichero aún no
+        # estaba completo, la caché (que en Actions se conserva entre
+        # ejecuciones) lo tendría a medias para siempre.
+        guardar = dia < dt.datetime.now(_U).date() - dt.timedelta(days=1)
         for intento in range(intentos):
             try:
                 r = requests.get(url, timeout=30,
                                  headers={"User-Agent": "Mozilla/5.0 oro/0.1"})
                 if r.status_code == 200 and r.content:
-                    fichero.parent.mkdir(parents=True, exist_ok=True)
-                    fichero.write_bytes(r.content)
+                    contenido = r.content
+                    if guardar:
+                        fichero.parent.mkdir(parents=True, exist_ok=True)
+                        fichero.write_bytes(r.content)
                     break
                 espera = 30 if r.status_code == 429 else min(2 ** intento, 10)
             except Exception:  # noqa: BLE001
@@ -64,7 +71,7 @@ def velas_minuto_del_dia(dia: dt.date, cache: Path, simbolo: str = "XAUUSD",
             time.sleep(espera)
         else:
             return None
-    crudo = lzma.LZMADecompressor().decompress(fichero.read_bytes())
+    crudo = lzma.LZMADecompressor().decompress(contenido or fichero.read_bytes())
     base = dt.datetime(dia.year, dia.month, dia.day, tzinfo=_U)
     filas = [_REG.unpack_from(crudo, i * _REG.size) for i in range(len(crudo) // _REG.size)]
     if not filas:

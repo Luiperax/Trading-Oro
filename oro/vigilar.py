@@ -156,7 +156,8 @@ def _atender_ruptura(ruta_estado: str) -> None:
     """
     antes = _huella_ruptura()
     _avanzar_ema()
-    for nombre, modulo in (("plan", "plan_sesion"), ("seguimiento", "seguir_plan")):
+    for nombre, modulo in (("plan", "plan_sesion"), ("seguimiento", "seguir_plan"),
+                           ("v3", "v3_vivo")):
         try:
             __import__(f"oro.{modulo}", fromlist=["ejecutar"]).ejecutar()
         except Exception as e:  # noqa: BLE001
@@ -201,13 +202,25 @@ def _huella_ruptura():
 
     from .plan_sesion import _ruta_estado
     from .seguir_plan import RUTA_RUPTURAS
+    from .v3_vivo import _ruta as _ruta_v3, _ruta_registro as _ruta_v3_registro
 
     huella = []
-    for ruta in (_ruta_estado(), Path(os.getenv("ORO_RUTA_RUPTURAS", RUTA_RUPTURAS))):
+    for ruta in (_ruta_estado(), Path(os.getenv("ORO_RUTA_RUPTURAS", RUTA_RUPTURAS)),
+                 _ruta_v3(), _ruta_v3_registro()):
         try:
-            huella.append(ruta.read_text(encoding="utf-8") if ruta.exists() else None)
+            texto = ruta.read_text(encoding="utf-8") if ruta.exists() else None
         except OSError:
-            huella.append(None)
+            texto = None
+        if texto and ruta == _ruta_v3():
+            # La última vela revisada cambia cada hora y no merece un commit:
+            # lo que hay que asegurar al instante es la operación y sus avisos.
+            import json
+            try:
+                d = json.loads(texto)
+                texto = json.dumps([d.get("abierta"), d.get("avisados")], sort_keys=True)
+            except ValueError:
+                pass
+        huella.append(texto)
     return tuple(huella)
 
 

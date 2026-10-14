@@ -69,6 +69,18 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r oro/requirements-web.txt
 
+      # Velas horarias y de un minuto de Dukascopy ya bajadas (ver
+      # oro/serie_horaria.py). Sin esto cada vigilancia arranca bajando ~45 días
+      # de velas de un minuto a 2 peticiones por minuto: media hora sin avisos.
+      # La clave cambia cada día para guardar lo nuevo; restore-keys recupera
+      # la del día anterior, que ya tiene casi todo.
+      - name: Caché de velas
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/oro
+          key: velas-oro-${{ github.run_id }}
+          restore-keys: velas-oro-
+
       - name: Revisar el mercado y notificar
         env:
           # Telegram (recomendado). Deja en blanco los que no uses.
@@ -120,6 +132,8 @@ jobs:
           ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO: ${{ vars.ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO }}
           ORO_RUPTURA_SOLO_PAPEL: ${{ vars.ORO_RUPTURA_SOLO_PAPEL }}
           ORO_RUPTURA_FILTRO_EMA200: ${{ vars.ORO_RUPTURA_FILTRO_EMA200 }}
+          ORO_V3_ACTIVA: ${{ vars.ORO_V3_ACTIVA }}
+          ORO_V3_PAPEL: ${{ vars.ORO_V3_PAPEL }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
         run: |

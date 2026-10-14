@@ -436,6 +436,37 @@ class ConfiguracionRuptura:
 
 
 @dataclass(slots=True)
+class ConfiguracionV3:
+    """Los avisos del indicador «XAU/USD — Activo v3» en velas de 1 hora.
+
+    Petición del usuario (14-oct-2026): recibir sus señales desde el sistema,
+    para operarlas, con lo que se pudiera optimizar. Medido (H29 y H30 en
+    docs/ESTRATEGIAS_MEDIDAS.md): con sus valores originales en H1 pierde en 20
+    de 21 años. Optimizado con 2006-2015 y probado una sola vez en 2016-2026:
+    stop de 3 ATR, TP1 a 3 ATR (la mitad) y TP2 a 5 ATR (la otra mitad), 3
+    confirmaciones de 6 y la EMA 50 de H4 obligatoria a favor. Fuera de muestra
+    −0,0005 R/op (t = −0,02): ni gana ni pierde; en los 21 años, −0,023 R/op
+    (t = −1,03). 115 operaciones al año, 40 horas de mediana. NO es una ventaja
+    demostrada. (La primera medición de H30 daba +0,012: la simulación dejaba
+    abrir una operación antes de que cerrara la anterior; ver H30-bis.)
+
+    Encendido con la configuración real (``ORO_V3_ACTIVA``, por defecto sí);
+    la clase lo deja apagado para que las pruebas no salgan a la red.
+    """
+
+    activa: bool = False
+    papel: bool = False                # ORO_V3_PAPEL=1: avisos marcados «no operes»
+    min_score: int = 3
+    sl_atr: float = 3.0
+    tp1_atr: float = 3.0
+    tp2_atr: float = 5.0
+    h4_obligatorio: bool = True
+    # Una señal se manda solo si su vela cerró hace menos de esto: si el
+    # vigilante estuvo parado, entrar horas después ya no es la misma operación.
+    max_retraso_min: int = 75
+
+
+@dataclass(slots=True)
 class ConfiguracionSistema:
     # El símbolo del instrumento para la INVESTIGACIÓN (Dukascopy, XAU/USD al
     # contado). No es el que se opera en vivo: ver `simbolo_vivo`.
@@ -548,6 +579,7 @@ class ConfiguracionSistema:
     riesgo: ConfiguracionRiesgo = field(default_factory=ConfiguracionRiesgo)
     calidad: ConfiguracionCalidad = field(default_factory=ConfiguracionCalidad)
     ruptura: ConfiguracionRuptura = field(default_factory=ConfiguracionRuptura)
+    v3: ConfiguracionV3 = field(default_factory=ConfiguracionV3)
 
     # Fuentes de datos y ML. El modelo se guarda en la raíz para poder versionarlo
     # en el repo (así el aprendizaje persiste entre ejecuciones en la nube).
@@ -740,6 +772,8 @@ def cargar_configuracion() -> ConfiguracionSistema:
     # plan a mano (pruebas, estudios) no necesiten una EMA; quien lee la
     # configuración real lo recibe encendido salvo ORO_RUPTURA_FILTRO_EMA200=0.
     cfg.ruptura.filtro_ema200_h1 = _bool("ORO_RUPTURA_FILTRO_EMA200", True)
+    cfg.v3.activa = _bool("ORO_V3_ACTIVA", True)
+    cfg.v3.papel = _bool("ORO_V3_PAPEL", cfg.v3.papel)
     return cfg
 
 

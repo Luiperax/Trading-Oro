@@ -68,6 +68,7 @@ modo_prueba**.
 | | estado | por qué |
 |---|---|---|
 | **Plan de ruptura con filtro de la EMA 200 horaria** (venta del rango de Londres solo con el precio por debajo de su EMA 200 H1; el día de empleo, la orden del lado de la EMA) | **activo desde el 14-oct-2026**, a petición del usuario y sabiendo que es jugársela | +0,012 R/op sobre 1.375 operaciones de 21 años (t = 0,34), +0,057 en 2022-2026: no es una ventaja demostrada. Sin filtro, −0,039 R/op |
+| **Avisos del indicador v3 en velas de 1 hora** (EMA 21/50, EMA 50 de H4 obligatoria a favor, 3 de 6 confirmaciones; stop 3 ATR, mitad a 3 ATR y mitad a 5 ATR) | **activo desde el 14-oct-2026**, a petición del usuario | En 2016-2026, que no se usó para elegir los ajustes, −0,0005 R/op (t = −0,02); en 21 años, −0,023 R/op, 8 años positivos de 21, peor racha −114 R: no es una ventaja demostrada (H30-bis) |
 | Motor de señales intradía | **apagado** | −0,090 R/op sobre 4.891 operaciones, 2 años positivos de 21, −157 €/año |
 
 El motor de señales se apagó en octubre de 2026 tras reconstruir el histórico
@@ -106,6 +107,21 @@ Antes dejaba **dos** órdenes, una a cada lado. Se midió el histórico completo
 el lado de las compras resultó ser un lastre de −7,7 R al año, así que se quitó.
 El detalle está en
 [`docs/ESTRATEGIAS_MEDIDAS.md`](docs/ESTRATEGIAS_MEDIDAS.md).
+
+## Los avisos del v3 (tercera estrategia)
+
+El indicador de TradingView «XAU/USD M30 — Activo v3», llevado a velas de 1
+hora (el sistema trabaja con horas cerradas). Al cerrar cada hora, entre las
+7:00 y las 21:00 UTC, se miran sus seis confirmaciones; si hay señal y no hay
+otra operación abierta, llega un correo: entrar a mercado con dos posiciones
+de la mitad del tamaño, las dos con el mismo stop, una con objetivo en TP1 y
+otra en TP2. Después llegan los avisos de TP1, de TP2 o del stop. No hay hora
+de cierre: dura unas 40 horas de mediana y duerme alguna noche.
+
+Los ajustes salen de H30 (elegidos con 2006-2015 y probados una vez en
+2016-2026). Medido, **no tiene ventaja**: ni gana ni pierde fuera de muestra,
+y en 21 años pierde un poco. Va en real porque el usuario lo pidió así;
+`ORO_V3_PAPEL=1` lo pasa a papel y `ORO_V3_ACTIVA=0` lo apaga.
 
 ## Documentación
 

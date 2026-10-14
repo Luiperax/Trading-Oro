@@ -37,6 +37,8 @@ RUTA_OPERACIONES = "operaciones_oro.jsonl"
 RUTA_PLAN = "oro_plan.json"
 RUTA_RUPTURAS = "oro_rupturas.jsonl"
 RUTA_EMA = "oro_ema.json"
+RUTA_V3 = "oro_v3.json"
+RUTA_V3_REGISTRO = "oro_v3.jsonl"
 
 
 def _git(*args: str, timeout: int = 60) -> subprocess.CompletedProcess:
@@ -125,8 +127,11 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     ops_nuestro = _leer(RUTA_OPERACIONES)
     rupturas_nuestro = _leer(RUTA_RUPTURAS)
     ema_nuestra = _leer(RUTA_EMA)
+    v3_nuestro = _leer(RUTA_V3)
+    v3_registro_nuestro = _leer(RUTA_V3_REGISTRO)
     if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
-                               rupturas_nuestro, ema_nuestra)):
+                               rupturas_nuestro, ema_nuestra, v3_nuestro,
+                               v3_registro_nuestro)):
         return False
 
     # No subir un estado ilegible: machacaría la copia BUENA del remoto con
@@ -149,8 +154,19 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     estado_nuestro = _valido(estado_nuestro, ruta_estado)
     plan_nuestro = _valido(plan_nuestro, RUTA_PLAN)
     ema_nuestra = _valido(ema_nuestra, RUTA_EMA)
+    v3_nuestro = _valido(v3_nuestro, RUTA_V3)
+    # El estado del v3 solo lo escribe el vigilante. Los demás trabajos (plan,
+    # parte diario, cierre…) también pasan por aquí con la copia que bajaron al
+    # empezar: si la subieran, podrían deshacer una operación que el vigilante
+    # acaba de guardar, y la siguiente vigilancia repetiría el aviso de
+    # entrada. Así que solo se sube si este proceso lo ha cambiado.
+    if v3_nuestro is not None:
+        en_head = _git("show", f"HEAD:{RUTA_V3}")
+        if en_head.returncode == 0 and en_head.stdout == v3_nuestro:
+            v3_nuestro = None
     if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
-                               rupturas_nuestro, ema_nuestra)):
+                               rupturas_nuestro, ema_nuestra, v3_nuestro,
+                               v3_registro_nuestro)):
         return False
 
     _git("config", "user.name", "oro-alertas-bot")
@@ -166,7 +182,8 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
         # 2) Reescribir: los ESTADOS son del proceso vivo y mandan ellos; los
         #    REGISTROS solo crecen, así que se unen sin perder líneas de nadie.
         for ruta, contenido in ((ruta_estado, estado_nuestro),
-                                (RUTA_PLAN, plan_nuestro)):
+                                (RUTA_PLAN, plan_nuestro),
+                                (RUTA_V3, v3_nuestro)):
             if contenido is not None:
                 Path(ruta).write_text(contenido, encoding="utf-8")
         # La EMA horaria: gana la que llega más lejos (dos máquinas pueden
@@ -174,13 +191,15 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
         if ema_nuestra is not None and _hasta(ema_nuestra) >= _hasta(_leer(RUTA_EMA)):
             Path(RUTA_EMA).write_text(ema_nuestra, encoding="utf-8")
         for ruta, contenido in ((RUTA_OPERACIONES, ops_nuestro),
-                                (RUTA_RUPTURAS, rupturas_nuestro)):
+                                (RUTA_RUPTURAS, rupturas_nuestro),
+                                (RUTA_V3_REGISTRO, v3_registro_nuestro)):
             unido = _unir_jsonl(contenido, _leer(ruta))
             if unido is not None:
                 Path(ruta).write_text(unido, encoding="utf-8")
 
         # 3) Preparar cada fichero por separado (uno ausente no aborta el otro).
-        for ruta in (ruta_estado, RUTA_PLAN, RUTA_OPERACIONES, RUTA_RUPTURAS, RUTA_EMA):
+        for ruta in (ruta_estado, RUTA_PLAN, RUTA_OPERACIONES, RUTA_RUPTURAS, RUTA_EMA,
+                     RUTA_V3, RUTA_V3_REGISTRO):
             _git("add", "-f", ruta)
         if _git("diff", "--cached", "--quiet").returncode == 0:
             return False  # nada que guardar

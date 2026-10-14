@@ -24,6 +24,7 @@ venv/
 !operaciones_oro.jsonl
 !oro_rupturas.jsonl
 !historico_ruptura.jsonl
+!oro_v3.jsonl
 
 # Sistema operativo
 .DS_Store

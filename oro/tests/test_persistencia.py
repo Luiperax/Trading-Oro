@@ -119,3 +119,31 @@ def test_no_sube_un_estado_ilegible(repo_con_remoto, capsys):
     Path("oro_estado.json").write_text("{esto no es json", encoding="utf-8")
     assert guardar_en_repo("oro_estado.json") is False
     assert "no es JSON válido" in capsys.readouterr().out
+
+
+def test_el_estado_del_v3_viejo_de_otro_trabajo_no_pisa_el_del_vigilante(repo_con_remoto, tmp_path):
+    """El plan o el parte diario guardan con la copia del v3 que bajaron al
+    empezar; si la subieran, borrarían la operación que el vigilante acaba de
+    abrir y la vigilancia siguiente repetiría el aviso de entrada."""
+    clon, remoto = repo_con_remoto
+    viejo = '{"procesada": "2026-10-14T12:00:00+00:00", "abierta": null}'
+    (clon / "oro_v3.json").write_text(viejo, encoding="utf-8")
+    _run("git", "add", "-A"); _run("git", "commit", "-qm", "v3"); _run("git", "push", "-q")
+    # El vigilante, en otra máquina, abre una operación y la sube.
+    otro = tmp_path / "vigilante"
+    _run("git", "clone", "-q", str(remoto), str(otro))
+    _run("git", "-C", str(otro), "config", "user.email", "o@o.o")
+    _run("git", "-C", str(otro), "config", "user.name", "o")
+    (otro / "oro_v3.json").write_text('{"abierta": {"t": "x"}}', encoding="utf-8")
+    _run("git", "-C", str(otro), "commit", "-qam", "v3 abierta")
+    _run("git", "-C", str(otro), "push", "-q", "origin", "main")
+    # Aquí (otro trabajo) se cambia el estado del vigilante clásico y se guarda.
+    (clon / "oro_estado.json").write_text('{"abiertas": [], "x": 1}', encoding="utf-8")
+    assert guardar_en_repo() is True
+    final = _run("git", "show", "origin/main:oro_v3.json").stdout
+    assert json.loads(final)["abierta"] == {"t": "x"}
+    # Y si es este proceso el que lo cambia, sí manda el suyo.
+    (clon / "oro_v3.json").write_text('{"abierta": null, "procesada": "y"}', encoding="utf-8")
+    assert guardar_en_repo() is True
+    _run("git", "fetch", "-q", "origin", "main")
+    assert json.loads(_run("git", "show", "origin/main:oro_v3.json").stdout)["procesada"] == "y"

@@ -134,37 +134,14 @@ def desde_cierres(cierres: pd.Series) -> dict:
 
 def reconstruir(df_vivo: Optional[pd.DataFrame], hoy: Optional[dt.date] = None,
                 guardar: bool = True) -> Optional[dict]:
-    """Rehace la EMA con ~45 días de velas horarias (ver el docstring del módulo)."""
-    from .ambiguos import velas_minuto_del_dia
-    from .datos.dukascopy import ProveedorDukascopy
+    """Rehace la EMA con ~45 días de velas horarias (ver :mod:`oro.serie_horaria`)."""
+    from .serie_horaria import serie_h1
 
-    hoy = hoy or dt.datetime.now(dt.timezone.utc).date()
-    inicio = hoy - dt.timedelta(days=45)
-    partes = []
-    try:
-        meses = ProveedorDukascopy().rango(inicio, hoy.replace(day=1) - dt.timedelta(days=1))
-        partes.append(meses["close"])
-    except Exception as e:  # noqa: BLE001
-        print(f"  EMA: sin los meses cerrados de Dukascopy ({type(e).__name__}).")
-    cache = Path.home() / ".cache" / "oro" / "dukascopy_m1"
-    d = max(inicio, hoy.replace(day=1))
-    while d < hoy:
-        if d.weekday() != 5:
-            m = velas_minuto_del_dia(d, cache, intentos=4)
-            if m is not None and len(m):
-                m = m[m["high"] > m["low"]]
-                partes.append(m["close"].resample("1h", label="left", closed="left").last().dropna())
-        d += dt.timedelta(days=1)
-    if df_vivo is not None and len(df_vivo):
-        partes.append(df_vivo["close"])
-    if not partes:
-        return None
-    serie = pd.concat([p.set_axis(_utc(p.index)) for p in partes])
-    serie = serie[~serie.index.duplicated(keep="last")].sort_index()
+    serie = serie_h1(df_vivo, hoy)
     if len(serie) < 3 * PERIODO:
         print(f"  EMA: solo {len(serie)} velas para reconstruirla; no vale.")
         return None
-    estado = desde_cierres(serie)
+    estado = desde_cierres(serie["close"])
     if guardar:
         _guardar(estado)
     return estado

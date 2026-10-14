@@ -110,6 +110,8 @@ jobs:
           ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO: ${{ vars.ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO }}
           ORO_RUPTURA_SOLO_PAPEL: ${{ vars.ORO_RUPTURA_SOLO_PAPEL }}
           ORO_RUPTURA_FILTRO_EMA200: ${{ vars.ORO_RUPTURA_FILTRO_EMA200 }}
+          ORO_V3_ACTIVA: ${{ vars.ORO_V3_ACTIVA }}
+          ORO_V3_PAPEL: ${{ vars.ORO_V3_PAPEL }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
           # Parámetros de esta estrategia (vacío = valores medidos por defecto).
