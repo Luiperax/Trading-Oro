@@ -109,6 +109,7 @@ jobs:
           ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA: ${{ vars.ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA }}
           ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO: ${{ vars.ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO }}
           ORO_RUPTURA_SOLO_PAPEL: ${{ vars.ORO_RUPTURA_SOLO_PAPEL }}
+          ORO_RUPTURA_FILTRO_EMA200: ${{ vars.ORO_RUPTURA_FILTRO_EMA200 }}
           ORO_ZONA_HORARIA: ${{ vars.ORO_ZONA_HORARIA }}
           ORO_SMTP_PUERTO: ${{ vars.ORO_SMTP_PUERTO }}
           # Parámetros de esta estrategia (vacío = valores medidos por defecto).
@@ -131,5 +132,5 @@ jobs:
           from oro.persistencia import guardar_ficheros
           # El estado lleva ahora el PLAN entero, que es lo que el trabajo de
           # seguimiento necesita para seguir la operación por la tarde.
-          guardar_ficheros(["oro_plan.json"], "Plan de ruptura enviado [skip ci]")
+          guardar_ficheros(["oro_plan.json", "oro_ema.json"], "Plan de ruptura enviado [skip ci]")
           PY

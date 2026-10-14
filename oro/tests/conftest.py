@@ -60,3 +60,11 @@ def _sin_fred_en_red(monkeypatch):
 def _sin_precio_en_red(monkeypatch):
     """El parte no sale a Dukascopy en las pruebas."""
     monkeypatch.setattr("oro.latido._precio_contado", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _sin_filtro_ema(monkeypatch):
+    """El filtro de la EMA 200 horaria va puesto en producción, pero las pruebas
+    de punta a punta no tienen una EMA guardada (y reconstruirla saldría a la
+    red). Las del filtro lo encienden ellas: ver test_filtro_ema.py."""
+    monkeypatch.setenv("ORO_RUPTURA_FILTRO_EMA200", "0")

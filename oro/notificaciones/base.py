@@ -516,13 +516,18 @@ class Notificador(ABC):
         """
         from .plan import mensaje_de_plan, mensaje_html_de_plan
 
-        if plan.dia_de_empleo:
-            titulo = (f"⚡ PLAN XAU/USD — DÍA DE EMPLEO, deja 2 órdenes: compra "
-                      f"{plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}")
-        elif plan.solo_ventas:
-            titulo = (f"⚡ PLAN XAU/USD — deja 1 orden: venta "
+        empleo = " · DÍA DE EMPLEO" if plan.dia_de_empleo else ""
+        if plan.solo_ventas:
+            titulo = (f"⚡ PLAN XAU/USD{empleo} — deja 1 orden: venta "
                       f"{plan.venta.entrada:.2f} (anula si sube de "
                       f"{plan.compra.entrada:.2f})")
+        elif plan.solo_compras:
+            titulo = (f"⚡ PLAN XAU/USD{empleo} — deja 1 orden: compra "
+                      f"{plan.compra.entrada:.2f} (anula si baja de "
+                      f"{plan.venta.entrada:.2f})")
+        elif plan.dia_de_empleo:
+            titulo = (f"⚡ PLAN XAU/USD — DÍA DE EMPLEO, deja 2 órdenes: compra "
+                      f"{plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}")
         else:
             titulo = (f"⚡ PLAN XAU/USD — deja 2 órdenes: compra "
                       f"{plan.compra.entrada:.2f} / venta {plan.venta.entrada:.2f}")

@@ -28,7 +28,8 @@ _CREDENCIALES = {
 # Opciones de ejecución local o del panel web, que no aplican a los workflows.
 _SOLO_LOCAL = {"ORO_ESTADO", "ORO_INTERVALO", "ORO_PANEL_CLAVE", "ORO_BUCLE_CADA_SEG",
                "ORO_BUCLE_MINUTOS", "ORO_RUTA_MODELO", "ORO_RUTA_OPERACIONES",
-               "ORO_RUTA_SENALES", "ORO_PLAN_ESTADO", "ORO_RUTA_RUPTURAS"}
+               "ORO_RUTA_SENALES", "ORO_PLAN_ESTADO", "ORO_RUTA_RUPTURAS",
+               "ORO_RUTA_EMA"}
 # Parámetros que SOLO usa la ruptura de sesión (oro-plan.yml). No tienen sentido
 # en los trabajos del sistema intradía, que es una estrategia distinta, así que
 # exigírselos sería ruido; a cambio, se exigen en el suyo (ver más abajo).

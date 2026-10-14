@@ -7,13 +7,23 @@ no tiene ventaja. Ver ConfiguracionRuptura.solo_papel.
 
 from __future__ import annotations
 
+import pytest
+
 from oro.config import ConfiguracionSistema
 from oro.notificaciones.plan import mensaje_de_plan, mensaje_html_de_plan
 from oro.tests.test_solo_ventas import _plan
 
 
-def test_por_defecto_va_en_papel():
-    assert ConfiguracionSistema().ruptura.solo_papel is True
+def test_desde_el_14_oct_opera_y_se_vuelve_al_papel_con_la_variable(monkeypatch):
+    from oro.config import cargar_configuracion
+    assert ConfiguracionSistema().ruptura.solo_papel is False
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "1")
+    assert cargar_configuracion().ruptura.solo_papel is True
+
+
+@pytest.fixture(autouse=True)
+def _en_papel(monkeypatch):
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "1")
 
 
 def test_el_correo_dice_no_operes_arriba_del_todo():

@@ -36,6 +36,7 @@ RUTA_OPERACIONES = "operaciones_oro.jsonl"
 # nunca de mover el stop ni de cerrar, ni habría registrado el resultado.
 RUTA_PLAN = "oro_plan.json"
 RUTA_RUPTURAS = "oro_rupturas.jsonl"
+RUTA_EMA = "oro_ema.json"
 
 
 def _git(*args: str, timeout: int = 60) -> subprocess.CompletedProcess:
@@ -102,6 +103,15 @@ def guardar_ficheros(ficheros: list[str], mensaje: str, intentos: int = 4) -> bo
     return False
 
 
+def _hasta(texto) -> str:
+    """Hasta qué vela llega una EMA guardada ('' si no se puede leer)."""
+    import json as _json
+    try:
+        return str(_json.loads(texto).get("hasta", "")) if texto else ""
+    except ValueError:
+        return ""
+
+
 def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     """Sube estado y registro al repositorio. True si se guardó algo.
 
@@ -114,8 +124,9 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
     plan_nuestro = _leer(RUTA_PLAN)
     ops_nuestro = _leer(RUTA_OPERACIONES)
     rupturas_nuestro = _leer(RUTA_RUPTURAS)
+    ema_nuestra = _leer(RUTA_EMA)
     if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
-                               rupturas_nuestro)):
+                               rupturas_nuestro, ema_nuestra)):
         return False
 
     # No subir un estado ilegible: machacaría la copia BUENA del remoto con
@@ -137,8 +148,9 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
 
     estado_nuestro = _valido(estado_nuestro, ruta_estado)
     plan_nuestro = _valido(plan_nuestro, RUTA_PLAN)
+    ema_nuestra = _valido(ema_nuestra, RUTA_EMA)
     if all(x is None for x in (estado_nuestro, plan_nuestro, ops_nuestro,
-                               rupturas_nuestro)):
+                               rupturas_nuestro, ema_nuestra)):
         return False
 
     _git("config", "user.name", "oro-alertas-bot")
@@ -157,6 +169,10 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
                                 (RUTA_PLAN, plan_nuestro)):
             if contenido is not None:
                 Path(ruta).write_text(contenido, encoding="utf-8")
+        # La EMA horaria: gana la que llega más lejos (dos máquinas pueden
+        # haberla avanzado a la vez; la más reciente incluye a la otra).
+        if ema_nuestra is not None and _hasta(ema_nuestra) >= _hasta(_leer(RUTA_EMA)):
+            Path(RUTA_EMA).write_text(ema_nuestra, encoding="utf-8")
         for ruta, contenido in ((RUTA_OPERACIONES, ops_nuestro),
                                 (RUTA_RUPTURAS, rupturas_nuestro)):
             unido = _unir_jsonl(contenido, _leer(ruta))
@@ -164,7 +180,7 @@ def guardar_en_repo(ruta_estado: str = RUTA_ESTADO, intentos: int = 4) -> bool:
                 Path(ruta).write_text(unido, encoding="utf-8")
 
         # 3) Preparar cada fichero por separado (uno ausente no aborta el otro).
-        for ruta in (ruta_estado, RUTA_PLAN, RUTA_OPERACIONES, RUTA_RUPTURAS):
+        for ruta in (ruta_estado, RUTA_PLAN, RUTA_OPERACIONES, RUTA_RUPTURAS, RUTA_EMA):
             _git("add", "-f", ruta)
         if _git("diff", "--cached", "--quiet").returncode == 0:
             return False  # nada que guardar

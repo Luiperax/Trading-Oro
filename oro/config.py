@@ -218,7 +218,8 @@ class ConfiguracionRuptura:
     Ajustable por entorno: ORO_RUPTURA_ACTIVA, ORO_RUPTURA_R_OBJETIVO,
     ORO_RUPTURA_HORAS_VALIDEZ, ORO_RUPTURA_SESGO_CUERPO_MINIMO,
     ORO_RUPTURA_SOLO_VENTAS, ORO_RUPTURA_ANULAR_SI_ROMPE_ARRIBA,
-    ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO, ORO_RUPTURA_SOLO_PAPEL.
+    ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO, ORO_RUPTURA_SOLO_PAPEL,
+    ORO_RUPTURA_FILTRO_EMA200.
     """
 
     # Interruptor general. Se apaga con ORO_RUPTURA_ACTIVA=0 sin tocar nada más.
@@ -311,10 +312,23 @@ class ConfiguracionRuptura:
     #
     # 7 años positivos de 21, peor año −31,8 R, peor racha −126,8 R. Los días
     # de empleo caen porque 1 de cada 3 es ambiguo: el salto de las 8:30 cruza
-    # los dos lados en la misma hora. Se vuelve a operar con
-    # ORO_RUPTURA_SOLO_PAPEL=0, y no debería hacerse sin una regla que aguante
-    # con esos días contados.
-    solo_papel: bool = True
+    # los dos lados en la misma hora.
+    #
+    # 14-oct-2026: el usuario decide volver a operar el plan «aunque sea
+    # jugársela», con la variante que más posibilidades tenga: la del filtro de
+    # la EMA 200 horaria (abajo). Sale del papel. Se vuelve a él con
+    # ORO_RUPTURA_SOLO_PAPEL=1.
+    solo_papel: bool = False
+
+    # Filtro de la EMA 200 horaria (H19): la venta solo si a las 8:00 ET el
+    # precio está por debajo de su EMA de 200 velas H1; el día de empleo, solo
+    # la orden a favor (y se anula si el otro lado rompe antes). Medido como
+    # hipótesis: +0,025 R/op (t = 0,73). Con ESTE código de producción
+    # (`oro.historico` con el filtro): 1.375 operaciones, +0,012 R/op
+    # (t = 0,34; mitades +0,044 / −0,022), +0,057 en 2022-2026 (t = 0,80),
+    # 10 años positivos de 21, peor racha −50 R. NO es una ventaja demostrada:
+    # es la mejor variante de 23 probadas, y elegir la mejor infla lo esperado.
+    filtro_ema200_h1: bool = False
 
     # La ventana cuyo máximo y mínimo forman el rango, en hora de NUEVA YORK:
     # 3:00-8:00, que es la mañana de Londres. Se probaron 2-8, 3-7 y 4-8: las
@@ -721,6 +735,11 @@ def cargar_configuracion() -> ConfiguracionSistema:
         "ORO_RUPTURA_DOS_ORDENES_EN_EMPLEO", cfg.ruptura.dos_ordenes_en_dia_de_empleo
     )
     cfg.ruptura.solo_papel = _bool("ORO_RUPTURA_SOLO_PAPEL", cfg.ruptura.solo_papel)
+    # En producción el filtro va PUESTO (14-oct-2026, ver arriba). El valor por
+    # defecto de la clase sigue en False para que las piezas que construyen un
+    # plan a mano (pruebas, estudios) no necesiten una EMA; quien lee la
+    # configuración real lo recibe encendido salvo ORO_RUPTURA_FILTRO_EMA200=0.
+    cfg.ruptura.filtro_ema200_h1 = _bool("ORO_RUPTURA_FILTRO_EMA200", True)
     return cfg
 
 

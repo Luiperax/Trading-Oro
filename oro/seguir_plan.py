@@ -202,6 +202,8 @@ def _rehidratar(d: dict) -> dict:
         anular_si_rompe_arriba=d.get("anular_si_rompe_arriba",
                                      _cfg_ruptura().anular_si_rompe_arriba),
         dia_de_empleo=d.get("dia_de_empleo", False),
+        solo_compras=d.get("solo_compras", False),
+        ema200=d.get("ema200"),
     )
 
 
@@ -235,6 +237,8 @@ def serializar(plan: PlanRuptura) -> dict:
         "solo_ventas": plan.solo_ventas,
         "anular_si_rompe_arriba": plan.anular_si_rompe_arriba,
         "dia_de_empleo": plan.dia_de_empleo,
+        "solo_compras": plan.solo_compras,
+        "ema200": plan.ema200,
     }
 
 

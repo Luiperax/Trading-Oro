@@ -229,11 +229,34 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
               f"y son más de las {ESPERA_HUECOS_HASTA_ET}:00 en Nueva York: se "
               f"calcula con las que hay.")
 
-    resultado = construir_plan(df, cfg, ahora=ahora)
+    ema200 = None
+    if cfg.ruptura.filtro_ema200_h1:
+        # La EMA 200 horaria al cierre de la vela de 7:00-8:00 ET (H19).
+        from .ema_horaria import ema_en
+        from .sesiones import _a_las
+        vela = _a_las(dia, cfg.ruptura.rango_hasta_et - 1)
+        try:
+            ema200 = ema_en(df, vela)
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠️  No se pudo calcular la EMA 200 horaria ({type(e).__name__}: {e}).")
+        if ema200 is not None:
+            print(f"  EMA 200 horaria a las 8:00 ET: {ema200:.2f}")
+
+    resultado = construir_plan(df, cfg, ahora=ahora, ema200=ema200)
     if not resultado.hay_plan:
         print("Hoy no hay plan de ruptura:")
         for m in resultado.motivos_no:
             print(f"  · {m}")
+        if resultado.aviso_sin_plan:
+            # Un día sin correo no se distingue de una avería: se avisa, una
+            # vez, de que hoy no hay plan y por qué.
+            if _construir_notificador().enviar(
+                    "⏸ XAU/USD: hoy no hay plan", resultado.aviso_sin_plan):
+                _anotar_dia(dia, None, fuente_actual(sintetico))
+                print("✔ Aviso de «hoy no hay plan» enviado.")
+            else:
+                print("⚠️  El aviso de «hoy no hay plan» no se pudo enviar: se reintentará.")
+                return 1
         return 0
 
     plan = resultado.plan
@@ -242,7 +265,9 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
           f"({plan.rango.amplitud:.2f} $ de riesgo por onza), {ordenes}, "
           f"objetivo {plan.r_objetivo:.0f}R."
           + (f" Se anula si sube de {plan.compra.entrada:.2f}."
-             if plan.solo_ventas and plan.anular_si_rompe_arriba else ""))
+             if plan.solo_ventas and plan.anular_si_rompe_arriba else "")
+          + (f" Se anula si baja de {plan.venta.entrada:.2f}."
+             if plan.solo_compras and plan.anular_si_rompe_arriba else ""))
 
     # 4) Enviarlo. Igual que con las señales: el día solo se marca como enviado
     #    si el aviso LLEGÓ. Si el correo falla, la siguiente ejecución lo

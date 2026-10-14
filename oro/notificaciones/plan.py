@@ -83,6 +83,14 @@ def hora_cierre(plan: PlanRuptura) -> str:
     return hora_local(plan.cierre_forzoso)
 
 
+def _con_filtro(plan: PlanRuptura) -> bool:
+    return getattr(plan, "ema200", None) is not None
+
+
+def _lado_ema(plan: PlanRuptura) -> str:
+    return ("por debajo" if plan.solo_ventas else "por encima")
+
+
 def texto_confianza(plan: PlanRuptura) -> str:
     """Qué dice el sesgo asiático, SIN que parezca una predicción.
 
@@ -92,6 +100,15 @@ def texto_confianza(plan: PlanRuptura) -> str:
     if en_papel():
         return ("Es el plan de la estrategia tal cual, para comparar con lo que "
                 "haga el precio. El motivo de no operarlo está arriba.")
+    if _con_filtro(plan) and plan.una_orden:
+        pal = "venta" if plan.solo_ventas else "compra"
+        return (f"Hoy va la {pal}, porque a las 8:00 de Nueva York el oro está "
+                f"{_lado_ema(plan)} de su media de 200 horas ({plan.ema200:.2f}): "
+                f"solo se opera a favor de la tendencia horaria. Medido sobre 21 "
+                f"años con todos los costes y los días dudosos resueltos minuto a "
+                f"minuto: +0,012 R por operación (t = 0,34), y +0,057 en 2022-2026. "
+                f"Es la mejor variante de 23 probadas y aun así NO es una ventaja "
+                f"demostrada: en la práctica, cero.")
     if plan.dia_de_empleo:
         return ("Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York "
                 "y van LAS DOS órdenes. Ese día la rotura no es una rotura "
@@ -129,6 +146,15 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
     if en_papel():
         return ("Las cifras que se daban antes (+0,073 R por operación, +7,8 R "
                 "al año) no contaban esos 352 días y ya no valen.")
+    if plan is not None and _con_filtro(plan):
+        extra = (" Hoy además sale el dato de empleo a las 8:30 de Nueva York: el "
+                 "precio salta de golpe y la orden puede llenarse varios dólares "
+                 "peor (medido: mediana 0,10 $, media 1,31 $, un día 34,55 $)."
+                 if plan.dia_de_empleo else "")
+        return ("Lo honesto: desde 2016 pierde un poco (-0,022 R por operación), "
+                "solo 10 de 21 años salieron positivos y la peor racha fue de -50 R. "
+                "Elegir la mejor de muchas infla lo que se espera de ella. Espera "
+                "unas 66 operaciones al año." + extra)
     if plan is not None and plan.dia_de_empleo:
         return ("Cuidado con las 8:30: el precio salta de golpe y la orden se "
                 "llena en el primer precio que cruza el nivel, no en el nivel. "
@@ -152,6 +178,35 @@ def aviso_confianza(plan: PlanRuptura | None = None) -> str:
 def pasos_plan(plan: PlanRuptura) -> list[str]:
     """Los pasos exactos, en el orden en que se teclean en el bróker."""
     c, v = plan.compra, plan.venta
+    if plan.una_orden and (plan.solo_compras or _con_filtro(plan)):
+        o = plan.orden_unica
+        compra = o is c
+        tipo = "COMPRA tipo «BUY STOP»" if compra else "VENTA tipo «SELL STOP»"
+        contra = v.entrada if compra else c.entrada
+        verbo, borde = (("baja por debajo de", "el suelo") if compra
+                        else ("sube por encima de", "el techo"))
+        pal = "compra" if compra else "venta"
+        return [
+            "Abre tu bróker y busca XAU/USD (oro). Vas a dejar UNA orden "
+            "pendiente del tamaño que decidas. No se abre nada todavía."
+            + (" Hoy sale el dato de empleo de EE. UU. a las 8:30 de Nueva York."
+               if plan.dia_de_empleo else ""),
+            f"{tipo} en {o.entrada:.2f}, con stop loss en {o.stop:.2f} y take "
+            f"profit en {o.objetivo:.2f}.",
+            "Ese take profit está lejos a propósito: es una red de seguridad, no "
+            "la salida. La salida de verdad es cerrar a mano al final de la sesión.",
+            f"IMPORTANTE — si el precio {verbo} {contra:.2f} ({borde} del rango) "
+            f"antes de que salte tu {pal}, CANCÉLALA: hoy ya no vale. Te mandaré "
+            f"un correo en cuanto pase, pero si puedes poner una alerta en "
+            f"{contra:.2f}, mejor.",
+            f"Si a las {hora_local(plan.valido_hasta)} no ha saltado, cancélala. "
+            f"Hoy no hay operación.",
+            f"A las {hora_cierre(plan)} CIÉRRALA A MERCADO, gane o pierda. Esta "
+            f"es la salida, y no se queda de un día para otro.",
+            f"Cuando la operación te dé {plan.rango.amplitud:.2f} $ de beneficio "
+            f"(1R), mueve el stop al precio de entrada. Desde ahí ya no puede "
+            f"perder. Es parte de la estrategia medida, no un extra.",
+        ]
     if plan.dia_de_empleo:
         return [
             "Abre tu bróker y busca XAU/USD (oro). Hoy vas a dejar DOS órdenes "
@@ -238,14 +293,19 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         f"{plan.sesgo.rango:.2f} $",
         "",
     ]
-    if plan.solo_ventas:
+    if plan.una_orden:
+        o = plan.orden_unica
+        compra = o is plan.compra
         lineas += [
             "UNA ORDEN PENDIENTE:",
-            f"  VENTA  (sell stop) en {plan.venta.entrada:.2f}   "
-            f"stop {plan.venta.stop:.2f}   objetivo {plan.venta.objetivo:.2f}",
+            (f"  COMPRA (buy stop)  en {o.entrada:.2f}   " if compra else
+             f"  VENTA  (sell stop) en {o.entrada:.2f}   ")
+            + f"stop {o.stop:.2f}   objetivo {o.objetivo:.2f}",
             "",
-            f"ANULA LA ORDEN si el precio sube de {plan.compra.entrada:.2f} "
-            f"antes de que salte.",
+            (f"ANULA LA ORDEN si el precio baja de {plan.venta.entrada:.2f} "
+             f"antes de que salte." if compra else
+             f"ANULA LA ORDEN si el precio sube de {plan.compra.entrada:.2f} "
+             f"antes de que salte."),
         ]
     else:
         lineas += [
@@ -259,7 +319,7 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
         ]
     lineas += [
         "",
-        ("POR QUÉ ESTE PLAN:" if (plan.solo_ventas or plan.dia_de_empleo)
+        ("POR QUÉ ESTE PLAN:" if (plan.una_orden or plan.dia_de_empleo)
          else "CUÁL DE LAS DOS ES LA DE FIAR:"),
         f"  {texto_confianza(plan)}",
         f"  {aviso_confianza(plan)}",
@@ -272,7 +332,7 @@ def mensaje_de_plan(plan: PlanRuptura) -> str:
     lineas += [
         "",
         f"Válido hasta las {hora_local(plan.valido_hasta)} ({zona}). "
-        + ("Después, cancélala." if plan.solo_ventas else "Después, cancela las dos."),
+        + ("Después, cancélala." if plan.una_orden else "Después, cancela las dos."),
         f"Cierre a mano: {hora_cierre(plan)} ({zona}), gane o pierda.",
         "",
         ("LO QUE HARÍA LA ESTRATEGIA (no lo hagas con dinero real):" if en_papel()
@@ -305,6 +365,21 @@ def _hechos_honestos(plan: PlanRuptura) -> tuple[str, ...]:
             "el precio. Los avisos de la tarde también llegarán, marcados igual.",
             "Se vuelve a operar solo si aparece una regla que aguante con esos "
             "días contados, medida sin mirar el resultado antes de declararla.",
+        )
+    if _con_filtro(plan):
+        return (
+            "Medido con este mismo código sobre 1.375 operaciones de 21 años "
+            "(2006-2026), con TODOS los costes reales y los días dudosos resueltos "
+            "minuto a minuto: +0,012 R por operación (t = 0,34). Mitades: +0,044 "
+            "hasta 2015, -0,022 desde 2016. En 2022-2026: +0,057 (t = 0,80).",
+            "Acierta el 39 % de las veces. 10 años positivos de 21; el peor perdió "
+            "19 R y la peor racha fue de 50 R.",
+            "Sin el filtro la misma estrategia pierde -0,039 R por operación: las "
+            "ventas contra la tendencia horaria eran las que más perdían (-0,109 R, "
+            "t = -3,34).",
+            "No es una ventaja demostrada: con 23 variantes probadas, la mejor sale "
+            "mejor de lo que es por puro azar. Juégatela solo con dinero que puedas "
+            "perder.",
         )
     if plan.solo_ventas or plan.dia_de_empleo:
         return (
@@ -362,16 +437,18 @@ def aviso_instrumento() -> str | None:
 def _titulo_ordenes(plan: PlanRuptura) -> str:
     if en_papel():
         return "La orden del plan (solo papel)"
-    return ("Deja esta orden puesta" if plan.solo_ventas
+    return ("Deja esta orden puesta" if plan.una_orden
             else "Deja estas dos órdenes puestas")
 
 
 def _regla_cancelar(plan: PlanRuptura) -> str:
     """La regla que hay que recordar sí o sí, en una línea."""
-    if plan.dia_de_empleo:
-        return "Día de empleo: salta una → cancela la otra (mejor con OCO)"
     if plan.solo_ventas:
         return f"Si sube de {plan.compra.entrada:.2f} → cancela la venta"
+    if plan.solo_compras:
+        return f"Si baja de {plan.venta.entrada:.2f} → cancela la compra"
+    if plan.dia_de_empleo:
+        return "Día de empleo: salta una → cancela la otra (mejor con OCO)"
     return "Salta una → cancela la otra"
 
 
@@ -481,7 +558,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
       {_cajas_ordenes(plan)}
       <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:10px;">
        <tr><td style="background:#0e131c;border:1px solid {_BORDE};border-radius:12px;padding:12px 16px;">
-         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">{'Por qué este plan' if (plan.solo_ventas or plan.dia_de_empleo) else 'Cuál de las dos es la de fiar'}</div>
+         <div style="color:{_MUTED};font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">{'Por qué este plan' if (plan.una_orden or plan.dia_de_empleo) else 'Cuál de las dos es la de fiar'}</div>
          <div style="color:{_TEXTO};font-size:13px;line-height:1.5;">{_esc(texto_confianza(plan))}</div>
          <div style="color:{_MUTED};font-size:11px;line-height:1.5;margin-top:6px;">{_esc(aviso_confianza(plan))}</div>
        </td></tr>
@@ -509,7 +586,7 @@ def mensaje_html_de_plan(plan: PlanRuptura) -> str:
    </table>
   </td></tr>
   <tr><td style="text-align:center;padding:12px 14px;color:#4a5568;font-size:11px;">
-     ⏱ {'La orden vale' if plan.solo_ventas else 'Las órdenes valen'} hasta las <b>{hora_local(plan.valido_hasta)}</b> ({_esc(zona)}).
+     ⏱ {'La orden vale' if plan.una_orden else 'Las órdenes valen'} hasta las <b>{hora_local(plan.valido_hasta)}</b> ({_esc(zona)}).
      Ciérrala a mano a las <b>{hora_cierre(plan)}</b>, gane o pierda.<br>
      Sistema XAU/USD · plan generado automáticamente</td></tr>
  </table>

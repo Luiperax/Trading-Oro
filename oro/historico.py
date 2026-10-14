@@ -61,7 +61,7 @@ def _por_dia_de_sesion(df) -> Iterator[tuple[dt.date, "object"]]:
 
 
 def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
-                minutos_del_dia=None) -> list[dict]:
+                minutos_del_dia=None, ema_de=None) -> list[dict]:
     """Las fichas de todos los días del histórico, en el formato del registro.
 
     Cada ficha es exactamente la que `oro_rupturas.jsonl` guarda en vivo, así
@@ -87,7 +87,10 @@ def reconstruir(df, cfg: Optional[ConfiguracionSistema] = None,
         ahora = antes.index[-1].to_pydatetime()
         if dia_sesion(ahora) != dia:
             continue
-        res = construir_plan(antes, cfg, ahora=ahora)
+        # Con el filtro de la EMA 200 horaria, su valor al cierre de la vela de
+        # 7:00-8:00 ET (``ema_de(vela)``), igual que en vivo.
+        ema = ema_de(antes.index[-1]) if (ema_de is not None and c.filtro_ema200_h1) else None
+        res = construir_plan(antes, cfg, ahora=ahora, ema200=ema)
         if not res.hay_plan:
             continue
         plan = res.plan

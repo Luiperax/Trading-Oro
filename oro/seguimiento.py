@@ -176,31 +176,35 @@ def refinar(plan: PlanRuptura, df, velas_minuto):
     return pd.concat([base, *trozos]).sort_index()
 
 
-def _ejecutada_en_la_misma_hora(s: Seguimiento, plan: PlanRuptura, velas, momento) -> None:
-    """Si tras romper arriba la venta se ejecutó en esa MISMA hora, la ficha
-    lleva la operación: el aviso de cancelar solo puede llegar al publicarse la
-    vela, así que se cierra entonces (al cierre de esa hora), salvo que antes
-    salte el stop. Es lo mismo que cuenta el histórico (ver `oro.ambiguos`).
-    Solo se ve con velas de minuto: con velas horarias la rotura y la venta en
-    la misma hora son una vela ambigua.
+def _ejecutada_en_la_misma_hora(s: Seguimiento, plan: PlanRuptura, velas, momento,
+                                orden=None) -> None:
+    """Si tras romperse el lado contrario la orden se ejecutó en esa MISMA hora,
+    la ficha lleva la operación: el aviso de cancelar solo puede llegar al
+    publicarse la vela, así que se cierra entonces (al cierre de esa hora),
+    salvo que antes salte el stop. Es lo mismo que cuenta el histórico (ver
+    `oro.ambiguos`). Solo se ve con velas de minuto: con velas horarias la
+    rotura y la orden en la misma hora son una vela ambigua.
     """
     import pandas as pd
 
+    orden = orden or plan.venta
+    sg = orden.direccion.signo
     fin_hora = pd.Timestamp(momento).floor("h") + pd.Timedelta(hours=1)
     misma = velas[(velas.index > momento) & (velas.index < fin_hora)]
-    baja = misma[misma["low"] < plan.venta.entrada]
-    if not len(baja):
+    cruce = misma[misma["low"] < orden.entrada] if sg < 0 else misma[misma["high"] > orden.entrada]
+    if not len(cruce):
         return
     riesgo = plan.rango.amplitud
-    tras = misma[misma.index > baja.index[0]]
-    s.direccion = Direccion.VENTA
-    s.entrada = plan.venta.entrada
-    s.momento_entrada = baja.index[0].to_pydatetime()
-    if (tras["high"] >= plan.venta.stop).any():
-        s.salida, s.motivo_cierre = plan.venta.stop, "stop tras anular"
+    tras = misma[misma.index > cruce.index[0]]
+    s.direccion = orden.direccion
+    s.entrada = orden.entrada
+    s.momento_entrada = cruce.index[0].to_pydatetime()
+    toca = (tras["high"] >= orden.stop) if sg < 0 else (tras["low"] <= orden.stop)
+    if toca.any():
+        s.salida, s.motivo_cierre = orden.stop, "stop tras anular"
     else:
         s.salida, s.motivo_cierre = float(misma["close"].iloc[-1]), "cerrada al anular"
-    s.r = (s.entrada - s.salida) / riesgo
+    s.r = sg * (s.salida - s.entrada) / riesgo
 
 
 def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
@@ -229,13 +233,15 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
             # `refinar`); si aun así no se puede, se avisa: callarse dejaba a
             # quien opera con la venta quizá ejecutada y sin ninguna instrucción.
             s = Seguimiento(estado=EstadoPlan.AMBIGUA)
-            if plan.solo_ventas:
+            if plan.una_orden:
+                pal = "venta" if plan.solo_ventas else "compra"
+                lado = "el techo" if plan.solo_ventas else "el suelo"
                 cuerpo = (f"En la misma hora el precio ha pasado por el techo "
                           f"({plan.compra.entrada:.2f}) y por el suelo "
                           f"({plan.venta.entrada:.2f}) del rango, y no puedo saber "
-                          f"qué fue primero. Mira tu bróker: si la venta sigue "
+                          f"qué fue primero. Mira tu bróker: si la {pal} sigue "
                           f"abierta, CIÉRRALA A MERCADO (si estuviera abierta, es "
-                          f"que el techo se rompió antes y hoy no vale); si saltó "
+                          f"que {lado} se rompió antes y hoy no vale); si saltó "
                           f"el stop, no hay nada que hacer; si no se ejecutó, "
                           f"cancélala.")
             else:
@@ -254,52 +260,60 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
                 titulo="⚠️ XAU/USD: revisa tu orden",
                 cuerpo=cuerpo))
             return s
-        if arriba and plan.solo_ventas and plan.anular_si_rompe_arriba:
-            # El rango se ha roto al alza ANTES que a la baja. La venta de hoy
-            # deja de valer: medido, la misma rotura a la baja cuando llega
-            # después de una rotura al alza da -0.2863 R/op (t = -8.73) y solo
-            # 2 años positivos de 21. Dejar la orden puesta borra la ventaja
-            # entera de la estrategia (-1.07 R/año en lugar de +10.78).
+        rompe_contra = ((arriba and plan.solo_ventas) or (abajo and plan.solo_compras))
+        if rompe_contra and plan.anular_si_rompe_arriba:
+            # El rango se ha roto por el lado CONTRARIO antes que por el de la
+            # orden. Hoy ya no vale: medido, la misma rotura a la baja cuando
+            # llega después de una rotura al alza da -0.2863 R/op (t = -8.73) y
+            # solo 2 años positivos de 21.
             #
             # Pero el aviso llega cuando se publica la vela, hasta una hora
-            # después de la rotura. Si en ese tiempo el precio ha bajado hasta
-            # la venta, la orden YA se ha ejecutado y cancelarla no sirve:
-            # hay que cerrarla. Se dice en el aviso, y más alto si se ve.
+            # después de la rotura. Si en ese tiempo el precio ha llegado a la
+            # orden, YA se ha ejecutado y cancelarla no sirve: hay que cerrarla.
+            orden = plan.orden_unica
+            sg = orden.direccion.signo
+            pal = "venta" if sg < 0 else "compra"
+            contra = plan.compra.entrada if sg < 0 else plan.venta.entrada
+            lado, verbo = ("ARRIBA", "subido") if sg < 0 else ("ABAJO", "bajado")
+            hacia = "bajó" if sg < 0 else "subió"
             despues = velas[velas.index >= momento]
-            ejecutada = bool((despues["low"] < plan.venta.entrada).any())
+            ejecutada = bool(((despues["low"] < orden.entrada) if sg < 0
+                              else (despues["high"] > orden.entrada)).any())
             s = Seguimiento(estado=EstadoPlan.ANULADO)
-            _ejecutada_en_la_misma_hora(s, plan, velas, momento)
+            _ejecutada_en_la_misma_hora(s, plan, velas, momento, orden)
+            medido = ("La rotura a la baja solo funciona cuando es la primera "
+                      "del día; cuando llega después de una rotura al alza se "
+                      "gira, y está medido sobre 869 días de 21 años (-0.29 R "
+                      "de media). Hoy no se opera." if sg < 0 else
+                      "La regla es la misma que con la venta: solo vale la "
+                      "primera rotura del día. Hoy no se opera.")
             _añadir(s, avisados, AvisoSeguimiento(
                 clave=f"{plan.dia}:anulado", tipo=Evento.CIERRE,
                 momento=momento, precio=float(v["close"]), r=0.0,
-                destacado=f"ha subido de {plan.compra.entrada:.2f}",
-                titulo=("🚫 XAU/USD: tu venta se ejecutó y saltó el stop"
+                destacado=f"ha {verbo} de {contra:.2f}",
+                titulo=(f"🚫 XAU/USD: tu {pal} se ejecutó y saltó el stop"
                         if s.motivo_cierre == "stop tras anular"
-                        else "🚫 CIERRA la venta de XAU/USD: hoy no vale" if ejecutada
-                        else "🚫 CANCELA la orden de venta de XAU/USD"),
-                cuerpo=((f"El rango se rompió por ARRIBA ({plan.compra.entrada:.2f}) "
-                         f"antes que por abajo, y en esa misma hora el precio bajó "
-                         f"hasta tu venta y volvió a subir hasta el stop: lo más "
+                        else f"🚫 CIERRA la {pal} de XAU/USD: hoy no vale" if ejecutada
+                        else f"🚫 CANCELA la orden de {pal} de XAU/USD"),
+                cuerpo=((f"El rango se rompió por {lado} ({contra:.2f}) antes que "
+                         f"por el otro lado, y en esa misma hora el precio "
+                         f"{hacia} hasta tu {pal} y volvió hasta el stop: lo más "
                          f"probable es que ya no tengas nada abierto. Compruébalo "
                          f"en el bróker y cancela la orden si siguiera pendiente. "
                          if s.motivo_cierre == "stop tras anular" else
-                         f"El rango se rompió por ARRIBA ({plan.compra.entrada:.2f}) "
-                         f"antes que por abajo, y después el precio bajó hasta tu "
-                         f"venta: lo más probable es que se haya ejecutado. "
+                         f"El rango se rompió por {lado} ({contra:.2f}) antes que "
+                         f"por el otro lado, y después el precio {hacia} hasta tu "
+                         f"{pal}: lo más probable es que se haya ejecutado. "
                          f"CIÉRRALA A MERCADO. Si no se ejecutó, cancélala. "
                          if ejecutada else
-                         f"El rango se ha roto por ARRIBA ({plan.compra.entrada:.2f}) "
-                         f"antes que por abajo. Cancela la orden de venta "
-                         f"pendiente: hoy ya no vale. Si ya se hubiera ejecutado, "
-                         f"ciérrala a mercado. ")
-                        + "La rotura a la baja solo funciona cuando es la primera "
-                          "del día; cuando llega después de una rotura al alza se "
-                          "gira, y está medido sobre 869 días de 21 años (-0.29 R "
-                          "de media). Hoy no se opera.")))
+                         f"El rango se ha roto por {lado} ({contra:.2f}) antes que "
+                         f"por el otro lado. Cancela la orden de {pal} pendiente: "
+                         f"hoy ya no vale. Si ya se hubiera ejecutado, ciérrala a "
+                         f"mercado. ") + medido)))
             return s
-        if arriba:
+        if arriba and not plan.solo_ventas:
             disparo = (momento, plan.compra); break
-        if abajo:
+        if abajo and not plan.solo_compras:
             disparo = (momento, plan.venta); break
 
     if disparo is None:
@@ -318,11 +332,11 @@ def seguir(plan: PlanRuptura, df, ahora: Optional[datetime] = None,
                 clave=f"{plan.dia}:caducado", tipo=Evento.CIERRE,
                 momento=plan.valido_hasta, precio=0.0, r=0.0,
                 destacado="hoy no hay operación",
-                titulo=("🚫 CANCELA la orden de XAU/USD" if plan.solo_ventas
+                titulo=("🚫 CANCELA la orden de XAU/USD" if plan.una_orden
                         else "🚫 CANCELA las dos órdenes de XAU/USD"),
                 cuerpo=("Se ha acabado la ventana y el precio no ha salido del "
                         "rango de la mañana. Hoy no hay operación: cancela "
-                        + ("la orden pendiente" if plan.solo_ventas
+                        + ("la orden pendiente" if plan.una_orden
                            else "las dos órdenes pendientes")
                         + " en el bróker.")))
             return s

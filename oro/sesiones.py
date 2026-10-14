@@ -181,11 +181,30 @@ class PlanRuptura:
     # Sale hoy el dato de empleo de EE. UU. a las 8:30 ET. Ese día van las dos
     # órdenes aunque la estrategia normal sea solo venta.
     dia_de_empleo: bool = False
+    # Solo la COMPRA, y se anula si el rango se rompe antes por abajo. Pasa el
+    # día de empleo con el filtro de la EMA 200 horaria y el precio por encima.
+    solo_compras: bool = False
+    # La EMA 200 horaria al cierre de la vela de 7:00-8:00 ET, si el filtro
+    # está puesto (H19). None = sin filtro.
+    ema200: Optional[float] = None
+
+    @property
+    def una_orden(self) -> bool:
+        return self.solo_ventas or self.solo_compras
+
+    @property
+    def orden_unica(self) -> Optional["OrdenPendiente"]:
+        if self.solo_ventas:
+            return self.venta
+        if self.solo_compras:
+            return self.compra
+        return None
 
     @property
     def ordenes(self) -> List["OrdenPendiente"]:
         """Las órdenes que de verdad se dejan puestas, en el orden del correo."""
-        return [self.venta] if self.solo_ventas else [self.compra, self.venta]
+        unica = self.orden_unica
+        return [unica] if unica is not None else [self.compra, self.venta]
 
     @property
     def favorita(self) -> Optional[Direccion]:
@@ -193,7 +212,7 @@ class PlanRuptura:
 
         Con una sola orden la pregunta no existe: no hay entre qué elegir.
         """
-        if self.solo_ventas or self.dia_de_empleo:
+        if self.una_orden or self.dia_de_empleo:
             # El sesgo asiático se midió para la estrategia vieja de dos
             # órdenes. El día de empleo es otra cosa —el dato manda— y para
             # él no hay medición de qué lado es "el bueno".
@@ -210,6 +229,10 @@ class ResultadoPlan:
 
     plan: Optional[PlanRuptura] = None
     motivos_no: List[str] = field(default_factory=list)
+    # Cuando no hay plan por una regla de la estrategia (no por falta de
+    # datos), el motivo se le cuenta a quien opera: si no, un día sin correo
+    # no se distingue de una avería.
+    aviso_sin_plan: Optional[str] = None
 
     @property
     def hay_plan(self) -> bool:
@@ -278,6 +301,12 @@ def sesgo_asiatico(df, cfg: ConfiguracionSistema, dia: date) -> SesgoAsiatico:
     )
 
 
+def pd_ts(t):
+    import pandas as pd
+    t = pd.Timestamp(t)
+    return t if t.tzinfo is not None else t.tz_localize("UTC")
+
+
 def _a_las(dia: date, hora_et: int) -> datetime:
     """Instante UTC correspondiente a esa hora en punto de Nueva York, ese día."""
     local = datetime(dia.year, dia.month, dia.day, hora_et, tzinfo=_zona_mercado())
@@ -285,7 +314,8 @@ def _a_las(dia: date, hora_et: int) -> datetime:
 
 
 def construir_plan(df, cfg: ConfiguracionSistema,
-                   ahora: Optional[datetime] = None) -> ResultadoPlan:
+                   ahora: Optional[datetime] = None,
+                   ema200: Optional[float] = None) -> ResultadoPlan:
     """Construye el plan de ruptura del día, o explica por qué no lo hay.
 
     ``df`` es el histórico de velas horarias con índice UTC. ``ahora`` permite
@@ -335,6 +365,35 @@ def construir_plan(df, cfg: ConfiguracionSistema,
     onzas = dimensionar_posicion(riesgo, cfg)
     from .calendario import es_dia_de_empleo
     empleo = bool(c.dos_ordenes_en_dia_de_empleo and es_dia_de_empleo(dia))
+
+    # Filtro de la EMA 200 horaria (H19): solo la orden a favor de la tendencia
+    # horaria. Medido con el precio de cierre de la vela de 7:00-8:00 ET.
+    solo_v = c.solo_ventas and not empleo
+    solo_c = False
+    if c.filtro_ema200_h1:
+        if ema200 is None:
+            res.motivos_no.append("No se pudo calcular la EMA 200 horaria: sin ella "
+                                  "no se sabe si el plan de hoy va a favor o en contra.")
+            return res
+        precio = float(df.loc[df.index == pd_ts(rango.hasta), "close"].iloc[-1]) \
+            if (df.index == pd_ts(rango.hasta)).any() else None
+        if precio is None:
+            res.motivos_no.append("Falta la vela de 7:00-8:00 ET para el filtro.")
+            return res
+        por_encima = precio > ema200
+        if empleo:
+            solo_c, solo_v = por_encima, not por_encima
+        elif por_encima:
+            res.motivos_no.append(
+                f"El precio ({precio:.2f}) está por ENCIMA de su EMA 200 horaria "
+                f"({ema200:.2f}): la venta iría contra la tendencia. Hoy no hay plan.")
+            res.aviso_sin_plan = (
+                f"Hoy no hay plan. A las 8:00 de Nueva York el oro ({precio:.2f}) "
+                f"está por encima de su media de 200 horas ({ema200:.2f}), y la "
+                f"regla es no vender contra la tendencia horaria: medido sobre 21 "
+                f"años, esas ventas perdían -0,109 R por operación (t = -3,34). "
+                f"Rango de la mañana: {rango.bajo:.2f} - {rango.alto:.2f}.")
+            return res
     plan = PlanRuptura(
         dia=dia,
         rango=rango,
@@ -360,9 +419,11 @@ def construir_plan(df, cfg: ConfiguracionSistema,
         # El día del dato de empleo van las dos órdenes: la rotura funciona en
         # las dos direcciones (+0.6746 R/op sobre 159 días con relleno real,
         # 19 de 21 años positivos). Ver `oro.calendario`.
-        solo_ventas=c.solo_ventas and not empleo,
+        solo_ventas=solo_v,
         anular_si_rompe_arriba=c.anular_si_rompe_arriba,
         dia_de_empleo=empleo,
+        solo_compras=solo_c,
+        ema200=ema200 if c.filtro_ema200_h1 else None,
     )
     res.plan = plan
     return res
@@ -386,7 +447,7 @@ def direccion_disparada(plan: PlanRuptura, alto: float, bajo: float) -> Optional
     if arriba:
         return None if plan.solo_ventas else Direccion.COMPRA
     if abajo:
-        return Direccion.VENTA
+        return None if plan.solo_compras else Direccion.VENTA
     return None
 
 
