@@ -311,13 +311,21 @@ def ejecutar(ahora: Optional[dt.datetime] = None, serie: Optional[pd.DataFrame] 
     c = cfg.v3
     if not c.activa:
         return 0
+    dado = ahora is not None
     ahora = _ts(ahora or dt.datetime.now(dt.timezone.utc))
     if serie is None:
         from .plan_sesion import VELAS_EN_VIVO, _proveedor
-        from .serie_horaria import serie_h1
+        from .serie_horaria import base, serie_h1
 
         proveedor = proveedor or _proveedor(False)
+        # Lo lento primero: la historia de días anteriores (la primera pasada
+        # del día, si la caché no la tiene, son minutos de descarga). Las velas
+        # en vivo, después; si no, el 14-oct la primera pasada se quedó en la
+        # vela de las 17:00 con la de las 18:00 ya cerrada.
+        base(ahora.date())
         serie = serie_h1(proveedor.historico(VELAS_EN_VIVO), ahora.date())
+        if not dado:
+            ahora = _ts(dt.datetime.now(dt.timezone.utc))
     if serie is None or len(serie) < 300:
         print(f"v3: solo {0 if serie is None else len(serie)} velas H1; hacen falta "
               f"unas 300 para los indicadores. Nada que hacer.")
