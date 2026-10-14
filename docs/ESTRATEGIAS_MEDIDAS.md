@@ -1709,3 +1709,24 @@ Además, en el código de Pine:
   UTC, aunque la etiqueta diga UTC.
 * En `alertcondition`, `{{scoreLong}}` no es un marcador válido: el mensaje
   sale con el texto literal.
+
+---
+
+# 14-oct-2026: el indicador v3 en velas de 1 hora — DECLARADA ANTES DE MEDIR
+
+El usuario quiere recibir las señales del v3 desde el sistema, aceptando velas
+de 1 hora (el sistema solo tiene precios por horas cerradas). Con esta van 29
+hipótesis: listón **t ≥ 3,15**.
+
+**H29 · v3 en H1, con sus valores por defecto.** Las mismas reglas que H28
+(EMA 21/50, EMA 50 de H4, mínimo 3 de 6 confirmaciones, sesión 07-21 UTC,
+stop 1,5 ATR, mitad en 1,5 ATR y mitad en 2,5 ATR, sin mover el stop ni
+cierre por hora), calculadas sobre velas H1 en vez de M30. Entrada en la
+apertura de la vela siguiente a la señal, una operación a la vez, costes
+(spread del año + 0,25 $) y financiación de CFD por noche.
+
+Velas H1 de Dukascopy, **2006-2026**. Como no hay velas de minuto para todo el
+periodo, dentro de cada vela horaria no se sabe si llegó antes el stop o el
+objetivo: se cuenta primero el stop (lo prudente) y se da también, solo como
+cota, el resultado contando primero el objetivo. Se exige: t ≥ 3,15 con el
+stop primero y las dos mitades positivas.
