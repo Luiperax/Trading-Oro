@@ -1608,3 +1608,37 @@ sigue sin anticipar nada (t = −0,56).
 * **Para operar no sirve**: ni el día, ni la hora, ni el ratio oro/petróleo
   anticipan el oro (H25, H26 y H27 sin acercarse a t = 3,11). Saber qué hizo
   el petróleo no dice qué va a hacer el oro.
+
+---
+
+# 14-oct-2026: el indicador «XAU/USD M30 — Activo v3» — DECLARADA ANTES DE MEDIR
+
+El usuario lo ve «funcionando bastante bien» en TradingView. Se mide en el
+histórico tal como está, sin tocar un solo parámetro. Con esta van 28
+hipótesis: listón **t ≥ 3,13**.
+
+**H28 · v3 con sus valores por defecto.** EMA 21/50 en M30, EMA 50 de H4,
+mínimo 3 confirmaciones de 6 (EMA H4, cruce de EMAs M30, giro del RSI, giro del
+histograma MACD, cerca de la EMA 21, ADX > 18), señal cuando la puntuación sube
+y la contraria no llega al mínimo, solo de 07:00 a 21:00 UTC. Stop a 1,5 ATR
+(14, M30); la mitad sale en TP1 a 1,5 ATR y la otra mitad en TP2 a 2,5 ATR; el
+stop no se mueve (el código no lo dice) y no hay cierre por hora (tampoco).
+
+Cómo se mide:
+
+* Velas M30 armadas con las de 1 minuto (bid) de Dukascopy, **de enero de 2022
+  a octubre de 2026**. Indicadores con las fórmulas de TradingView (RMA de
+  Wilder en RSI, ATR y ADX). La EMA de H4 solo con velas de 4 horas ya
+  cerradas (lo que ve el indicador en el histórico).
+* Señal al cierre de la vela M30; entrada a mercado en la apertura de la
+  siguiente. Una operación a la vez: mientras hay una abierta, las señales se
+  ignoran. Stop y objetivos resueltos minuto a minuto; si el mismo minuto toca
+  stop y objetivo, cuenta el stop.
+* Costes: spread medido del año + 0,25 $ por operación, y la financiación de
+  CFD por cada noche que la posición siga abierta (largo paga tipo de la Fed +
+  2,5 %, corto cobra tipo de la Fed − 2,5 %).
+* Se exige: **t ≥ 3,13** y que gane en las dos mitades del periodo
+  (2022-2024 y 2024-2026, partidas por el número de operaciones).
+
+Sin ser hipótesis, se muestra también una variante que cierra todo a las
+21:00 UTC (intradía puro).
