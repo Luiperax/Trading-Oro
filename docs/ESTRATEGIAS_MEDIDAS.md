@@ -1794,3 +1794,60 @@ Con los 21 años: 2.672 operaciones (129 al año), +0,003 R/op (t = +0,16),
 acierto 42 % (ganadoras +1,22 R, perdedoras −0,88 R), 9 años positivos de 21,
 peor año −18,2 R, peor racha −64,6 R. Dura 34 horas de mediana y duerme 2,5
 noches por operación: ya no es intradía.
+
+## H30-bis: la medición de H30, corregida (14-oct-2026)
+
+No es una hipótesis nueva: es H30 vuelta a medir, con el mismo procedimiento,
+tras encontrar dos fallos en la simulación (`oro.estudio_v3.simular`).
+
+1. **Dejaba abrir una operación antes de que cerrara la anterior.** Una señal
+   cuya entrada caía en la apertura de la vela en la que salía la operación
+   abierta se aceptaba, y quedaban dos operaciones a la vez. En vivo eso no
+   puede pasar (se opera de una en una). Salió al comparar, hora a hora, el
+   motor de avisos (`oro.v3_vivo`) con la simulación
+   (`oro/tests/test_v3_vivo.py`): ahora coinciden operación a operación.
+2. **La financiación anterior a 2021 se cobraba a un 4 % fijo** (la serie de la
+   Fed empezaba en 2021). Ahora es el tipo real de cada día desde 2005. Cambia
+   poco: ±0,001-0,002 R/op.
+
+El fallo 1 afecta también a H28 y H29, que usan la misma simulación. Las
+operaciones solapadas resultaron ganadoras en media, así que quitarlas empeora
+los números: H29 sigue sin pasar (en 2006-2015, −0,108 → −0,129 R/op). H28 no
+se ha vuelto a medir: para pasar tendría que ir de t −2,6 a t +3,2.
+
+Las 24 combinaciones, solo con 2006-2015 (R neto por operación, H4 libre /
+obligatoria):
+
+| confirmaciones | stop 1,5 ATR | stop 2 ATR | stop 3 ATR |
+|---|---|---|---|
+| 3 | −0,129 / −0,113 | −0,077 / −0,056 | −0,055 / **−0,044** |
+| 4 | −0,119 / −0,107 | −0,070 / −0,058 | −0,072 / −0,053 |
+| 5 | −0,153 / −0,150 | −0,099 / −0,088 | −0,066 / −0,056 |
+| 6 | −0,191 / −0,191 | −0,113 / −0,113 | −0,084 / −0,084 |
+
+Ahora todas pierden con 2006-2015. La elegida por la regla declarada cambia:
+**3 confirmaciones, stop 3 ATR, TP1 3 ATR (50 %), TP2 5 ATR (50 %), tendencia
+de H4 obligatoria a favor.**
+
+En 2016-2026, que no vio la elección: 1.232 operaciones (115 al año), +0,069
+R/op antes de costes, **−0,0005 R/op neto, t = −0,02**, −0,7 R en total. Ni
+gana ni pierde. 2022-2026: 555 operaciones, +0,074 R/op (t = +1,61).
+
+Con los 21 años: 2.443 operaciones (118 al año), **−0,023 R/op (t = −1,03)**,
+−55,2 R; acierta el 41 % (ganadoras +1,23 R, perdedoras −0,88 R); **8 años
+positivos de 21**; peor año −20,9 R; **peor racha −113,9 R**. Dura 40 horas de
+mediana y duerme 2,6 noches por operación.
+
+Por años (R): 2006 −5,3 · 2007 −1,0 · 2008 +3,2 · 2009 +0,2 · 2010 +0,6 ·
+2011 −7,0 · 2012 −18,6 · 2013 −1,0 · 2014 −3,6 · 2015 −20,9 · 2016 −12,6 ·
+2017 +10,5 · 2018 −17,6 · 2019 −9,7 · 2020 −5,8 · 2021 −7,8 · 2022 +6,8 ·
+2023 +13,3 · 2024 +10,2 · 2025 +14,0 · 2026 −3,1.
+
+**No pasa.** La primera medición (+0,012 R/op fuera de muestra) estaba
+inflada por el fallo 1. Es un seguidor de tendencia: gana con la subida fuerte
+del oro de 2022-2025 y pierde cuando el mercado va de lado (2011-2021).
+
+**Lo que opera.** Los avisos quedan encendidos con estos ajustes y en modo
+real, porque así lo pidió el usuario sabiendo que no hay ventaja demostrada.
+`ORO_V3_PAPEL=1` (variable de Actions) los marca «no operes» y
+`ORO_V3_ACTIVA=0` los apaga.

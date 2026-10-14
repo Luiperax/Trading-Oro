@@ -120,20 +120,38 @@ def a_m30(m1: pd.DataFrame) -> pd.DataFrame:
 
 
 def tipo_fed() -> pd.Series:
+    """El tipo de la Fed (DFF) día a día desde 2005, para la financiación.
+
+    Antes empezaba en 2021 y todas las noches anteriores se cobraban a un 4 %
+    fijo: a los largos de 2009-2015 (tipos al 0,1 %) se les cargaba de más y a
+    los cortos se les abonaba de más. Con la clave de FRED se usa su API; sin
+    ella, el CSV público de la misma serie.
+    """
+    import requests
+
     clave = os.getenv("ORO_FRED_CLAVE", "")
     if clave:
         try:
-            import requests
             r = requests.get("https://api.stlouisfed.org/fred/series/observations",
                              params={"series_id": "DFF", "api_key": clave,
-                                     "file_type": "json", "observation_start": "2021-01-01"},
+                                     "file_type": "json", "observation_start": "2005-01-01"},
                              timeout=30)
             o = r.json()["observations"]
             return pd.Series({pd.Timestamp(x["date"]).date(): float(x["value"]) / 100
                               for x in o if x["value"] != "."}).sort_index()
         except Exception:  # noqa: BLE001
             pass
-    return pd.Series(dtype=float)
+    try:
+        import io
+
+        r = requests.get("https://fred.stlouisfed.org/graph/fredgraph.csv",
+                         params={"id": "DFF", "cosd": "2005-01-01"}, timeout=60)
+        t = pd.read_csv(io.StringIO(r.text))
+        t = t[pd.to_numeric(t.iloc[:, 1], errors="coerce").notna()]
+        return pd.Series(t.iloc[:, 1].astype(float).to_numpy() / 100,
+                         index=[pd.Timestamp(x).date() for x in t.iloc[:, 0]]).sort_index()
+    except Exception:  # noqa: BLE001
+        return pd.Series(dtype=float)
 
 
 # ---- Simulación ----
@@ -153,8 +171,11 @@ def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
     ops, libre_desde = [], pd.Timestamp.min.tz_localize("UTC")
     for t, fila in sen.iterrows():
         fin_vela = t + vela
-        if fin_vela < libre_desde:
-            continue                                # hay una operación abierta
+        # Hay una operación abierta: la que sale DURANTE una vela sigue abierta
+        # en su apertura, así que una señal cuya entrada sería esa apertura se
+        # descarta (antes se aceptaba y quedaban dos operaciones solapadas).
+        if fin_vela <= libre_desde:
+            continue
         i0 = t_m1.searchsorted(fin_vela)
         if i0 >= len(t_m1):
             break
