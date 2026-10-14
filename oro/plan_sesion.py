@@ -113,7 +113,10 @@ def _anotar_dia(dia: date, plan=None, fuente: str | None = None) -> None:
     from .seguir_plan import serializar
 
     p = _ruta_estado()
-    datos = {"ultimo_plan": dia.isoformat(), "avisados": []}
+    datos = {"ultimo_plan": dia.isoformat(), "avisados": [],
+             # Con qué modo se mandó: los avisos de la tarde tienen que decir lo
+             # mismo que el correo de la mañana aunque el modo cambie entre medias.
+             "papel": cargar_configuracion().ruptura.solo_papel}
     if plan is not None:
         datos["plan"] = serializar(plan)
     if fuente is not None:

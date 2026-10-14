@@ -58,3 +58,34 @@ def test_se_vuelve_a_operar_con_la_variable(monkeypatch):
     monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "0")
     plan, _ = _plan()
     assert "SOLO PAPEL" not in mensaje_de_plan(plan)
+
+
+def test_los_avisos_dicen_el_modo_con_el_que_se_mando_el_plan(tmp_path, monkeypatch):
+    """El 14-oct el plan salió en papel por la mañana y el modo cambió a
+    operar por la tarde: el «CIERRA» de las 22:00 no podía salir sin la marca."""
+    import json
+
+    from oro import plan_sesion, seguir_plan
+    from oro.tests.test_seguimiento import _a_las, _con_sesion, _marco, ASIA_SUBE, LONDRES, DIA
+
+    monkeypatch.setenv("ORO_PLAN_ESTADO", str(tmp_path / "plan.json"))
+    monkeypatch.setenv("ORO_RUTA_RUPTURAS", str(tmp_path / "r.jsonl"))
+    titulos = []
+
+    class N:
+        def notificar_plan(self, plan): return True
+        def enviar(self, t, c, e=None, html=None): titulos.append(t); return True
+
+    monkeypatch.setattr(plan_sesion, "_construir_notificador", lambda: N())
+    monkeypatch.setattr(seguir_plan, "_construir_notificador", lambda: N())
+    df = _marco(DIA, {**ASIA_SUBE, **LONDRES})
+    monkeypatch.setattr(plan_sesion, "_proveedor", lambda s: type("P", (), {"historico": lambda self, n: df})())
+    plan_sesion.ejecutar(ahora=_a_las(8))                     # en papel (fixture)
+    assert json.loads((tmp_path / "plan.json").read_text())["papel"] is True
+    monkeypatch.setenv("ORO_RUPTURA_SOLO_PAPEL", "0")         # cambia a operar
+    tarde = _con_sesion({8: (4005, 3990), 9: (3995, 3985), 10: (3992, 3984),
+                         11: (3990, 3982), 12: (3991, 3983), 13: (3990, 3984),
+                         14: (3989, 3983), 15: (3988, 3980)})
+    monkeypatch.setattr(seguir_plan, "_proveedor", lambda s: type("P", (), {"historico": lambda self, n: tarde})())
+    seguir_plan.ejecutar(ahora=_a_las(16, 3))
+    assert titulos and all(t.startswith("📝 [papel]") for t in titulos)

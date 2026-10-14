@@ -140,7 +140,9 @@ def ejecutar(sintetico: bool = False, ahora: datetime | None = None) -> int:
     # ejecución siguiente lo reintenta: es la misma disciplina que las señales.
     if s.avisos:
         notificador = _construir_notificador()
-        papel = cfg.ruptura.solo_papel
+        # El modo con el que se MANDÓ el plan, no el de ahora. Un plan guardado
+        # sin la marca es de antes del 14-oct-2026, cuando todo iba en papel.
+        papel = bool(datos.get("papel", True))
         for aviso in s.avisos:
             titulo = (f"📝 [papel] {aviso.titulo}" if papel else aviso.titulo)
             if notificador.enviar(titulo, aviso.cuerpo, aviso.tipo,
