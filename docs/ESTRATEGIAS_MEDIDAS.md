@@ -1769,3 +1769,28 @@ neto por operación con al menos 100 operaciones) y se prueba **una sola vez
 en 2016-2026**, que la elección no ha visto. H30 es ese procedimiento: pasa si
 en 2016-2026 da t ≥ 3,17 (30 hipótesis) y R neto positivo. Mismo cálculo que
 H29 (stop primero dentro de la vela, costes y financiación de CFD).
+
+## Resultado de H30: el v3 en H1 optimizado (medido después de declararlo)
+
+Las 24 combinaciones, solo con 2006-2015 (R neto por operación):
+
+| confirmaciones | stop 1,5 ATR | stop 2 ATR | stop 3 ATR |
+|---|---|---|---|
+| 3 (H4 libre / obligatoria) | −0,108 / −0,099 | −0,058 / −0,045 | **−0,005** / −0,011 |
+| 4 | −0,098 / −0,092 | −0,049 / −0,043 | −0,016 / −0,012 |
+| 5 | −0,150 / −0,148 | −0,090 / −0,078 | −0,058 / −0,045 |
+| 6 | −0,190 / −0,190 | −0,115 / −0,115 | −0,088 / −0,088 |
+
+Lo único que mueve la aguja es **ensanchar el stop**: con 3 ATR se opera la
+mitad de veces y el coste pesa la mitad. Pedir más confirmaciones lo EMPEORA
+(se entra más tarde). Exigir la tendencia de H4 apenas cambia nada.
+
+Elegida con 2006-2015: **3 confirmaciones, stop 3 ATR, TP1 3 ATR (50 %), TP2
+5 ATR (50 %), H4 libre**. En 2016-2026, que no vio la elección: 1.335
+operaciones (124 al año), **+0,012 R/op, t = +0,42**, +16,6 R; 2022-2026
++0,044 (t = +1,00). **No pasa** (listón 3,17), pero deja de perder.
+
+Con los 21 años: 2.672 operaciones (129 al año), +0,003 R/op (t = +0,16),
+acierto 42 % (ganadoras +1,22 R, perdedoras −0,88 R), 9 años positivos de 21,
+peor año −18,2 R, peor racha −64,6 R. Dura 34 horas de mediana y duerme 2,5
+noches por operación: ya no es intradía.

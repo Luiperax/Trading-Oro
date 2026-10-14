@@ -71,7 +71,8 @@ def indicadores(m30: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def senales(d: pd.DataFrame) -> pd.DataFrame:
+def senales(d: pd.DataFrame, min_score: int = MIN_SCORE,
+            h4_obligatorio: bool = False) -> pd.DataFrame:
     rsi, mh, e21, e50, c = d["rsi"], d["macdh"], d["ema21"], d["ema50"], d["close"]
     rsi_alza = (rsi > rsi.shift(1)) & (rsi.shift(1) > rsi.shift(2)) & (rsi < 60)
     rsi_baja = (rsi < rsi.shift(1)) & (rsi.shift(1) < rsi.shift(2)) & (rsi > 40)
@@ -86,8 +87,11 @@ def senales(d: pd.DataFrame) -> pd.DataFrame:
            + macd_baja.astype(int) + cerca_bear.astype(int) + adx_ok.astype(int))
     hora = d.index.hour
     en_sesion = (hora >= SESION_UTC[0]) & (hora < SESION_UTC[1])
-    largo = (sl_ >= MIN_SCORE) & (sl_ > sl_.shift(1)) & en_sesion & ~(ss_ >= MIN_SCORE)
-    corto = (ss_ >= MIN_SCORE) & (ss_ > ss_.shift(1)) & en_sesion & ~(sl_ >= MIN_SCORE)
+    largo = (sl_ >= min_score) & (sl_ > sl_.shift(1)) & en_sesion & ~(ss_ >= min_score)
+    corto = (ss_ >= min_score) & (ss_ > ss_.shift(1)) & en_sesion & ~(sl_ >= min_score)
+    if h4_obligatorio:
+        largo &= c > d["ema50h4"]
+        corto &= c < d["ema50h4"]
     out = d.copy()
     out["senal"] = np.where(largo, 1, np.where(corto, -1, 0))
     return out
@@ -136,7 +140,8 @@ def tipo_fed() -> pd.Series:
 def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
             ff: pd.Series, cierre_diario: bool = False,
             vela: pd.Timedelta = pd.Timedelta(minutes=30),
-            objetivo_primero: bool = False) -> list[dict]:
+            objetivo_primero: bool = False, sl_atr: float = SL_ATR,
+            tp1_atr: float = TP1_ATR, tp2_atr: float = TP2_ATR) -> list[dict]:
     """``m1`` son las velas con que se resuelven las salidas (de 1 minuto, o
     las propias velas de la señal si no hay más finas). ``objetivo_primero``
     solo sirve de cota: si una vela toca stop y objetivo, cuenta el objetivo."""
@@ -154,7 +159,7 @@ def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
         if i0 >= len(t_m1):
             break
         s = int(fila["senal"]); c0, atr = fila["close"], fila["atr"]
-        stop, tp1, tp2 = c0 - s * SL_ATR * atr, c0 + s * TP1_ATR * atr, c0 + s * TP2_ATR * atr
+        stop, tp1, tp2 = c0 - s * sl_atr * atr, c0 + s * tp1_atr * atr, c0 + s * tp2_atr * atr
         entrada = op[i0]
         riesgo = abs(entrada - stop)
         if riesgo <= 0 or s * (stop - entrada) >= 0:
