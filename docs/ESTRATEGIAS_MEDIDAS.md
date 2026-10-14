@@ -1678,3 +1678,34 @@ con velas de un minuto, todos los costes):
 unas 66 operaciones al año. **No es una ventaja demostrada**: es la mejor de
 23 variantes probadas, y elegir la mejor infla lo que se espera de ella. El
 correo lo dice así.
+
+## Resultado de H28: el indicador «XAU/USD M30 — Activo v3» (medido después de declararlo)
+
+Velas M30 armadas con las de 1 minuto de Dukascopy, enero de 2022 a octubre de
+2026 (cinco trozos medidos en máquinas distintas, `python -m oro.estudio_v3`),
+con todos los costes y la financiación de CFD:
+
+| | operaciones | R/op antes de costes | R/op neto | t | total |
+|---|---|---|---|---|---|
+| **tal cual** (stop y objetivos) | 2.738 | +0,055 | **−0,054** | **−2,59** | −147 R |
+| cerrando a las 21:00 UTC | 3.026 | +0,035 | −0,073 | −4,09 | −220 R |
+
+Por años (tal cual): 2022 −8,3 R · 2023 −54,3 R · 2024 −71,5 R · 2025 −27,6 R ·
+2026 (hasta octubre) +14,5 R. Peor racha −171 R. Unas 48 operaciones al mes;
+acierta el 40 %. Largos −0,025 R/op (t −0,88), cortos −0,087 (t −2,86).
+
+**No pasa: pierde, y con claridad.** Antes de costes tiene un poco de ventaja
+(+0,055 R), pero el spread y el deslizamiento, con un stop de 1,5 ATR de M30
+(unos 15-20 $), se llevan unos 0,11 R por operación. 2026 es su único año
+bueno, que es justo el que se ve al mirarlo en el gráfico.
+
+Además, en el código de Pine:
+
+* Se evalúa en la vela que se está formando («anticipación»): en tiempo real
+  las señales aparecen y desaparecen dentro de la vela, y en el histórico solo
+  quedan dibujadas las que sobrevivieron al cierre. El gráfico enseña un
+  indicador mejor que el que se puede operar.
+* `time(timeframe.period, "0700-1600")` usa la zona horaria del símbolo, no
+  UTC, aunque la etiqueta diga UTC.
+* En `alertcondition`, `{{scoreLong}}` no es un marcador válido: el mensaje
+  sale con el texto literal.
