@@ -67,7 +67,7 @@ modo_prueba**.
 
 | | estado | por qué |
 |---|---|---|
-| **Plan de ruptura** (venta del rango de Londres; las dos órdenes el día del dato de empleo) | **solo papel** (se manda y se sigue, marcado «no operes») | −0,039 R/op sobre 2.561 operaciones de 21 años, t = −1,64, contando con velas de minuto los 359 días en que el precio cruza los dos lados del rango en la misma hora. Sin esos días salía +0,073: estaba inflado |
+| **Plan de ruptura con filtro de la EMA 200 horaria** (venta del rango de Londres solo con el precio por debajo de su EMA 200 H1; el día de empleo, la orden del lado de la EMA) | **activo desde el 14-oct-2026**, a petición del usuario y sabiendo que es jugársela | +0,012 R/op sobre 1.375 operaciones de 21 años (t = 0,34), +0,057 en 2022-2026: no es una ventaja demostrada. Sin filtro, −0,039 R/op |
 | Motor de señales intradía | **apagado** | −0,090 R/op sobre 4.891 operaciones, 2 años positivos de 21, −157 €/año |
 
 El motor de señales se apagó en octubre de 2026 tras reconstruir el histórico
@@ -93,17 +93,14 @@ rompe el techo del rango antes, te llega un correo para cancelarla.
 
 👉 **[`docs/PLAN_DEL_DIA.md`](docs/PLAN_DEL_DIA.md)**
 
-Aviso honesto: **desde el 6-oct-2026 el plan va en «solo papel»**. El
-histórico dejaba fuera de las cifras los días en que, dentro de la misma hora,
-el precio cruza el techo y el suelo del rango (359 de 5.370 días con plan, y 1
-de cada 3 días de empleo por el salto de las 8:30). Resueltos con velas de un
-minuto son pérdidas casi seguras (−0,75 R de media): la venta salta y en esa
-misma hora el precio sube hasta el stop. Con ellos dentro, la estrategia da
-**−0,039 R por operación (t = −1,64), unos −4,8 R al año**, 7 años positivos
-de 21. El correo y los avisos siguen llegando, marcados «SOLO PAPEL, NO
-OPERES», para seguir midiendo en real. Se vuelve a operar con
-`ORO_RUPTURA_SOLO_PAPEL=0`, y no debería hacerse sin una regla que aguante con
-esos días contados.
+Aviso honesto: del 6 al 14 de octubre de 2026 el plan fue en «solo papel»:
+contando bien los días en que el precio cruza los dos lados del rango en la
+misma hora, la estrategia daba −0,039 R por operación. Desde el 14 de octubre
+vuelve a operar, a petición del usuario, con la variante mejor medida: el filtro
+de la EMA 200 horaria. Con ese filtro y este mismo código, 21 años dan +0,012 R
+por operación (t = 0,34) y 2022-2026, +0,057: **no es una ventaja
+demostrada**, y el correo lo dice. Se vuelve al papel con
+`ORO_RUPTURA_SOLO_PAPEL=1`.
 
 Antes dejaba **dos** órdenes, una a cada lado. Se midió el histórico completo y
 el lado de las compras resultó ser un lastre de −7,7 R al año, así que se quitó.
