@@ -14,6 +14,10 @@ on:
         description: "Módulo a ejecutar (python -m oro.<modulo>)"
         default: "ambiguos"
         type: string
+      argumentos:
+        description: "Argumentos (p. ej. --desde 2024-01-01 --hasta 2024-12-31)"
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +25,7 @@ permissions:
 jobs:
   estudio:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,6 +38,8 @@ jobs:
         env:
           ORO_FRED_CLAVE: ${{ secrets.ORO_FRED_CLAVE }}
           MODULO: ${{ inputs.modulo }}
+          ARGUMENTOS: ${{ inputs.argumentos }}
         # Por variable de entorno y no interpolado en el comando: así el texto
-        # del formulario no puede inyectar nada en el shell.
-        run: python -m "oro.${MODULO//[^a-z_]/}"
+        # del formulario no puede inyectar nada en el shell. Los argumentos
+        # solo admiten letras, cifras, guiones y espacios.
+        run: python -m "oro.${MODULO//[^a-z0-9_]/}" ${ARGUMENTOS//[^a-z0-9 -]/}
