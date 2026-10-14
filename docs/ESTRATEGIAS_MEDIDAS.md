@@ -1730,3 +1730,21 @@ periodo, dentro de cada vela horaria no se sabe si llegó antes el stop o el
 objetivo: se cuenta primero el stop (lo prudente) y se da también, solo como
 cota, el resultado contando primero el objetivo. Se exige: t ≥ 3,15 con el
 stop primero y las dos mitades positivas.
+
+## Resultado de H29: el v3 en velas de 1 hora (medido después de declararlo)
+
+Velas H1 de Dukascopy, 2006-2026, todos los costes y la financiación de CFD:
+
+| | operaciones | R/op antes de costes | R/op neto | t | años + | total |
+|---|---|---|---|---|---|---|
+| **tal cual, stop primero** | 7.221 (348/año) | +0,051 | **−0,077** | **−6,06** | **1/21** | −559 R |
+| tal cual, objetivo primero (cota optimista) | 7.221 | +0,066 | −0,063 | −4,89 | 4/21 | −451 R |
+| cerrando a las 21:00 UTC | 8.806 | +0,017 | −0,108 | −11,20 | 0/21 | −952 R |
+
+Mitades −0,108 / −0,047. Largos −0,074 (t −4,18), cortos −0,082 (t −4,41).
+2022-2026: −0,014 (t −0,52). Peor racha −574 R.
+
+**No pasa, y es de lo peor medido en el proyecto**: pierde en 20 de 21 años.
+Ni siquiera la cota optimista (contar siempre primero el objetivo dentro de la
+vela) sale positiva. Antes de costes tiene un poco de ventaja, pero con 348
+operaciones al año el coste se la come entera.

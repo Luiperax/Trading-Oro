@@ -134,7 +134,12 @@ def tipo_fed() -> pd.Series:
 
 # ---- Simulación ----
 def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
-            ff: pd.Series, cierre_diario: bool = False) -> list[dict]:
+            ff: pd.Series, cierre_diario: bool = False,
+            vela: pd.Timedelta = pd.Timedelta(minutes=30),
+            objetivo_primero: bool = False) -> list[dict]:
+    """``m1`` son las velas con que se resuelven las salidas (de 1 minuto, o
+    las propias velas de la señal si no hay más finas). ``objetivo_primero``
+    solo sirve de cota: si una vela toca stop y objetivo, cuenta el objetivo."""
     from .spread import spread_de
 
     sen = d[(d["senal"] != 0) & (d.index >= entrar_desde) & (d.index <= entrar_hasta)]
@@ -142,7 +147,7 @@ def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
     t_m1 = m1.index
     ops, libre_desde = [], pd.Timestamp.min.tz_localize("UTC")
     for t, fila in sen.iterrows():
-        fin_vela = t + pd.Timedelta(minutes=30)
+        fin_vela = t + vela
         if fin_vela < libre_desde:
             continue                                # hay una operación abierta
         i0 = t_m1.searchsorted(fin_vela)
@@ -170,6 +175,12 @@ def simular(m1: pd.DataFrame, d: pd.DataFrame, entrar_desde, entrar_hasta,
                 break
             peor = lo[i] if s > 0 else hi[i]
             mejor = hi[i] if s > 0 else lo[i]
+            if objetivo_primero:
+                if salida1 is None and s * (mejor - tp1) >= 0:
+                    salida1 = tp1
+                if salida1 is not None and s * (mejor - tp2) >= 0:
+                    salida2 = tp2
+                    break
             if s * (peor - stop) <= 0:              # stop (primero, por prudencia)
                 if salida1 is None:
                     salida1 = stop
