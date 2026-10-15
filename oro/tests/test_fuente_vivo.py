@@ -214,3 +214,67 @@ def test_una_hora_recien_cerrada_se_pide_una_sola_vez(monkeypatch):
     recien = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=61)
     assert p._ticks_de(recien) is None
     assert len(pedidas) == 1 and recien not in p._memoria
+
+
+def test_dentro_de_una_pasada_no_se_repiten_las_horas_que_fallan(monkeypatch):
+    """15-oct: con Dukascopy dando 503, la EMA del filtro y el v3 pedían las
+    mismas 24 horas en la misma pasada y cada hora fallida se reintentaba
+    otra vez: la primera pasada de cada vigilancia tardaba 13-15 minutos."""
+    import datetime as dt
+
+    import pandas as pd
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    p = ProveedorDukascopyVivo()
+    p.mercado_cerrado = lambda h: False
+    p.validar = lambda df: None
+    fallida = p._horas(24)[5]
+    pedidas = []
+
+    def ticks(hora):
+        pedidas.append(hora)
+        if hora == fallida:
+            return None
+        idx = pd.DatetimeIndex([hora + dt.timedelta(minutes=m) for m in (0, 30)])
+        return pd.DataFrame({"bid": [100.0, 101.0], "ask": [100.5, 101.5]}, index=idx)
+
+    monkeypatch.setattr(p, "_ticks_de", ticks)
+    reloj = [1000.0]
+    monkeypatch.setattr("time.monotonic", lambda: reloj[0])
+    a = p.historico(24)
+    n = len(pedidas)
+    b = p.historico(24)                      # misma pasada: nada nuevo
+    assert len(pedidas) == n and a.equals(b) and fallida not in b.index
+    reloj[0] += 61                           # pasada siguiente: se reintenta
+    p.historico(24)
+    assert fallida in pedidas[n:]
+
+
+def test_sin_la_ultima_hora_se_vuelve_a_pedir_aunque_sea_la_misma_pasada(monkeypatch):
+    """El plan espera justo la vela de las 11:00 UTC: si aún no estaba, la
+    llamada siguiente tiene que volver a pedirla, no reutilizar."""
+    import datetime as dt
+
+    import pandas as pd
+
+    from oro.datos.dukascopy_vivo import ProveedorDukascopyVivo
+
+    p = ProveedorDukascopyVivo()
+    p.mercado_cerrado = lambda h: False
+    p.validar = lambda df: None
+    ultima = p._horas(1)[-1]
+    publicada = [False]
+    pedidas = []
+
+    def ticks(hora):
+        pedidas.append(hora)
+        if hora == ultima and not publicada[0]:
+            return None
+        idx = pd.DatetimeIndex([hora + dt.timedelta(minutes=m) for m in (0, 30)])
+        return pd.DataFrame({"bid": [100.0, 101.0], "ask": [100.5, 101.5]}, index=idx)
+
+    monkeypatch.setattr(p, "_ticks_de", ticks)
+    assert ultima not in p.historico(24).index
+    publicada[0] = True
+    assert ultima in p.historico(24).index

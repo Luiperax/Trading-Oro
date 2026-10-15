@@ -440,17 +440,22 @@ def _puntos(d: pd.DataFrame, s: int, t: Optional[pd.Timestamp] = None) -> int:
     p = d.iloc[i - 1]
     q = d.iloc[i - 2]
     c = f["close"]
+    # Cada condición a bool de Python antes de sumar: con los de numpy,
+    # True + True es True (un «o» lógico), y el 15-oct el correo salió con
+    # «1 de 6 confirmaciones» en una señal que tenía más.
     if s > 0:
-        return int((c > f["ema50h4"]) + (f["ema21"] > f["ema50"])
-                   + ((f["rsi"] > p["rsi"] > q["rsi"]) and f["rsi"] < 60)
-                   + (f["macdh"] > p["macdh"] > q["macdh"])
-                   + (f["ema21"] * 0.994 < c < f["ema21"] * 1.008 and f["ema21"] > f["ema50"])
-                   + (f["adx"] > 18))
-    return int((c < f["ema50h4"]) + (f["ema21"] < f["ema50"])
-               + ((f["rsi"] < p["rsi"] < q["rsi"]) and f["rsi"] > 40)
-               + (f["macdh"] < p["macdh"] < q["macdh"])
-               + (f["ema21"] * 0.992 < c < f["ema21"] * 1.006 and f["ema21"] < f["ema50"])
-               + (f["adx"] > 18))
+        partes = [c > f["ema50h4"], f["ema21"] > f["ema50"],
+                  (f["rsi"] > p["rsi"] > q["rsi"]) and f["rsi"] < 60,
+                  f["macdh"] > p["macdh"] > q["macdh"],
+                  (f["ema21"] * 0.994 < c < f["ema21"] * 1.008) and f["ema21"] > f["ema50"],
+                  f["adx"] > 18]
+    else:
+        partes = [c < f["ema50h4"], f["ema21"] < f["ema50"],
+                  (f["rsi"] < p["rsi"] < q["rsi"]) and f["rsi"] > 40,
+                  f["macdh"] < p["macdh"] < q["macdh"],
+                  (f["ema21"] * 0.992 < c < f["ema21"] * 1.006) and f["ema21"] < f["ema50"],
+                  f["adx"] > 18]
+    return sum(1 for x in partes if bool(x))
 
 
 def main(argv: Optional[list[str]] = None) -> int:

@@ -161,3 +161,28 @@ def test_si_falta_una_hora_reciente_espera_y_no_pierde_su_senal(entorno):
     estado = json.loads((tmp / "v3.json").read_text())
     assert estado["abierta"]["t"] == t.isoformat()
     assert estado["procesada"] == (t + h).isoformat()
+
+
+def test_las_confirmaciones_del_correo_son_las_de_la_senal():
+    """El 15-oct el correo dijo «1 de 6» en una señal que exige 3: los bool de
+    numpy se sumaban como un «o» lógico."""
+    serie = _serie(1100, semilla=11)
+    d = estudio_v3.senales(estudio_v3.indicadores(serie), min_score=V3.min_score,
+                           h4_obligatorio=V3.h4_obligatorio)
+    rsi, mh, e21, e50, c = d["rsi"], d["macdh"], d["ema21"], d["ema50"], d["close"]
+    largo = ((c > d["ema50h4"]).astype(int) + (e21 > e50).astype(int)
+             + ((rsi > rsi.shift(1)) & (rsi.shift(1) > rsi.shift(2)) & (rsi < 60)).astype(int)
+             + ((mh > mh.shift(1)) & (mh.shift(1) > mh.shift(2))).astype(int)
+             + ((c > e21 * 0.994) & (c < e21 * 1.008) & (e21 > e50)).astype(int)
+             + (d["adx"] > 18).astype(int))
+    corto = ((c < d["ema50h4"]).astype(int) + (e21 < e50).astype(int)
+             + ((rsi < rsi.shift(1)) & (rsi.shift(1) < rsi.shift(2)) & (rsi > 40)).astype(int)
+             + ((mh < mh.shift(1)) & (mh.shift(1) < mh.shift(2))).astype(int)
+             + ((c < e21 * 1.006) & (c > e21 * 0.992) & (e21 < e50)).astype(int)
+             + (d["adx"] > 18).astype(int))
+    senales = d[d["senal"] != 0]
+    assert len(senales) >= 5
+    for t, fila in senales.iterrows():
+        s = int(fila["senal"])
+        esperado = int((largo if s > 0 else corto)[t])
+        assert v3_vivo._puntos(d, s, t) == esperado >= V3.min_score

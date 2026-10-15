@@ -90,6 +90,9 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         # Horas de mercado abierto que faltaron en la última llamada a
         # `historico`, tras la segunda pasada. Para diagnóstico.
         self.horas_perdidas: list[dt.datetime] = []
+        # La última respuesta de `historico`, para reutilizarla dentro de la
+        # misma pasada del vigilante (ver REUTILIZAR).
+        self._ultimo: Optional[tuple[float, int, pd.DataFrame]] = None
 
     # -- descarga ----------------------------------------------------------
     @staticmethod
@@ -236,6 +239,15 @@ class ProveedorDukascopyVivo(ProveedorDatos):
     # que dejarle Yahoo.
     MAX_HORAS = 48
 
+    # En una pasada del vigilante piden las mismas horas la EMA del filtro, el
+    # plan, su seguimiento y el v3, unos segundos unas de otras. Las horas
+    # buenas ya salen de la caché, pero las que fallan se volvían a pedir cada
+    # vez, seis intentos y la segunda pasada: con Dukascopy dando 503 (14 y
+    # 15-oct-2026) la primera pasada de cada vigilancia tardaba 13-15 minutos.
+    # Dentro de este margen se devuelve lo mismo; la pasada siguiente, a los
+    # tres minutos, vuelve a pedir lo que faltó.
+    REUTILIZAR = 60.0
+
     def historico(self, velas: int) -> pd.DataFrame:
         """Las últimas ``velas`` velas H1 cerradas, sin huecos dentro del rango.
 
@@ -255,6 +267,14 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         # es una petición, y el servidor corta con 429 si se le piden muchas
         # seguidas. Un lunes salen menos velas que horas (el fin de semana no
         # tiene), y no importa: lo que se necesita es el día de sesión en curso.
+        u = self._ultimo
+        nueva = self._horas(1)[-1]
+        # Solo si ya trae la última hora cerrada (o esa hora no tiene mercado):
+        # si no, se vuelve a pedir, que el plan espera justo esa vela.
+        if (u is not None and u[1] >= velas
+                and time.monotonic() - u[0] < self.REUTILIZAR
+                and (nueva in u[2].index or self.mercado_cerrado(nueva))):
+            return u[2].tail(velas).copy()
         horas = self._horas(max(velas, 6))
         with ThreadPoolExecutor(max_workers=self._hilos) as ex:
             obtenidas = dict(zip(horas, ex.map(self._ticks_de, horas)))
@@ -287,6 +307,7 @@ class ProveedorDukascopyVivo(ProveedorDatos):
         df = df[~df.index.duplicated(keep="last")]
         self._avisar_de_huecos(df, [h for h in vacias if not self.mercado_cerrado(h)])
         self.validar(df)
+        self._ultimo = (time.monotonic(), velas, df.tail(velas).copy())
         return df.tail(velas).copy()
 
     @staticmethod
@@ -357,6 +378,7 @@ class ProveedorDukascopyVivo(ProveedorDatos):
 
     def refrescar(self) -> None:
         """Olvida la caché de la hora más reciente, por si acaba de publicarse."""
+        self._ultimo = None
         if not self._memoria:
             return
         ultima = max(self._memoria)
