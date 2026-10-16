@@ -202,6 +202,24 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
     proveedor = _proveedor(sintetico)
     df = proveedor.historico(VELAS_EN_VIVO)
 
+    # Primero, si el rango está completo: es gratis, y si falta una hora el
+    # plan va a esperar de todas formas. El 16-oct, con Dukascopy dando 503,
+    # el contraste con el LBMA (que pide velas de días anteriores) se hizo
+    # igualmente en la pasada que tenía que esperar y gastó 3 minutos en
+    # reintentos: el «hoy no hay plan» salió a las 12:12 UTC y no a las 12:06.
+    faltan = [] if sintetico else horas_que_faltan(df, cfg, dia)
+    if faltan:
+        lista = ", ".join(h.strftime("%H:00") for h in faltan)
+        if hora < ESPERA_HUECOS_HASTA_ET and not forzar:
+            print(f"⚠️  Faltan {len(faltan)} hora(s) de la mañana de Londres "
+                  f"({lista} UTC). Un rango incompleto sale más estrecho de lo "
+                  f"real y pondría la orden demasiado cerca: no se manda todavía, "
+                  f"se reintenta en la próxima pasada.")
+            return 1
+        print(f"⚠️  Siguen faltando {len(faltan)} hora(s) del rango ({lista} UTC) "
+              f"y son más de las {ESPERA_HUECOS_HASTA_ET}:00 en Nueva York: se "
+              f"calcula con las que hay.")
+
     # ¿Esto es oro al contado? Durante semanas los niveles salieron del FUTURO
     # de COMEX mientras el correo pedía operar XAU/USD, y nadie se enteró
     # porque el sistema solo ve un feed y un feed no puede contradecirse a sí
@@ -218,19 +236,6 @@ def ejecutar(forzar: bool = False, sintetico: bool = False,
               "ruptura: es el fallo más caro de esta estrategia, y es peor que "
               "quedarse un día sin plan.")
         return 1
-
-    faltan = [] if sintetico else horas_que_faltan(df, cfg, dia)
-    if faltan:
-        lista = ", ".join(h.strftime("%H:00") for h in faltan)
-        if hora < ESPERA_HUECOS_HASTA_ET and not forzar:
-            print(f"⚠️  Faltan {len(faltan)} hora(s) de la mañana de Londres "
-                  f"({lista} UTC). Un rango incompleto sale más estrecho de lo "
-                  f"real y pondría la orden demasiado cerca: no se manda todavía, "
-                  f"se reintenta en la próxima pasada.")
-            return 1
-        print(f"⚠️  Siguen faltando {len(faltan)} hora(s) del rango ({lista} UTC) "
-              f"y son más de las {ESPERA_HUECOS_HASTA_ET}:00 en Nueva York: se "
-              f"calcula con las que hay.")
 
     ema200 = None
     if cfg.ruptura.filtro_ema200_h1:

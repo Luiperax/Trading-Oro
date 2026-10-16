@@ -131,3 +131,17 @@ def test_el_plan_no_se_manda_si_el_arbitro_dice_que_no():
     i = fuente.find("comprobar_fuente")
     j = fuente.find("notificar_plan")
     assert 0 < i < j, "el árbitro tiene que correr ANTES de mandar el correo"
+
+
+def test_si_falta_una_hora_del_rango_no_se_gasta_tiempo_en_el_arbitro():
+    """16-oct: con Dukascopy dando 503, el contraste con el LBMA se hizo en la
+    pasada que iba a esperar de todas formas por la vela de las 11:00 UTC y
+    gastó 3 minutos en reintentos; el aviso salió 6 minutos más tarde."""
+    import inspect
+
+    from oro import plan_sesion
+
+    fuente = inspect.getsource(plan_sesion.ejecutar)
+    espera = fuente.find("se reintenta en la próxima pasada")
+    arbitro = fuente.find("comprobar_fuente(")
+    assert 0 < espera < arbitro
