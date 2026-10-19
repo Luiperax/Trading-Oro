@@ -40,5 +40,6 @@
     "solo_compras": false,
     "ema200": 4163.8416
   },
-  "fuente": "dukascopy:XAUUSD"
+  "fuente": "dukascopy:XAUUSD",
+  "registrado": "2026-10-19"
 }
