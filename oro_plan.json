@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-10-20",
-  "avisados": [],
+  "avisados": [
+    "2026-10-20:caducado"
+  ],
   "papel": false,
   "plan": {
     "dia": "2026-10-20",
@@ -38,5 +40,6 @@
     "solo_compras": false,
     "ema200": 4158.0225
   },
-  "fuente": "dukascopy:XAUUSD"
+  "fuente": "dukascopy:XAUUSD",
+  "registrado": "2026-10-20"
 }
