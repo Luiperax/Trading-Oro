@@ -1,6 +1,8 @@
 {
   "ultimo_plan": "2026-10-22",
-  "avisados": [],
+  "avisados": [
+    "2026-10-22:cierre"
+  ],
   "papel": false,
   "plan": {
     "dia": "2026-10-22",
