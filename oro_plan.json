@@ -1,45 +1,42 @@
 {
-  "ultimo_plan": "2026-10-22",
-  "avisados": [
-    "2026-10-22:cierre"
-  ],
+  "ultimo_plan": "2026-10-23",
+  "avisados": [],
   "papel": false,
   "plan": {
-    "dia": "2026-10-22",
+    "dia": "2026-10-23",
     "rango": {
-      "alto": 4100.835,
-      "bajo": 4057.295,
-      "desde": "2026-10-22T07:00:00+00:00",
-      "hasta": "2026-10-22T11:00:00+00:00",
+      "alto": 4030.795,
+      "bajo": 4009.405,
+      "desde": "2026-10-23T07:00:00+00:00",
+      "hasta": "2026-10-23T11:00:00+00:00",
       "velas": 5
     },
     "compra": {
-      "entrada": 4100.835,
-      "stop": 4057.295,
-      "objetivo": 4362.075
+      "entrada": 4030.795,
+      "stop": 4009.405,
+      "objetivo": 4159.134999999999
     },
     "venta": {
-      "entrada": 4057.295,
-      "stop": 4100.835,
-      "objetivo": 3796.0550000000003
+      "entrada": 4009.405,
+      "stop": 4030.795,
+      "objetivo": 3881.065000000001
     },
-    "sesion_desde": "2026-10-22T12:00:00+00:00",
-    "valido_hasta": "2026-10-22T14:00:00+00:00",
-    "cierre_forzoso": "2026-10-22T20:00:00+00:00",
-    "onzas": 0.17225539733578332,
-    "coste_r": 0.013780431786862666,
+    "sesion_desde": "2026-10-23T12:00:00+00:00",
+    "valido_hasta": "2026-10-23T14:00:00+00:00",
+    "cierre_forzoso": "2026-10-23T20:00:00+00:00",
+    "onzas": 0.3506311360448829,
+    "coste_r": 0.02805049088359063,
     "r_objetivo": 6.0,
     "sesgo": {
       "direccion": null,
-      "cuerpo": 0.4470000000001164,
-      "rango": 36.01000000000022
+      "cuerpo": -2.7829999999999018,
+      "rango": 26.54599999999982
     },
     "solo_ventas": true,
     "anular_si_rompe_arriba": true,
     "dia_de_empleo": false,
     "solo_compras": false,
-    "ema200": 4142.0994
+    "ema200": 4118.6997
   },
-  "fuente": "dukascopy:XAUUSD",
-  "registrado": "2026-10-22"
+  "fuente": "dukascopy:XAUUSD"
 }
