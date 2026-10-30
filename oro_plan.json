@@ -1,7 +1,8 @@
 {
   "ultimo_plan": "2026-10-30",
   "avisados": [
-    "2026-10-30:break-even"
+    "2026-10-30:break-even",
+    "2026-10-30:cierre"
   ],
   "papel": false,
   "plan": {
@@ -40,5 +41,6 @@
     "solo_compras": false,
     "ema200": 4052.6484
   },
-  "fuente": "dukascopy:XAUUSD"
+  "fuente": "dukascopy:XAUUSD",
+  "registrado": "2026-10-30"
 }
